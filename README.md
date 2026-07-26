@@ -1,16 +1,15 @@
 # Jelementi
 
-Jelementi is a custom-built digital magazine. This pnpm monorepo is progressing
-through Phase 1: its public content contract and pure Markdown compiler are now
-separate from filesystem generation and web route migration.
+Jelementi is a custom-built digital magazine. Phase 1 now has a pure Markdown
+compiler and root-owned filesystem generation; the Phase 0 web route still uses
+its hand-made TypeScript fixture until the later route-migration outcome.
 
 ## Content contract
 
 - **`@jelementi/article-model`** owns framework-neutral Zod schemas and inferred
-  types for `ArticleDocument`, all seven article block types, inline text marks,
-  links, footnote references/definitions, public references, and generated
-  article-index entries. It also exports `normalizeSearchText()` for identical
-  compiler and reader search behavior.
+  types for `ArticleDocument`, all seven article block types, inline nodes,
+  footnotes, references, generated index entries, `normalizeSearchText()`, and
+  the deterministic `categorySlug()` helper.
 - **`@jelementi/content-compiler`** exports a pure `compileArticle()` core:
 
   ```ts
@@ -18,32 +17,46 @@ separate from filesystem generation and web route migration.
   // => { document, searchText }
   ```
 
-  It parses the locked frontmatter/Markdown grammar, resolves only relative media
-  keys against the explicit `mediaBaseUrl`, computes reading time, and validates
-  its final document through `@jelementi/article-model`. It has no filesystem I/O,
-  writes, or process-global environment reads. Unsupported Markdown fails with a
-  `ContentCompileError` containing stable, source-located issues.
+  It parses the locked grammar, resolves relative media keys through the
+  explicit base URL, and validates its output. It has no filesystem I/O or
+  process-global environment reads.
+- Root `scripts/content.ts` owns discovery, batch validation, index creation,
+  atomic generated-output replacement, and watch orchestration.
 
-The current hand-made fixture remains in use by the Phase 0 web route. Content
-filesystem generation, canonical Markdown, generated output, and route migration
-are intentionally later Phase 1 outcomes.
+## Canonical content and generated output
 
-## Repository structure
+Canonical Markdown lives at `content/articles/<slug>.md`. Only top-level
+`.md` files are discovered. Draft and archived articles are fully validated but
+never produce public JSON or index entries; invalid non-published content still
+blocks the batch.
+
+The committed sample is `content/articles/tristan-da-cunha.md`. Its relative
+media keys correspond to local fixtures under
+`apps/web/static/media/articles/tristan-da-cunha/`, and can later use the same
+keys in R2.
+
+`content:build` writes reproducible, gitignored output:
 
 ```text
-apps/
-  web/                         # SvelteKit article renderer
-  mobile/                      # Expo WebView shell (no native article renderer)
-packages/
-  article-model/               # public schema, validation, fixture, search helper
-  content-compiler/            # pure Markdown compiler and fixture tests
-  config/                      # shared TypeScript config
+generated/
+  index.json
+  articles/<slug>.json
 ```
+
+It stages a complete sibling directory and replaces `generated/` only after a
+successful batch. A failure preserves the previous successful output.
 
 ## Prerequisites
 
-- Node.js >= 20 (developed on Node 24)
+- Node.js >= 20.12 <21 || >= 21.7 (the root script uses `process.loadEnvFile`, available since Node 20.12 and 21.7)
 - pnpm 11
+
+Copy `.env.example` to `.env` for local work. `PUBLIC_MEDIA_BASE_URL` is
+required; CI or other external environments may set it directly instead.
+
+```dotenv
+PUBLIC_MEDIA_BASE_URL=http://localhost:5173/
+```
 
 ## Commands
 
@@ -54,19 +67,24 @@ pnpm install
 pnpm dev:web
 pnpm build:web
 pnpm preview:web
+pnpm content:validate
+pnpm content:build
+pnpm content:watch
 pnpm format
 pnpm lint
 pnpm typecheck
 pnpm test
 ```
 
-`pnpm typecheck` includes the article model, compiler, SvelteKit web app, and
-mobile shell. `pnpm build:web` keeps renderer exhaustiveness and the existing
-fixture route buildable; it does not yet invoke content generation.
+`content:validate` compiles and validates the complete would-be published index
+in memory and creates no files. `content:build` writes generated artifacts.
+`content:watch` uses the same build path after debounced canonical-content
+changes and preserves the last successful output when a subsequent change is
+invalid.
 
-## Current constraints
+## Current boundary
 
-Phase 1 does not yet include filesystem generation, `content/articles`,
-`generated/`, route migration, category/search/About pages, R2/Cloudflare,
-Studio, audio playback, migration, or final visual design. The web app still uses
-`@sveltejs/adapter-auto`; no deployment adapter is part of this milestone.
+M1.2 deliberately does not migrate the web route, remove the TypeScript
+fixture, add reader/category/search/About routes, add CI, or add deployment
+work. `pnpm build:web` remains independently buildable and does not invoke
+content generation yet.

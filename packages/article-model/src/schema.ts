@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { categorySlug } from './category-slug';
 
 export const MarkSchema = z.enum(['strong', 'emphasis', 'code', 'strikethrough']);
 export type Mark = z.infer<typeof MarkSchema>;
@@ -29,6 +30,21 @@ const HttpsUrlSchema = z
   .regex(/^https:\/\//i, {
     message: 'Expected an HTTPS URL',
   });
+
+const MediaUrlSchema = z
+  .string()
+  .url()
+  .regex(/^https:\/\//i, {
+    message: 'Expected an HTTPS URL or loopback HTTP URL',
+  })
+  .or(
+    z
+      .string()
+      .url()
+      .regex(/^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i, {
+        message: 'Expected an HTTPS URL or loopback HTTP URL',
+      }),
+  );
 
 const IsoDateSchema = z
   .string()
@@ -101,7 +117,7 @@ export const HeadingBlockSchema = z
 export const ImageBlockSchema = z
   .object({
     type: z.literal('image'),
-    src: HttpsUrlSchema,
+    src: MediaUrlSchema,
     alt: z.string(),
     caption: z.array(InlineNodeSchema).optional(),
     width: z.number().int().min(1).optional(),
@@ -207,9 +223,9 @@ export const ArticleDocumentSchema = z
     category: NonEmptyStringSchema,
     tags: z.array(NonEmptyStringSchema),
     author: NonEmptyStringSchema,
-    cover: z.object({ src: HttpsUrlSchema, alt: z.string() }).strict(),
+    cover: z.object({ src: MediaUrlSchema, alt: z.string() }).strict(),
     audio: z
-      .object({ src: HttpsUrlSchema, durationSeconds: z.number().int().min(1).optional() })
+      .object({ src: MediaUrlSchema, durationSeconds: z.number().int().min(1).optional() })
       .strict()
       .optional(),
     readingTimeMinutes: z.number().int().min(1),
@@ -272,11 +288,20 @@ export const ArticleIndexEntrySchema = z
     categorySlug: NonEmptyStringSchema,
     tags: z.array(NonEmptyStringSchema),
     author: NonEmptyStringSchema,
-    cover: z.object({ src: HttpsUrlSchema, alt: z.string() }).strict(),
+    cover: z.object({ src: MediaUrlSchema, alt: z.string() }).strict(),
     readingTimeMinutes: z.number().int().min(1),
     searchText: NonEmptyStringSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((entry, ctx) => {
+    if (entry.categorySlug !== categorySlug(entry.category)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'categorySlug must match categorySlug(category)',
+        path: ['categorySlug'],
+      });
+    }
+  });
 export type ArticleIndexEntry = z.infer<typeof ArticleIndexEntrySchema>;
 
 export const ArticleIndexSchema = z.array(ArticleIndexEntrySchema);

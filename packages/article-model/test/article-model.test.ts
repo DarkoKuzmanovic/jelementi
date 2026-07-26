@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ArticleDocumentSchema,
   ArticleIndexSchema,
+  categorySlug,
   normalizeSearchText,
   sampleArticle,
   validateArticleDocument,
@@ -144,8 +145,27 @@ describe('ArticleIndex validation and search normalization', () => {
     expect(ArticleIndexSchema.safeParse([withoutDate]).success).toBe(false);
   });
 
+  it('rejects index entries whose categorySlug does not match categorySlug(category)', () => {
+    expect(
+      ArticleIndexSchema.safeParse([{ ...indexEntry, categorySlug: '../escape' }]).success,
+    ).toBe(false);
+    expect(ArticleIndexSchema.safeParse([{ ...indexEntry, categorySlug: 'history' }]).success).toBe(
+      true,
+    );
+  });
+
   it('normalizes case, accents, and whitespace for shared search', () => {
     expect(normalizeSearchText('  Čačak\n  ISLANDS  ')).toBe('cacak islands');
+  });
+
+  describe('categorySlug', () => {
+    it('normalizes whitespace, case, and diacritics deterministically', () => {
+      expect(categorySlug('  Remote Čačak Islands  ')).toBe('remote-cacak-islands');
+    });
+
+    it('returns an empty slug when a non-empty name has no usable characters', () => {
+      expect(categorySlug('你好')).toBe('');
+    });
   });
 });
 

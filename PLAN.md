@@ -33,23 +33,23 @@
 - **Started-at:** 2026-07-26T13:55:17+02:00
 - **First-worker-at:** 2026-07-26T13:57:38+02:00
 - **Time-to-first-worker:** 2m21s
-- **Dispatches:** 3 delivered
+- **Dispatches:** 6 delivered
 - **Burned:** 0
 - **Burned-minutes:** 0
-- **Review-bundles:** 2
-- **Review-dispatches:** 2
+- **Review-bundles:** 4
+- **Review-dispatches:** 4
 - **Worker-retries:** 0
 - **Oracle:** 0
-- **Completed outcomes:** 1/3
-- **Child-runtime-minutes:** 38.1
+- **Completed outcomes:** 2/3
+- **Child-runtime-minutes:** 86.3
 - **Session compactions observed before run:** 1
 
 ## M1 — Content engine and web reader
 
-**Counters:** dispatches: 3/14 (delivered across outcome ceilings) · burned: 0 · review-bundles: 2 · review-dispatches: 2 · fix-cycles: 1/1 for M1.1 · oracle: 0 · worker-retries: 0 · direct-edits: 0
+**Counters:** dispatches: 6/14 (delivered across outcome ceilings) · burned: 0 · review-bundles: 4 · review-dispatches: 4 · fix-cycles: 1/1 for M1.1, 1/1 for M1.2 · oracle: 0 · worker-retries: 0 · direct-edits: 0
 
 - [x] **M1.1 — Complete the public article contract and pure Markdown compiler**
-- [ ] **M1.2 — Generate published content and index atomically from canonical Markdown**
+- [x] **M1.2 — Generate published content and index atomically from canonical Markdown**
 - [ ] **M1.3 — Ship the complete prerendered web reader, search, CI, and documentation**
 
 ## Completed outcome — M1.1
@@ -95,11 +95,56 @@ Complete the framework-neutral model and pure, filesystem-free Markdown compiler
 - **Direct-edits:** 0
 - **Documentation:** README — updated content contract/current constraints; AGENTS — created ownership boundaries, invariants, and verification commands.
 
-## Later outcome boundaries
+## Completed outcome — M1.2
 
-### M1.2 — Atomic generation and index
+### Outcome
 
-Own filesystem discovery, duplicate/collision checks, strict draft/archived validation, published-only JSON/index output, atomic replacement, watch mode, root environment contract, canonical sample Markdown, and a working local fixture asset. Gate with `reviewer` lane `deep` because output replacement is an integrity boundary.
+Generate validated published artifacts and a deterministic article index from canonical Markdown through filesystem scripts that restore the previous output after ordinary failures and preserve a recoverable backup after catastrophic double-rename failure.
+
+### Acceptance
+
+- [x] Root `content:validate`, `content:build`, and `content:watch` scripts run through exact-pinned `tsx@4.23.1`, explicitly load an optional root `.env`, and require `PUBLIC_MEDIA_BASE_URL` with concise English errors and no expected-error stack traces.
+- [x] Every `content/articles/*.md` file is discovered in deterministic path order and compiled in memory; draft and archived articles are fully validated and can block the batch, but produce no public JSON or index entry.
+- [x] Duplicate article slugs and distinct category names that normalize to the same category slug fail the complete batch.
+- [x] `content:validate` validates the would-be published index and writes no files or directories.
+- [x] `content:build` writes stable two-space JSON with a trailing newline to `generated/articles/<slug>.json` plus `generated/index.json`; the index contains published articles only, ordered by `publishedAt` descending and then slug ascending.
+- [x] Output replacement is atomic at the directory boundary: compile/temp-write/ordinary replacement failure preserves or restores the previous `generated/`; a double rename failure preserves its backup and raises `AggregateError`; success removes stale files and leaves no temp/backup directories.
+- [x] Watch mode debounces changes, runs builds single-flight with one trailing rebuild, preserves the last successful output after an error, retries on the next change, and cancels pending work on close.
+- [x] Canonical `content/articles/tristan-da-cunha.md`, `.env.example`, and working local media under `apps/web/static/media/articles/tristan-da-cunha/` use the same relative keys intended for later R2 upload; the Phase 0 TypeScript fixture and routes remain untouched until M1.3.
+- [x] Focused tests capture RED before implementation and cover validation purity, draft/archive exclusion, collision guards, deterministic output, atomic survival/rollback/stale cleanup, watch debounce/single-flight/recovery, environment/CLI errors, and the canonical sample.
+- [x] Full gate is green with an explicit local media base: format, lint, typecheck, `content:validate`, 64 tests, `content:build`, existing web build, and sample generated-output assertions.
+- [x] Documentation: README explains canonical content/scripts/output/environment; root AGENTS.md records filesystem ownership, atomicity, and validation commands.
+
+### Runway
+
+- Keep `packages/content-compiler/src/index.ts` pure. Filesystem discovery, environment loading, CLI formatting, atomic replacement, and watch orchestration belong in typed root scripts covered by the root TypeScript project and Vitest.
+- Source layout is locked to top-level `content/articles/*.md`; output layout is locked to root `generated/index.json` and `generated/articles/*.json`.
+- Add one framework-neutral deterministic category-slug helper to `@jelementi/article-model` so M1.2 generation and M1.3 routes cannot diverge. Collision checks compare distinct original category names after normalization.
+- Load `.env` only when present, then read `process.env.PUBLIC_MEDIA_BASE_URL`; CI/external environment values remain valid. If using Node's standard env loader, raise the documented/runtime engine floor to the exact supported Node 20 minor rather than claiming unsupported versions.
+- Atomic replacement must stage a sibling temporary directory, move any prior target to a sibling backup, install the complete temp directory, restore the backup if installation fails, and clean temp/backup paths on every settled path. Tests must exercise rollback behavior, not only pre-write compile failure.
+- Generated files remain gitignored and are test/build products, not committed artifacts.
+- M1.2 must not migrate the web route, remove the TypeScript fixture, add category/search/About routes, add CI, or change deployment.
+
+### Suggested execution
+
+- **Difficulty:** hard
+- **Worker lane:** hard
+- **Gate:** one fresh combined reviewer, `lane:deep`, because filesystem replacement and draft exclusion are integrity boundaries.
+- **Files:** typed root content scripts/tests/config, `content/articles/**`, local static fixture media, `.env.example`, package scripts/lockfile, focused model helper/tests, README.md, AGENTS.md.
+
+### Counters
+
+- **Dispatches:** 3/5 delivered
+- **Burned:** 0
+- **Review-bundles:** 2
+- **Review-dispatches:** 2
+- **Fix-cycles:** 1/1
+- **Oracle:** 0
+- **Worker-retries:** 0
+- **Direct-edits:** 0
+- **Documentation:** README — updated canonical content/scripts/output/environment; AGENTS — updated filesystem ownership, atomicity, and validation commands.
+
+## Later outcome boundary
 
 ### M1.3 — Complete web reader
 
@@ -114,7 +159,10 @@ Own generated-data loading, exhaustive final renderers, home/article/category/se
 - 2026-07-26 — First fresh deep review: PASS with locale determinism, timestamp-calendar, and strict nested-frontmatter should-fixes; one reviewer-triggered fix cycle opened.
 - 2026-07-26 — Parent verification continued that same fix cycle to close optional-field silent omission; this continuation did not increment the fix-cycle or unique-dispatch counters.
 - 2026-07-26 — Final parent gate green (format, lint, typecheck, 42/42 tests, web build) and fresh final deep review PASS with no blockers; M1.1 accepted.
+- 2026-07-26 — M1.2 worker delivered typed generation/validation/watch scripts, canonical Markdown/media, deterministic index, and atomic replacement; parent verification closed empty-source catalog wipe, category-slug schema drift, and a weak debounce proof in the same worker context before review.
+- 2026-07-26 — First M1.2 fresh deep review: PASS with no blockers; one optional reviewer-triggered hardening cycle consumed the 1/1 budget for watch single-flight, exact Node engine support, and rollback branch tests.
+- 2026-07-26 — Final parent gate green (format, lint, typecheck, content validation/build, 64/64 tests, web build) and fresh final deep review PASS with no blockers; M1.2 accepted. Parent corrections before first review did not consume a fix cycle; the reviewer-triggered hardening loop did.
 
 ## Deferred
 
-- None.
+- Rare catastrophic install+restore rename failures preserve the previous output in `generated.backup-*`; improve CLI AggregateError detail only when operational recovery work begins.

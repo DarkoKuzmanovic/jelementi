@@ -35,4 +35,5 @@ export type {
 
 export { validateArticleDocument, safeValidateArticleDocument } from './validate';
 export { normalizeSearchText } from './search';
+export { categorySlug } from './category-slug';
 export { sampleArticle } from './fixture';
