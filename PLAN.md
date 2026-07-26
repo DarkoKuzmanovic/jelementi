@@ -9,7 +9,7 @@
 - **Started-at:** 2026-07-26T13:55:17+02:00
 - **Evidence:** one repository; three bounded cross-package outcomes; architecture and grammar are approved in `docs/specs/2026-07-26-phase-1-content-engine-design.md`; no unresolved architecture fork; deterministic tests and Git rollback exist.
 - **Protected boundaries:** `ArticleDocument`/index are public contracts; generated-output replacement is a contained integrity invariant. Canonical Markdown is never mutated, so the run is not critical protected risk.
-- **Allowed ceremony:** compact orchestrator plan; no planner dispatch; one supervised TDD worker per coherent wave; deep combined review at M1.1 and M1.2 protected boundaries; standard combined review at M1.3; full repository gate for every outcome.
+- **Allowed ceremony:** compact orchestrator plan; no planner dispatch; one supervised TDD worker per coherent wave; deep combined review at every protected outcome; full repository gate for every outcome.
 - **Promotion triggers:** a new repository or runtime service, an unresolved AST/model fork, non-reproducible generation, canonical-content mutation, or a migration/data-loss surface.
 - **Outcome dispatch ceilings:** M1.1 `5`; M1.2 `5`; M1.3 `4` delivered dispatches. A ceiling may be raised once only with written evidence before the extra dispatch.
 
@@ -31,26 +31,27 @@
 ## Run metrics
 
 - **Started-at:** 2026-07-26T13:55:17+02:00
+- **Ended-at:** 2026-07-26T16:47:21+02:00
 - **First-worker-at:** 2026-07-26T13:57:38+02:00
 - **Time-to-first-worker:** 2m21s
-- **Dispatches:** 6 delivered
+- **Dispatches:** 9 delivered
 - **Burned:** 0
 - **Burned-minutes:** 0
-- **Review-bundles:** 4
-- **Review-dispatches:** 4
+- **Review-bundles:** 6
+- **Review-dispatches:** 6
 - **Worker-retries:** 0
 - **Oracle:** 0
-- **Completed outcomes:** 2/3
-- **Child-runtime-minutes:** 86.3
+- **Completed outcomes:** 3/3
+- **Child-runtime-minutes:** 130.8
 - **Session compactions observed before run:** 1
 
 ## M1 — Content engine and web reader
 
-**Counters:** dispatches: 6/14 (delivered across outcome ceilings) · burned: 0 · review-bundles: 4 · review-dispatches: 4 · fix-cycles: 1/1 for M1.1, 1/1 for M1.2 · oracle: 0 · worker-retries: 0 · direct-edits: 0
+**Counters:** dispatches: 9/14 (delivered across outcome ceilings) · burned: 0 · review-bundles: 6 · review-dispatches: 6 · fix-cycles: 1/1 for M1.1, 1/1 for M1.2, 1/1 for M1.3 · oracle: 0 · worker-retries: 0 · direct-edits: 0
 
 - [x] **M1.1 — Complete the public article contract and pure Markdown compiler**
 - [x] **M1.2 — Generate published content and index atomically from canonical Markdown**
-- [ ] **M1.3 — Ship the complete prerendered web reader, search, CI, and documentation**
+- [x] **M1.3 — Ship the complete prerendered web reader, search, CI, and documentation**
 
 ## Completed outcome — M1.1
 
@@ -144,11 +145,58 @@ Generate validated published artifacts and a deterministic article index from ca
 - **Direct-edits:** 0
 - **Documentation:** README — updated canonical content/scripts/output/environment; AGENTS — updated filesystem ownership, atomicity, and validation commands.
 
-## Later outcome boundary
+## Completed outcome — M1.3
 
-### M1.3 — Complete web reader
+### Outcome
 
-Own generated-data loading, exhaustive final renderers, home/article/category/search/About/error routes, published-only prerender entries, client-JS scoping, smoke assertions, CI, README/AGENTS freshness, and final integration verification. Gate with `reviewer` lane `standard` unless new protected evidence promotes it.
+Replace the Phase 0 fixture with validated generated data and ship the complete prerendered English beta reader. Reader client JavaScript is limited to search; the static `404.html` fallback loads it only to resolve unknown URLs into the custom error page.
+
+### Acceptance
+
+- [x] The web app consumes root `generated/` through build-time imports only, validates `index.json` and every article with `@jelementi/article-model`, rejects missing/orphan/mismatched/non-published artifacts, and imports neither the compiler nor runtime filesystem APIs.
+- [x] Root `build:web` generates content before SvelteKit build so a clean checkout cannot build from missing/stale artifacts; local development has an explicit generation-first workflow while `content:watch` remains the canonical rebuild path.
+- [x] `/` lists published entries newest-first; `/articles/[slug]` renders the full article plus Sources and Footnotes; `/categories/[category]` lists one validated category; `/search` filters the small static index with the shared normalizer; `/about` and root `+error.svelte` provide concise English beta copy.
+- [x] Article and category dynamic routes provide explicit published-only prerender entries. Unknown article/category slugs produce 404 and the custom error experience through the static fallback.
+- [x] Non-search reader pages set `csr = false` and built HTML contains no SvelteKit hydration/client-entry scripts; `/search` is the only hydrated reader page and remains functional with case/diacritic-insensitive filtering. Static `404.html` intentionally bootstraps the client.
+- [x] Global `noindex` remains in every page through `app.html`; there is no accidental `nofollow` restoration.
+- [x] Navigation, headings, form labels, links, image alternatives, Sources, and Footnotes are semantically accessible; final visual design remains out of scope.
+- [x] The Phase 0 `sampleArticle` fixture/export was removed only after generated data drove every current consumer and broader renderer/output assertions passed.
+- [x] Focused tests were written before implementation; retained RED evidence covers clean-checkout generated coupling and the future-reader hydration regression, while the 77-test GREEN suite covers generated-boundary congruence, published-only route data, category/search behavior, unknown-route 404, Sources/Footnotes, and fixture removal.
+- [x] Typed `verify:web` inspects all expected output plus every discovered reader HTML route for representative content, global noindex, non-search no-hydration, search/404 bootstrap, and missing/stale output; its deterministic CLI guard fails non-zero when build output is absent or incomplete.
+- [x] CI on Node 24 installs with the frozen lockfile, supplies an HTTPS media base, and runs format, lint, typecheck, content validation, tests, web build, and web smoke verification with read-only repository permissions and no deployment.
+- [x] Full local gate is green: format, lint, clean-generated typecheck and 77 tests, content validation, generation-backed web build, web smoke, negative missing-output smoke probes, and explicit unknown-route checks.
+- [x] README, root AGENTS.md, this PLAN, the approved design spec, and ROADMAP accurately mark Phase 1/M1 complete and keep Cloudflare/R2/Studio/mobile work deferred.
+
+### Runway
+
+- Web boundary code may import only generated JSON and `@jelementi/article-model`; Markdown parsing and content generation remain root-script/compiler concerns.
+- Prefer a server/build-only generated-content module with eager static imports (for example `import.meta.glob`) so root `typecheck` does not require committed generated files and no runtime `fs`/fetch path appears.
+- Boundary validation must prove one-to-one index/article slug sets, filename/document slug agreement, `status: published`, category-slug agreement, and metadata consistency needed by cards/routes.
+- Route data and prerender entries derive from the validated index; do not hand-maintain route lists or duplicate category/search normalization.
+- Non-search reader pages explicitly disable CSR at the page boundary. Do not disable CSR globally if that would prevent `/search` or the static custom-error fallback from hydrating.
+- `build:web` owns generation-before-build; CI and smoke commands set `PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/`. Local `.env` remains supported.
+- Use existing Svelte/SvelteKit/Vitest/Node APIs; add no browser-test or UI dependency unless the existing stack cannot prove an acceptance criterion.
+- Remove `packages/article-model/src/fixture.ts` and its export/test only after the generated route path and production-output smoke assertions are green.
+- Keep the implementation visually restrained and content-first. Do not add authentication, Studio, Cloudflare adapter/deployment, R2 upload, service workers, mobile behavior, audio, analytics, or final design.
+
+### Suggested execution
+
+- **Difficulty:** hard
+- **Worker lane:** hard
+- **Gate:** fresh combined reviewers, `lane:deep`, because this closed Phase 1 and changed public routing, hydration, and CI boundaries.
+- **Files:** generated-data boundary/helpers/tests, SvelteKit routes/layout/error/styles, ArticleRenderer Sources/Footnotes, root scripts/package config, `.github/workflows/ci.yml`, README.md, AGENTS.md, fixture removal, PLAN/ROADMAP close-out evidence.
+
+### Counters
+
+- **Dispatches:** 3/4 delivered
+- **Burned:** 0
+- **Review-bundles:** 2
+- **Review-dispatches:** 2
+- **Fix-cycles:** 1/1
+- **Oracle:** 0
+- **Worker-retries:** 0
+- **Direct-edits:** 0
+- **Documentation:** README — updated reader/build/CI boundary · AGENTS — updated web ownership and hydration exception · design spec — marked implemented and reconciled static fallback · ROADMAP — M1 released, M2 current
 
 ## Gate log
 
@@ -162,7 +210,12 @@ Own generated-data loading, exhaustive final renderers, home/article/category/se
 - 2026-07-26 — M1.2 worker delivered typed generation/validation/watch scripts, canonical Markdown/media, deterministic index, and atomic replacement; parent verification closed empty-source catalog wipe, category-slug schema drift, and a weak debounce proof in the same worker context before review.
 - 2026-07-26 — First M1.2 fresh deep review: PASS with no blockers; one optional reviewer-triggered hardening cycle consumed the 1/1 budget for watch single-flight, exact Node engine support, and rollback branch tests.
 - 2026-07-26 — Final parent gate green (format, lint, typecheck, content validation/build, 64/64 tests, web build) and fresh final deep review PASS with no blockers; M1.2 accepted. Parent corrections before first review did not consume a fix cycle; the reviewer-triggered hardening loop did.
+- 2026-07-26 — M1.3 worker delivered generated-data validation, published reader routes, search, Sources/Footnotes, static build/smoke tooling, CI, and fixture removal. Parent verification found and closed clean-checkout test coupling, duplicate index-slug acceptance, and the missing static 404 fallback in the same worker context before review.
+- 2026-07-26 — First M1.3 fresh deep review: PASS with no blockers; one reviewer-triggered hardening cycle consumed the 1/1 budget for deterministic smoke CLI execution, dynamic hydration checks across every discovered reader route, and direct missing-artifact/category-mismatch tests.
+- 2026-07-26 — Final parent gate green (format, lint, clean-generated typecheck, 77/77 tests, content validation, generation-backed static build, positive and negative web smoke) and final fresh deep review PASS with no blockers; M1.3 and M1 accepted.
+- 2026-07-26 — Close-out reconciled the intentional hydrated `404.html` fallback in AGENTS/design wording and moved M1 to Released with M2 as Current.
 
 ## Deferred
 
 - Rare catastrophic install+restore rename failures preserve the previous output in `generated.backup-*`; improve CLI AggregateError detail only when operational recovery work begins.
+- Confirm Cloudflare serves the static `404.html` fallback with the intended HTTP status and unknown-path routing during M2 deployment verification.

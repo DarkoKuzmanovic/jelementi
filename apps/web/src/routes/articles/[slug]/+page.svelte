@@ -4,4 +4,5 @@
   let { data }: { data: PageData } = $props();
 </script>
 
+<svelte:head><title>{data.article.title} — Jelementi</title></svelte:head>
 <ArticleRenderer document={data.article} />

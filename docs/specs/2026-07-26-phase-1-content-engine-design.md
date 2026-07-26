@@ -1,8 +1,8 @@
 # Phase 1 — Content Engine and Web Reader Design
 
-**Status:** Approved design, pending written-spec review  
-**Date:** 2026-07-26  
-**Owner:** Darko  
+**Status:** Approved and implemented<br>
+**Date:** 2026-07-26<br>
+**Owner:** Darko<br>
 **Source of truth:** `handoff.md`, Phase 1
 
 ## 1. Outcome
@@ -324,7 +324,7 @@ The compiler creates `searchText` from normalized title, excerpt, category, tags
 
 Search comparison is case-insensitive and diacritic-insensitive. Query terms use the same pure normalization helper exported by `@jelementi/article-model` and used during index generation. Results preserve index order.
 
-Only `/search` uses client JavaScript. Home, article, category, About, and error routes explicitly disable CSR and remain fully functional as prerendered HTML.
+Only `/search` uses client JavaScript among reader routes. Home, article, category, and About routes explicitly disable CSR and remain fully functional as prerendered HTML. The adapter-static `404.html` fallback loads the client only to resolve unknown URLs into the custom error page.
 
 ### Beta indexing policy
 

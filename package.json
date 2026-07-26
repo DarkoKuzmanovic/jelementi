@@ -8,9 +8,10 @@
     "node": ">=20.12 <21 || >=21.7"
   },
   "scripts": {
-    "dev:web": "pnpm --filter @jelementi/web dev",
-    "build:web": "pnpm --filter @jelementi/web build",
+    "dev:web": "pnpm content:build && pnpm --filter @jelementi/web dev",
+    "build:web": "pnpm content:build && pnpm --filter @jelementi/web build",
     "preview:web": "pnpm --filter @jelementi/web preview",
+    "verify:web": "tsx scripts/verify-web.ts",
     "content:validate": "tsx scripts/content-cli.ts validate",
     "content:build": "tsx scripts/content-cli.ts build",
     "content:watch": "tsx scripts/content-cli.ts watch",
@@ -30,7 +31,6 @@
     "prettier": "3.9.6",
     "prettier-plugin-svelte": "4.1.1",
     "svelte": "5.56.8",
-    "svelte-eslint-parser": "1.8.0",
     "tsx": "4.23.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.65.0",

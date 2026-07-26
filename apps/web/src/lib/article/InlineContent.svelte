@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { InlineNode, Mark } from '@jelementi/article-model';
+  import { footnoteReferenceId } from './footnotes';
 
-  let { nodes }: { nodes: InlineNode[] } = $props();
+  let { nodes, scope }: { nodes: InlineNode[]; scope: string } = $props();
 
   function assertExhaustive(node: never | undefined): never {
     throw new Error(`Unsupported inline node type: ${JSON.stringify(node)}`);
@@ -24,20 +25,25 @@
   {/if}
 {/snippet}
 
-{#snippet renderNode(node: InlineNode)}
+{#snippet renderNode(node: InlineNode, path: string)}
   {#if node.type === 'text'}
     {@render renderText(node.value, node.marks ?? [])}
   {:else if node.type === 'link'}
     <a href={node.href}
-      >{#each node.children as child, index (index)}{@render renderNode(child)}{/each}</a
+      >{#each node.children as child, index (index)}{@render renderNode(
+          child,
+          `${path}-${index}`,
+        )}{/each}</a
     >
   {:else if node.type === 'footnoteReference'}
-    <sup id={`footnote-ref-${node.id}`}><a href={`#footnote-${node.id}`}>[{node.id}]</a></sup>
+    <sup id={footnoteReferenceId(node.id, scope, path)}
+      ><a href={`#footnote-${node.id}`}>[{node.id}]</a></sup
+    >
   {:else}
     {assertExhaustive(node)}
   {/if}
 {/snippet}
 
 {#each nodes as node, index (index)}
-  {@render renderNode(node)}
+  {@render renderNode(node, `${index}`)}
 {/each}

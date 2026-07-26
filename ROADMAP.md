@@ -5,14 +5,14 @@
 ## Released
 
 - **M0** — Bootstrap the monorepo and prove the shared `ArticleDocument` → web/WebView architecture.
+- **M1** — Build the Markdown content engine and complete the static web reader.
 
 ## Current
 
-- **M1** — Build the Markdown content engine and complete the static web reader.
+- **M2** — Deploy the unlisted Cloudflare web beta with R2-backed media.
 
 ## Planned
 
-- **M2** — Deploy the unlisted Cloudflare web beta with R2-backed media.
 - **M3** — Add the minimal Access-protected publishing Studio.
 - **M4** — Deliver the private Android shell with trusted navigation and push.
 - **M5** — Add native background audio and lock-screen controls.

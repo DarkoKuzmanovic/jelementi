@@ -1,90 +1,45 @@
 # Jelementi
 
-Jelementi is a custom-built digital magazine. Phase 1 now has a pure Markdown
-compiler and root-owned filesystem generation; the Phase 0 web route still uses
-its hand-made TypeScript fixture until the later route-migration outcome.
+Jelementi is a custom-built digital magazine. Phase 1 is a generated, prerendered English beta reader.
 
-## Content contract
+## Content boundary
 
-- **`@jelementi/article-model`** owns framework-neutral Zod schemas and inferred
-  types for `ArticleDocument`, all seven article block types, inline nodes,
-  footnotes, references, generated index entries, `normalizeSearchText()`, and
-  the deterministic `categorySlug()` helper.
-- **`@jelementi/content-compiler`** exports a pure `compileArticle()` core:
+- `@jelementi/article-model` owns the framework-neutral document/index schemas, category slug, and shared search normalizer.
+- `@jelementi/content-compiler` transforms explicit Markdown input into the model without filesystem or environment access.
+- Root content scripts discover canonical Markdown, validate every source, and atomically generate gitignored `generated/index.json` plus `generated/articles/<slug>.json`.
+- The web app statically imports and validates those JSON artifacts at its build/server boundary. It never imports the compiler or reads generated data with runtime filesystem/fetch APIs.
 
-  ```ts
-  compileArticle({ markdown, sourcePath, mediaBaseUrl });
-  // => { document, searchText }
-  ```
+Only published documents appear in the generated index and all reader routes/prerender entries derive from that validated index. The reader provides `/`, `/articles/[slug]`, `/categories/[category]`, `/search`, and `/about`; unknown article/category values return the shared error experience.
 
-  It parses the locked grammar, resolves relative media keys through the
-  explicit base URL, and validates its output. It has no filesystem I/O or
-  process-global environment reads.
-- Root `scripts/content.ts` owns discovery, batch validation, index creation,
-  atomic generated-output replacement, and watch orchestration.
+## Local development
 
-## Canonical content and generated output
-
-Canonical Markdown lives at `content/articles/<slug>.md`. Only top-level
-`.md` files are discovered. Draft and archived articles are fully validated but
-never produce public JSON or index entries; invalid non-published content still
-blocks the batch.
-
-The committed sample is `content/articles/tristan-da-cunha.md`. Its relative
-media keys correspond to local fixtures under
-`apps/web/static/media/articles/tristan-da-cunha/`, and can later use the same
-keys in R2.
-
-`content:build` writes reproducible, gitignored output:
-
-```text
-generated/
-  index.json
-  articles/<slug>.json
-```
-
-It stages a complete sibling directory and replaces `generated/` only after a
-successful batch. A failure preserves the previous successful output.
-
-## Prerequisites
-
-- Node.js >= 20.12 <21 || >= 21.7 (the root script uses `process.loadEnvFile`, available since Node 20.12 and 21.7)
-- pnpm 11
-
-Copy `.env.example` to `.env` for local work. `PUBLIC_MEDIA_BASE_URL` is
-required; CI or other external environments may set it directly instead.
-
-```dotenv
-PUBLIC_MEDIA_BASE_URL=http://localhost:5173/
-```
-
-## Commands
-
-Run from the repository root:
+Node.js >= 20.12 <21 or >= 21.7 and pnpm 11 are required. Set `PUBLIC_MEDIA_BASE_URL` in `.env` (see `.env.example`) or in the command environment.
 
 ```bash
 pnpm install
 pnpm dev:web
-pnpm build:web
-pnpm preview:web
-pnpm content:validate
-pnpm content:build
+# In another terminal while editing content:
 pnpm content:watch
+```
+
+`dev:web` generates content before starting Vite. `content:watch` remains the canonical incremental content rebuild workflow. `build:web` also always runs `content:build` first. Generated output is reproducible and must not be committed.
+
+## Commands
+
+```bash
+pnpm content:validate  # read-only source validation
+pnpm content:build     # atomic generated-output replacement
+pnpm content:watch
+pnpm build:web         # generation-backed SvelteKit prerender
+pnpm verify:web        # production-output smoke assertions
 pnpm format
 pnpm lint
 pnpm typecheck
 pnpm test
 ```
 
-`content:validate` compiles and validates the complete would-be published index
-in memory and creates no files. `content:build` writes generated artifacts.
-`content:watch` uses the same build path after debounced canonical-content
-changes and preserves the last successful output when a subsequent change is
-invalid.
+Reader pages are server-rendered static HTML with JavaScript disabled per page. `/search` is deliberately the sole hydrated route; it filters the small validated index in the browser using the model's shared normalizer. Global robots remains exactly `noindex`.
 
-## Current boundary
+## CI
 
-M1.2 deliberately does not migrate the web route, remove the TypeScript
-fixture, add reader/category/search/About routes, add CI, or add deployment
-work. `pnpm build:web` remains independently buildable and does not invoke
-content generation yet.
+GitHub Actions runs on Node 24 and pnpm 11 with a frozen lockfile and an HTTPS media base. It runs formatting, lint, typecheck, content validation, tests, generation-backed web build, and the production HTML smoke check. CI has read-only repository permissions and performs no deploy or publish action.

@@ -4,7 +4,6 @@ import {
   ArticleIndexSchema,
   categorySlug,
   normalizeSearchText,
-  sampleArticle,
   validateArticleDocument,
 } from '@jelementi/article-model';
 
@@ -80,10 +79,6 @@ describe('ArticleDocument validation', () => {
     const doc = validateArticleDocument(validDocument);
     expect(doc.blocks).toHaveLength(7);
     expect(doc.footnotes).toHaveLength(1);
-  });
-
-  it('accepts the shared sample fixture', () => {
-    expect(validateArticleDocument(sampleArticle).slug).toBe('tristan-da-cunha');
   });
 
   it('rejects a published article without publishedAt', () => {
