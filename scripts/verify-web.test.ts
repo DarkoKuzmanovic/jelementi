@@ -48,4 +48,22 @@ describe('web smoke assertions', () => {
       }),
     ).toThrow('hydration');
   });
+
+  it('derives article and category coverage from generated expectations', () => {
+    const dynamic = {
+      '/': reader,
+      '/articles/second-article': `${noindex}Second article Sources Footnotes`,
+      '/categories/science': `${noindex}Science`,
+      '/search': `${noindex}${bootstrap}`,
+      '/about': reader,
+      '/404': `${noindex}${bootstrap}`,
+    };
+
+    expect(() =>
+      verifyRenderedPages(dynamic, {
+        articles: [{ slug: 'second-article', title: 'Second article' }],
+        categories: ['science'],
+      }),
+    ).not.toThrow();
+  });
 });

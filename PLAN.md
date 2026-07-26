@@ -37,32 +37,32 @@
 ## Run metrics
 
 - **Started-at:** 2026-07-26T21:17:21+02:00
-- **First-worker-at:** pending
-- **Time-to-first-worker:** pending
-- **Dispatches:** 0 delivered
+- **First-worker-at:** 2026-07-26T21:33:13+02:00
+- **Time-to-first-worker:** 15m52s
+- **Dispatches:** 5 delivered (1 planner, 3 worker turns, 1 reviewer)
 - **Burned:** 0
 - **Burned-minutes:** 0
-- **Review-bundles:** 0
-- **Review-dispatches:** 0
+- **Review-bundles:** 1
+- **Review-dispatches:** 1
 - **Worker-retries:** 0
 - **Oracle:** 0
-- **Completed outcomes:** 0/3
-- **Child-runtime-minutes:** 0
+- **Completed outcomes:** 1/3
+- **Child-runtime-minutes:** 60.4
 - **Session compactions observed before run:** 1
 
 ## M2 — Cloudflare web beta and R2 media
 
-**Counters:** dispatches: 0/17 delivered across outcome ceilings · burned: 0 · review-bundles: 0 · review-dispatches: 0 · fix-cycles: 0/1 for M2.1, 0/1 for M2.2, 0/1 for M2.3 · oracle: 0 · worker-retries: 0 · direct-edits: 1
+**Counters:** dispatches: 4/17 delivered across outcome ceilings · burned: 0 · review-bundles: 1 · review-dispatches: 1 · fix-cycles: 0/1 for M2.1, 0/1 for M2.2, 0/1 for M2.3 · oracle: 0 · worker-retries: 0 · direct-edits: 1
 
 **Execution order:** M2.1 → Checkpoint A → read-only Cloudflare inventory → Checkpoint B → M2.2 → Checkpoint C → M2.3.
 
-- [ ] **M2.1 — Local Cloudflare target and media/audio tooling**
+- [x] **M2.1 — Local Cloudflare target and media/audio tooling**
 - [ ] **M2.2 — R2 delivery and Access-protected branch preview**
 - [ ] **M2.3 — Automatic production deployment and rollback drill**
 
 Checkpoint A follows an accepted M2.1 and alone authorizes the private GitHub repository, remote, named-branch push, and `main` ruleset. The read-only Cloudflare inventory follows A. Checkpoint B alone authorizes R2, DNS/CORS, Workers Builds/token, hidden Worker, Access attachment, and protected preview enablement. Checkpoint C follows accepted M2.2 and Darko's content/assets re-approval and alone authorizes the production branch setting, `jelementi.quz.ma`, and automatic `main` deployment.
 
-## Active outcome — M2.1
+## Completed outcome — M2.1
 
 ### Outcome
 
@@ -70,29 +70,29 @@ Deliver a deterministic local Cloudflare Workers target, canonical media-key and
 
 ### Acceptance
 
-- [ ] `apps/web/package.json` uses exactly `@sveltejs/adapter-cloudflare@7.2.9` and no `@sveltejs/adapter-static`; root uses exactly `wrangler@4.114.0`; `pnpm-lock.yaml` contains no unrelated dependency drift.
-- [ ] Root `wrangler.jsonc` matches the approved Section 6 contract: `jelementi-web`, `.svelte-kit/cloudflare/_worker.js`, locked compatibility date and `nodejs_als`, `ASSETS`, `.svelte-kit/cloudflare`, `not_found_handling: "404-page"`, production custom-domain route, and `R2_MEDIA` declaration; M2.1 keeps `workers_dev` and `preview_urls` false.
-- [ ] Root scripts expose the locked local/operator roles: `dev:web`, `build:web`, `preview:web`, `deploy:web`, `verify:web`, `verify:worker`, `media:upload`, `media:verify`, and `verify:deploy`; M2.1 executes no `deploy:web`, live `media:upload`, or live `media:verify`.
-- [ ] `verify:deploy` runs format → lint → typecheck → content validation → tests → Cloudflare `build:web` → `verify:web` → Wrangler deploy dry-run → `verify:worker`; live `media:verify` joins this gate only after M2.2 creates and verifies R2.
-- [ ] GitHub CI remains independent and non-deploying on Node 24 with locked pnpm/frozen lockfile; it uses the canonical local gate and has no deployment credential or upload/deploy/promote/DNS/Access/R2 step.
-- [ ] Canonical Markdown media keys are `articles/<slug>/<asset>-vN.<ext>`; Tristan fixtures no longer contain a duplicate `media/` segment; local base is `http://localhost:5173/media/`, cloud base is `https://media.jelementi.quz.ma/`, and tests prove both resolutions plus existing traversal/containment rejection.
-- [ ] A focused Svelte component renders optional `article.audio` as native `<audio controls preload="metadata">` with an article-specific accessible label and fallback source link; no audio field renders no audio region; no autoplay, eager download, custom/native/background player, or new hydration boundary is introduced.
-- [ ] A synthetic document proves audio SSR/component output and no-audio omission without changing `schemaVersion: 1` or the seven block discriminants.
-- [ ] `media:upload -- --file <path> --key <key> --content-type <mime>` validates the locked versioned key, non-empty regular file, and explicit SVG/WebP/PNG/JPEG/MP3/M4A MIME mapping; it requires the production media origin, performs cache-busted `HEAD`, proceeds only after 404, uses argument arrays, preserves Wrangler failure detail, and post-verifies status/type/cache/non-zero length plus audio range semantics.
-- [ ] `media:verify` read-only collects and deduplicates published cover, every `ImageBlock.src`, and optional `audio.src`; it rejects non-HTTPS/non-`media.jelementi.quz.ma`, cross-host redirects, bad status/type/cache/length, and invalid audio `206`/range responses; failures identify URL and invariant without credentials or response bodies.
-- [ ] Media tests use injected fetch and process-runner boundaries with no network/Cloudflare access and cover key/MIME validation, existing objects, argument construction, upload failure, image headers, audio ranges, URL collection/deduplication, and redirect-host rejection.
-- [ ] `ops/cloudflare/r2-cors.json` contains only the approved production and loopback origins, `GET`/`HEAD`, `Range`, exposed response headers, no credentials, and one-hour preflight cache; M2.1 does not apply it.
-- [ ] `verify:web` reads Cloudflare adapter output, derives article/category expectations from generated data, and retains route coverage, representative content, global `noindex`, non-search no-hydration, `/search` hydration, and the explicit fallback hydration exception.
-- [ ] `verify:worker` launches pinned Wrangler locally, polls HTTP readiness without fixed sleeps, verifies home/article/category/search/about and direct `/search?query=tristan`, Sources/Footnotes/noindex/hydration/static assets, and always terminates the child on success, failure, or timeout.
-- [ ] The recovered M1 404 obligation is proven under `adapter-cloudflare({ fallback: 'spa' })` plus Static Assets `404-page`: an unknown path returns HTTP 404, English Jelementi error copy, global `noindex`, the expected fallback client bootstrap, and no redirect to `/`.
-- [ ] A source/search guard proves M2 application code never reads or writes `R2_MEDIA`; the name appears only in configuration, declarations, documentation, and test evidence.
-- [ ] A draft operational runbook covers A/B/C stop points, preflight, single-author immutable upload without overwrite/delete/dashboard upload, Workers Builds token review, Access-before-preview ordering, production rollback then normal Git revert, and before-state plus one-step reversal recording before each future remote mutation.
-- [ ] No scope leakage enters Studio, GitHub API publishing, push, Android/native audio, D1/KV/Queues/Durable Objects, public indexing, R2 overwrite/delete/backup automation, or destructive teardown.
-- [ ] `README.md` and `AGENTS.md` describe the actual M2.1 runtime/media/gate delta; PLAN records concrete documentation evidence before review.
-- [ ] The complete local M2.1 gate and one fresh deep combined review are green; the reviewer rejects stubs, mock-only composition, unsupported claims, stale docs, and security/integrity regressions.
-- [ ] No Git remote is created/added/pushed and no Cloudflare, DNS, Access, token, Worker, or R2 mutation occurs; no credential, `.dev.vars`, Wrangler local state, generated artifact, or new production media asset is committed.
+- [x] `apps/web/package.json` uses exactly `@sveltejs/adapter-cloudflare@7.2.9` and no `@sveltejs/adapter-static`; root uses exactly `wrangler@4.114.0`; `pnpm-lock.yaml` contains no unrelated dependency drift.
+- [x] Root `wrangler.jsonc` matches the approved Section 6 contract: `jelementi-web`, `.svelte-kit/cloudflare/_worker.js`, locked compatibility date and `nodejs_als`, `ASSETS`, `.svelte-kit/cloudflare`, `not_found_handling: "404-page"`, production custom-domain route, and `R2_MEDIA` declaration; M2.1 keeps `workers_dev` and `preview_urls` false.
+- [x] Root scripts expose the locked local/operator roles: `dev:web`, `build:web`, `preview:web`, `deploy:web`, `verify:web`, `verify:worker`, `media:upload`, `media:verify`, and `verify:deploy`; M2.1 executes no `deploy:web`, live `media:upload`, or live `media:verify`.
+- [x] `verify:deploy` runs format → lint → typecheck → content validation → tests → Cloudflare `build:web` → `verify:web` → Wrangler deploy dry-run → `verify:worker`; live `media:verify` joins this gate only after M2.2 creates and verifies R2.
+- [x] GitHub CI remains independent and non-deploying on Node 24 with locked pnpm/frozen lockfile; it uses the canonical local gate and has no deployment credential or upload/deploy/promote/DNS/Access/R2 step.
+- [x] Canonical Markdown media keys are `articles/<slug>/<asset>-vN.<ext>`; Tristan fixtures no longer contain a duplicate `media/` segment; local base is `http://localhost:5173/media/`, cloud base is `https://media.jelementi.quz.ma/`, and tests prove both resolutions plus existing traversal/containment rejection.
+- [x] A focused Svelte component renders optional `article.audio` as native `<audio controls preload="metadata">` with an article-specific accessible label and fallback source link; no audio field renders no audio region; no autoplay, eager download, custom/native/background player, or new hydration boundary is introduced.
+- [x] A synthetic document proves audio SSR/component output and no-audio omission without changing `schemaVersion: 1` or the seven block discriminants.
+- [x] `media:upload -- --file <path> --key <key> --content-type <mime>` validates the locked versioned key, non-empty regular file, and explicit SVG/WebP/PNG/JPEG/MP3/M4A MIME mapping; it requires the production media origin, performs cache-busted `HEAD`, proceeds only after 404, uses argument arrays, preserves Wrangler failure detail, and post-verifies status/type/cache/non-zero length plus audio range semantics.
+- [x] `media:verify` read-only collects and deduplicates published cover, every `ImageBlock.src`, and optional `audio.src`; it rejects non-HTTPS/non-`media.jelementi.quz.ma`, cross-host redirects, bad status/type/cache/length, and invalid audio `206`/range responses; failures identify URL and invariant without credentials or response bodies.
+- [x] Media tests use injected fetch and process-runner boundaries with no network/Cloudflare access and cover key/MIME validation, existing objects, argument construction, upload failure, image headers, audio ranges, URL collection/deduplication, and redirect-host rejection.
+- [x] `ops/cloudflare/r2-cors.json` contains only the approved production and loopback origins, `GET`/`HEAD`, `Range`, exposed response headers, no credentials, and one-hour preflight cache; M2.1 does not apply it.
+- [x] `verify:web` reads Cloudflare adapter output, derives article/category expectations from generated data, and retains route coverage, representative content, global `noindex`, non-search no-hydration, `/search` hydration, and the explicit fallback hydration exception.
+- [x] `verify:worker` launches pinned Wrangler locally, polls HTTP readiness without fixed sleeps, verifies home/article/category/search/about and direct `/search?query=tristan`, Sources/Footnotes/noindex/hydration/static assets, and always terminates the child on success, failure, or timeout.
+- [x] The recovered M1 404 obligation is proven under `adapter-cloudflare({ fallback: 'spa' })` plus Static Assets `404-page`: an unknown path returns HTTP 404, English Jelementi error copy, global `noindex`, the expected fallback client bootstrap, and no redirect to `/`.
+- [x] A source/search guard proves M2 application code never reads or writes `R2_MEDIA`; the name appears only in configuration, declarations, documentation, and test evidence.
+- [x] A draft operational runbook covers A/B/C stop points, preflight, single-author immutable upload without overwrite/delete/dashboard upload, Workers Builds token review, Access-before-preview ordering, production rollback then normal Git revert, and before-state plus one-step reversal recording before each future remote mutation.
+- [x] No scope leakage enters Studio, GitHub API publishing, push, Android/native audio, D1/KV/Queues/Durable Objects, public indexing, R2 overwrite/delete/backup automation, or destructive teardown.
+- [x] `README.md` and `AGENTS.md` describe the actual M2.1 runtime/media/gate delta; PLAN records concrete documentation evidence before review.
+- [x] The complete local M2.1 gate and one fresh deep combined review are green; the reviewer rejects stubs, mock-only composition, unsupported claims, stale docs, and security/integrity regressions.
+- [x] No Git remote is created/added/pushed and no Cloudflare, DNS, Access, token, Worker, or R2 mutation occurs; no credential, `.dev.vars`, Wrangler local state, generated artifact, or new production media asset is committed.
 
-### Runway
+### Runway (pre-implementation)
 
 - Root `package.json` currently has content, format/lint/typecheck/test, Vite `preview:web`, `build:web`, and `verify:web`; it has no Wrangler, media, Worker-smoke, or canonical deploy-gate commands.
 - `apps/web` currently uses `@sveltejs/adapter-static@3.0.10` with `fallback: '404.html'`; the root has no `wrangler.jsonc`, `ops/cloudflare/`, media CLI, Worker verifier, or runbook.
@@ -126,16 +126,16 @@ Deliver a deterministic local Cloudflare Workers target, canonical media-key and
 - Coherent write set: root/web manifests and lockfile, `apps/web/svelte.config.js`, `wrangler.jsonc`, CI, existing web verifier/tests, new Worker verifier/tests, root command composition, `README.md`, `AGENTS.md`, and the M2 operations runbook.
 - Full deterministic gate: `PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy`. Live media verification is intentionally excluded until M2.2.
 
-Two workers plus one deep review consume 3/5 calls. The remaining two are reserved for the one allowed blocker fix worker and changed-delta review only when finding semantics require them.
+Two worker waves, one pre-review blocker correction, and one deep review consumed 4/5 calls. The final call was not needed; the reviewer returned PASS and fix-cycle usage remains 0/1.
 
 ### Documentation evidence
 
-- Status: pending implementation.
-- Required before review: `README.md` updated for Cloudflare target/local commands/media workflow; `AGENTS.md` updated for Cloudflare/runtime/media invariants and verification; operations runbook created with A/B/C and rollback boundaries.
+- Status: accepted for M2.1.
+- Evidence: `README.md` documents the Cloudflare target, local commands, canonical gate, and media operators; `AGENTS.md` records runtime/media/hydration/verification invariants; `docs/runbooks/cloudflare-m2-operations.md` records A/B/C, token, Access, immutable upload, production probe, and rollback boundaries.
 
 ### Counters
 
-**dispatches:** 0/5 delivered · **burned:** 0 · **review-bundles:** 0 · **review-dispatches:** 0 · **fix-cycles:** 0/1 · **oracle:** 0 (triggers: none) · **worker-retries:** 0 · **direct-edits:** 0
+**dispatches:** 4/5 delivered · **burned:** 0 · **review-bundles:** 1 · **review-dispatches:** 1 · **fix-cycles:** 0/1 · **oracle:** 0 (triggers: none) · **worker-retries:** 0 · **direct-edits:** 0
 
 ## Future outcome — M2.2
 
@@ -152,7 +152,16 @@ Checkpoint-C-controlled automatic `main` production, public custom domain, produ
 - 2026-07-26 — Local `main` fast-forwarded without history rewriting to accepted `edec344`; `crew/m2-cloudflare-beta` created; no remote exists and no remote resource changed.
 - 2026-07-26 — Full-tier planner output was reconciled into the M2 outcome map and detailed M2.1 slice. Its stray lowercase `plan.md` artifact was removed; no implementation or remote operation occurred.
 - 2026-07-26 — Planning reconciliation recovered the prior M1 Cloudflare 404 obligation into M2.1 acceptance and retained the unrelated catastrophic replacement-error detail as deferred, correcting information lost in the temporary PLAN skeleton.
+- 2026-07-26 — M2.1 Wave 1 worker delivered canonical versioned media keys, audio SSR rendering, guarded upload/verify seams, exact R2 CORS policy, and injected tests with no remote/network/Git mutation; focused 37/37 and full 85/85 tests passed.
+- 2026-07-26 — Parent Wave 1 verification passed format, lint, typecheck, content validation, focused 37/37 tests, full 85/85 tests, legacy static web build, and legacy `verify:web`; Wave 2 remains responsible for manifest wiring and Cloudflare runtime integration.
+- 2026-07-26 — M2.1 Wave 2 worker delivered exact Cloudflare/Wrangler pins, checked-in runtime contract, dynamic artifact verifier, local Worker smoke, canonical non-deploy CI gate, CLI integration coverage, and operations runbook; local gate passed with 91/91 tests and zero remote mutations.
+- 2026-07-26 — Parent pre-review verification found a real child-process ownership blocker: late exit/error listener attachment could lose an already-emitted event and hang cleanup. The same worker corrected it before first review with immediate exit capture, bounded SIGTERM→SIGKILL cleanup, temporary-state cleanup, and realistic lifecycle tests; fix-cycle budget remains 0/1 because review had not started.
+- 2026-07-26 — Fresh parent M2.1 gate passed format, lint, typecheck, content validation, 95/95 tests, Cloudflare build, generated-artifact smoke, Wrangler dry-run, and loopback Worker smoke proving custom HTTP 404/no redirect. No Git remote or Cloudflare mutation exists.
+- 2026-07-26 — Dependency audit remains at the two advisories already present before M2: low `cookie@0.6.0` is a runtime transitive of existing `@sveltejs/kit` (not introduced by Wrangler; Wrangler uses `cookie@1.1.1`), while moderate `uuid@7.0.3` is confined to the Expo mobile toolchain. No high/critical advisory was added; review must weigh the existing low runtime exposure explicitly.
+- 2026-07-26 — Fresh deep M2.1 review returned PASS with 21/21 acceptance items met and an independent 95/95-test canonical gate. The existing low Kit cookie advisory is non-blocking because this prerendered no-auth reader has no cookie-setting sink; no high/critical advisory was introduced.
+- 2026-07-26 — Reviewer found one non-blocking cleanup edge: if a local Worker survives both SIGTERM and SIGKILL and `reap()` throws, temporary config cleanup is skipped. This requires an effectively unreachable Linux process state, targets only `os.tmpdir()`, and did not consume the judgment fix cycle; it is retained explicitly under Deferred.
 
 ## Deferred
 
 - Rare catastrophic `content:build` install+restore rename failures preserve the previous output in `generated.backup-*`; improve CLI `AggregateError` detail only when operational recovery work begins. The former Cloudflare 404 item is no longer deferred because M2.1 acceptance now owns it explicitly.
+- In `scripts/verify-worker.ts`, nest local temporary-config cleanup so it still runs if bounded SIGTERM→SIGKILL reaping itself throws. This is a low-severity unreachable-in-practice path under Linux and should be fixed when M2.2 next touches the verifier.

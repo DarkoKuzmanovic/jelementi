@@ -144,3 +144,11 @@ figcaption {
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+
+.article-audio {
+  margin: 1.5rem 0;
+}
+
+.article-audio audio {
+  max-width: 100%;
+}

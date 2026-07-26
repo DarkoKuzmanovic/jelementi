@@ -9,7 +9,7 @@ category: History
 tags: [remote places, islands, communities]
 author: Jelementi
 cover:
-  src: media/articles/tristan-da-cunha/cover.svg
+  src: articles/tristan-da-cunha/cover-v1.svg
   alt: The volcanic island of Tristan da Cunha in the South Atlantic
 references:
   - title: Tristan da Cunha Government and history
@@ -22,7 +22,7 @@ Pull up a map. Find *South America* on the left and **Africa** on the right. ~~T
 
 The island has no airport and can only be reached by sea.
 
-![Map locating Tristan da Cunha in the South Atlantic](media/articles/tristan-da-cunha/map.svg "Tristan da Cunha lies far from inhabited land.")
+![Map locating Tristan da Cunha in the South Atlantic](articles/tristan-da-cunha/map-v1.svg "Tristan da Cunha lies far from inhabited land.")
 
 - No airport
 - A journey measured in days
