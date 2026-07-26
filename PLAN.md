@@ -161,6 +161,8 @@ Checkpoint-C-controlled automatic `main` production, public custom domain, produ
 - 2026-07-26 — Fresh deep M2.1 review returned PASS with 21/21 acceptance items met and an independent 95/95-test canonical gate. The existing low Kit cookie advisory is non-blocking because this prerendered no-auth reader has no cookie-setting sink; no high/critical advisory was introduced.
 - 2026-07-26 — Reviewer found one non-blocking cleanup edge: if a local Worker survives both SIGTERM and SIGKILL and `reap()` throws, temporary config cleanup is skipped. This requires an effectively unreachable Linux process state, targets only `os.tmpdir()`, and did not consume the judgment fix cycle; it is retained explicitly under Deferred.
 - 2026-07-26 — Darko explicitly approved Checkpoint A. Read-only preflight confirmed authenticated GitHub owner `DarkoKuzmanovic`, available private repo name `DarkoKuzmanovic/jelementi`, local `main` at `edec344`, accepted Crew branch at `725c29c`, clean tree, and no remote; before-state and per-resource reversals are recorded in `docs/runbooks/checkpoint-a-2026-07-26.md` before mutation.
+- 2026-07-26 — Checkpoint A partially executed: private `DarkoKuzmanovic/jelementi` created, `origin` added, remote `main` verified at `edec3445`, and `crew/m2-cloudflare-beta` first pushed at `760b6ee7`; default branch is `main` and no unrelated branch was pushed.
+- 2026-07-26 — Checkpoint A stopped incomplete before protection mutation. GitHub returned HTTP 403 for private-repository rulesets (`Upgrade to GitHub Pro or make this repository public`). The mandatory PR + `CI / verify` invariant cannot be enforced on the current account plan; no bypass, public visibility change, or Cloudflare mutation was attempted.
 
 ## Deferred
 

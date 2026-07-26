@@ -50,4 +50,17 @@ Stop without broadening scope if:
 
 ## Post-state
 
-Pending execution. Fill in the repository URL, remote branch SHAs, default branch, ruleset ID, and verification result after the approved operations.
+- Repository: `https://github.com/DarkoKuzmanovic/jelementi`.
+- Visibility: private.
+- Default branch: `main`.
+- Local remote: `origin` → `https://github.com/DarkoKuzmanovic/jelementi.git`.
+- Remote `main`: `edec3445d9b3af45ece8ef72ffd27b3f4b99492b`.
+- Remote `crew/m2-cloudflare-beta`: `760b6ee76af4031fbef726afee18c595f12b931e` at the first push.
+- Ruleset: not created.
+- Cloudflare, DNS, Access, Worker, token, and R2 state: unchanged.
+
+## Blocker
+
+The authenticated GitHub account cannot use repository rulesets on a private repository. The read-only rulesets endpoint returned HTTP 403: `Upgrade to GitHub Pro or make this repository public to enable this feature.`
+
+Checkpoint A is therefore incomplete and stopped before any protection mutation. Resolving it requires an explicit product/account decision: upgrade the account plan, move the private repository to an owner with private-repository rulesets, make the repository public, or explicitly revise the mandatory-enforcement invariant. No option is assumed or applied automatically.
