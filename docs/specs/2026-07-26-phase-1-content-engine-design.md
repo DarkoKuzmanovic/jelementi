@@ -59,7 +59,7 @@ The phase is complete when:
 - GFM footnotes are supported through a dedicated `footnotes` collection; public `references` remain a separate Sources concept.
 - Reading time is compiler-generated at 200 words per minute, rounded up, with a minimum of one minute and no frontmatter override.
 - Search covers metadata and normalized body text.
-- Drafts are fully validated but produce no public JSON and no index entry.
+- Draft and archived articles are fully validated but produce no public JSON and no index entry.
 - Jelementi media is stored in Markdown as a relative key and resolved with `PUBLIC_MEDIA_BASE_URL`.
 - Compilation is a standalone package plus root scripts, not a Vite plugin or SvelteKit hook.
 - `generated/` remains gitignored and reproducible from canonical Markdown.
@@ -74,6 +74,7 @@ Owns public, framework-neutral runtime schemas and inferred TypeScript types for
 - every block and inline node;
 - footnotes and public references;
 - `ArticleIndexEntry` and the generated index.
+- the pure search-normalization helper shared by compiler and web.
 
 It does not parse Markdown, read files, resolve environment variables, or import Svelte/Expo code.
 
@@ -120,6 +121,8 @@ Root scripts own filesystem orchestration:
 - build published JSON/index output;
 - perform atomic output replacement;
 - implement watch mode.
+
+Root scripts run through a pinned TypeScript runner and load the root `.env` explicitly. A committed `.env.example` documents `PUBLIC_MEDIA_BASE_URL`; CI supplies the value directly rather than depending on a local file.
 
 ### SvelteKit web app
 
@@ -179,6 +182,8 @@ The generated index is a validated array of published entries only.
 
 Required fields remain those defined by `handoff.md`: title, slug, excerpt, updated date, status, category, tags, author, cover key, cover alt, and public references. A published article also requires `publishedAt`.
 
+The source filename stem must equal the frontmatter slug. This prevents file identity, generated filenames, and public routes from drifting apart.
+
 `readingTimeMinutes` is forbidden in frontmatter. The compiler owns it.
 
 Cover, optional audio, and Markdown image destinations are relative media keys. Keys must:
@@ -186,7 +191,7 @@ Cover, optional audio, and Markdown image destinations are relative media keys. 
 - be relative, without a scheme or leading slash;
 - contain no `.` or `..` path segments;
 - resolve under `PUBLIC_MEDIA_BASE_URL`;
-- produce a valid absolute HTTPS URL in `ArticleDocument`.
+- produce a valid absolute URL in `ArticleDocument`; HTTPS is required except for loopback HTTP during local development.
 
 Public links and `references.url` are full HTTPS URLs.
 
@@ -202,7 +207,11 @@ Public links and `references.url` are full HTTPS URLs.
 | `---` outside frontmatter | `DividerBlock` |
 | `:::fact`, `:::note`, `:::warning` | `CalloutBlock` |
 
-A quote's final paragraph becomes `attribution` only when it contains plain text beginning with an em dash followed by non-empty text, for example `— Ursula Le Guin`. The attribution paragraph is removed from quote children.
+A Markdown image becomes an `ImageBlock` only when it is the paragraph's sole content. Inline images mixed with text are rejected.
+
+A list is flat, each item contains exactly one paragraph, and an ordered list must start at `1`. Nested lists, task-list checkboxes, and custom ordered-list starts are rejected because the locked `ListBlock` cannot represent them without data loss.
+
+A quote may contain one paragraph. When the paragraph's final source line begins with an em dash followed by non-empty plain text, for example `— Ursula Le Guin`, that line becomes `attribution` and is removed from quote children. The remaining quote text must be non-empty.
 
 Callout directives may contain exactly one paragraph. Their optional `title` attribute must be a string; unknown attributes are rejected.
 
@@ -229,7 +238,7 @@ The compiler fails rather than silently dropping or flattening:
 - raw HTML;
 - fenced or indented code blocks;
 - tables;
-- nested lists;
+- nested lists, task lists, or ordered lists starting at a value other than `1`;
 - multi-paragraph quotes or callouts;
 - nested block content inside a callout;
 - multi-paragraph or block-rich footnotes;
@@ -253,7 +262,7 @@ interface ContentCompileIssue {
 `ContentCompileError` contains one or more issues. Stable error codes cover at least:
 
 - invalid frontmatter;
-- duplicate slug;
+- duplicate slug or category-slug collision;
 - unsupported block or inline node;
 - invalid directive;
 - invalid media key/base URL;
@@ -267,7 +276,7 @@ CLI output prints the source path and location first, followed by a concise Engl
 ### `content:validate`
 
 - discovers and compiles every Markdown file in memory;
-- validates drafts and published articles identically;
+- validates draft, archived, and published articles identically;
 - validates the would-be published index;
 - writes nothing;
 - exits non-zero if any issue exists.
@@ -283,6 +292,8 @@ CLI output prints the source path and location first, followed by a concise Engl
 7. replaces `generated/` only after the full temporary output succeeds.
 
 A failed build leaves the previous successful `generated/` directory untouched. A successful replacement removes stale article JSON that no longer corresponds to published source.
+
+If two distinct category names normalize to the same category slug, the batch fails rather than merging their routes implicitly.
 
 Generated JSON uses stable formatting and ends with a newline so local output is inspectable despite being gitignored.
 
@@ -311,7 +322,7 @@ Dynamic article and category routes provide explicit prerender entries derived f
 
 The compiler creates `searchText` from normalized title, excerpt, category, tags, author, and readable article body. It excludes URLs, media alt duplication, footnote identifiers, and draft content.
 
-Search comparison is case-insensitive and diacritic-insensitive. Query terms are normalized with the same shared helper used at index-build time. Results preserve index order.
+Search comparison is case-insensitive and diacritic-insensitive. Query terms use the same pure normalization helper exported by `@jelementi/article-model` and used during index generation. Results preserve index order.
 
 Only `/search` uses client JavaScript. Home, article, category, About, and error routes explicitly disable CSR and remain fully functional as prerendered HTML.
 
@@ -356,7 +367,7 @@ Negative fixtures cover every explicitly rejected syntax form and assert stable 
 Using temporary directories, prove that:
 
 - validation writes nothing;
-- drafts produce no JSON or index entry;
+- draft and archived articles produce no JSON or index entry;
 - duplicate slugs fail;
 - one invalid file prevents all replacement;
 - the previous successful output survives a failed build;
@@ -417,7 +428,7 @@ Mitigation: reject every unhandled MDAST node with a source-located error; never
 
 ### Draft leakage
 
-Mitigation: drafts are omitted before artifact generation; routes and prerender entries derive only from the published index.
+Mitigation: draft and archived articles are omitted before artifact generation; routes and prerender entries derive only from the published index.
 
 ### Partial or stale generated output
 
