@@ -38,8 +38,23 @@ pnpm typecheck
 pnpm test
 ```
 
+
+## Cloudflare M2.1 local target
+
+`build:web` emits the Cloudflare adapter artifact in `.svelte-kit/cloudflare`. `preview:web` starts Wrangler only on loopback with local persistence under `/tmp`; `verify:worker` starts the same local runtime, polls readiness, exercises reader routes and the static 404 path, then terminates it.
+
+```bash
+PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy
+```
+
+`verify:deploy` is the canonical non-deploy gate: format, lint, typecheck, content validation, tests, Cloudflare build, artifact assertions, Wrangler `deploy --dry-run`, and the local Worker smoke. It does not contact a public site and M2.1 deliberately excludes live `media:verify`.
+
+`deploy:web` is operator-only and runs the gate before a real Wrangler deployment; do not use it without a later checkpoint approval. `media:upload` and `media:verify` are future M2.2 operators for immutable R2 media and are not CI steps. The checked-in Worker binding `R2_MEDIA` is reserved for future server work; M2 application code does not read or write it.
+
+Operational checkpoint, upload, Access, production-probe, and rollback procedures are in [the Cloudflare M2 operations runbook](docs/runbooks/cloudflare-m2-operations.md).
+
 Reader pages are server-rendered static HTML with JavaScript disabled per page. `/search` is deliberately the sole hydrated route; it filters the small validated index in the browser using the model's shared normalizer. Global robots remains exactly `noindex`.
 
 ## CI
 
-GitHub Actions runs on Node 24 and pnpm 11 with a frozen lockfile and an HTTPS media base. It runs formatting, lint, typecheck, content validation, tests, generation-backed web build, and the production HTML smoke check. CI has read-only repository permissions and performs no deploy or publish action.
+GitHub Actions runs Node 24 with pnpm 11.1.3 and a frozen lockfile. It executes the canonical `verify:deploy` local-only gate with the HTTPS media base; CI has read-only repository permissions and no credential, upload, deploy, promotion, DNS, Access, or R2 step.

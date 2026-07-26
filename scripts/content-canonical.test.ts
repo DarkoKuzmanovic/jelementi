@@ -5,15 +5,25 @@ import { describe, expect, it } from 'vitest';
 import { compileArticle } from '@jelementi/content-compiler';
 
 const rootDir = dirname(fileURLToPath(new URL('../package.json', import.meta.url)));
-const mediaBaseUrl = 'http://localhost:5173/';
+const localMediaBaseUrl = 'http://localhost:5173/media/';
+const cloudMediaBaseUrl = 'https://media.jelementi.quz.ma/';
 
 describe('canonical Tristan da Cunha article', () => {
-  it('compiles every practical approved form and references real local static media', async () => {
+  it('resolves versioned canonical media keys against both local and cloud bases while retaining local fixtures', async () => {
     const sourcePath = 'content/articles/tristan-da-cunha.md';
     const markdown = await readFile(join(rootDir, sourcePath), 'utf8');
-    const { document } = compileArticle({ markdown, sourcePath, mediaBaseUrl });
+    const localDocument = compileArticle({
+      markdown,
+      sourcePath,
+      mediaBaseUrl: localMediaBaseUrl,
+    }).document;
+    const cloudDocument = compileArticle({
+      markdown,
+      sourcePath,
+      mediaBaseUrl: cloudMediaBaseUrl,
+    }).document;
 
-    expect(document.blocks.map((block) => block.type)).toEqual([
+    expect(localDocument.blocks.map((block) => block.type)).toEqual([
       'paragraph',
       'heading',
       'paragraph',
@@ -26,13 +36,24 @@ describe('canonical Tristan da Cunha article', () => {
       'callout',
       'callout',
     ]);
-    expect(document.footnotes).toHaveLength(1);
-    const mediaUrls = [
-      document.cover.src,
-      ...document.blocks.flatMap((block) => (block.type === 'image' ? [block.src] : [])),
+    expect(localDocument.footnotes).toHaveLength(1);
+    const localMediaUrls = [
+      localDocument.cover.src,
+      ...localDocument.blocks.flatMap((block) => (block.type === 'image' ? [block.src] : [])),
     ];
+    expect(localMediaUrls).toEqual([
+      'http://localhost:5173/media/articles/tristan-da-cunha/cover-v1.svg',
+      'http://localhost:5173/media/articles/tristan-da-cunha/map-v1.svg',
+    ]);
+    expect([
+      cloudDocument.cover.src,
+      ...cloudDocument.blocks.flatMap((block) => (block.type === 'image' ? [block.src] : [])),
+    ]).toEqual([
+      'https://media.jelementi.quz.ma/articles/tristan-da-cunha/cover-v1.svg',
+      'https://media.jelementi.quz.ma/articles/tristan-da-cunha/map-v1.svg',
+    ]);
     await Promise.all(
-      mediaUrls.map((url) => access(join(rootDir, 'apps/web/static', new URL(url).pathname))),
+      localMediaUrls.map((url) => access(join(rootDir, 'apps/web/static', new URL(url).pathname))),
     );
   });
 });

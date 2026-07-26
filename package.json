@@ -10,8 +10,14 @@
   "scripts": {
     "dev:web": "pnpm content:build && pnpm --filter @jelementi/web dev",
     "build:web": "pnpm content:build && pnpm --filter @jelementi/web build",
-    "preview:web": "pnpm --filter @jelementi/web preview",
+    "preview:web": "pnpm build:web && pnpm exec wrangler dev --local --ip 127.0.0.1 --persist-to /tmp/jelementi-wrangler-preview",
+    "deploy:web": "pnpm verify:deploy && pnpm exec wrangler deploy",
     "verify:web": "tsx scripts/verify-web.ts",
+    "verify:worker": "tsx scripts/verify-worker.ts",
+    "verify:wrangler": "tsx scripts/verify-deploy.ts",
+    "media:upload": "tsx scripts/media-cli.ts upload",
+    "media:verify": "tsx scripts/media-cli.ts verify",
+    "verify:deploy": "pnpm format && pnpm lint && pnpm typecheck && pnpm content:validate && pnpm test && pnpm build:web && pnpm verify:web && pnpm verify:wrangler && pnpm verify:worker",
     "content:validate": "tsx scripts/content-cli.ts validate",
     "content:build": "tsx scripts/content-cli.ts build",
     "content:watch": "tsx scripts/content-cli.ts watch",
@@ -34,6 +40,7 @@
     "tsx": "4.23.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.65.0",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "wrangler": "4.114.0"
   }
 }

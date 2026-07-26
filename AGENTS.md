@@ -17,6 +17,10 @@
 - `content:validate` is a required read-only verification command: it must create and write no output paths.
 - Web code statically imports generated JSON and validates the complete index/article boundary with `@jelementi/article-model`; it imports neither `@jelementi/content-compiler` nor runtime filesystem/fetch APIs.
 - Published-only route data, category lists, and prerender entries derive exclusively from the validated index. Non-search reader pages explicitly set `csr = false`; `/search` is the sole hydrated reader route, while static `404.html` loads the client only to render the custom error fallback.
+- M2.1 targets `adapter-cloudflare({ fallback: 'spa' })`; normal reader routes remain prerendered and non-hydrated, `/search` remains the only normal hydrated route, and the 404 fallback alone bootstraps the client while preserving HTTP 404 through Static Assets `404-page` handling.
+- `wrangler.jsonc` is a checked-in local/runtime contract: `workers_dev` and `preview_urls` stay false until their explicit future checkpoint. `R2_MEDIA` is only a declared future binding; M2 application code must not read or write it.
+- `verify:deploy` is the canonical M2.1 non-deploy gate. It excludes live `media:verify` until M2.2; `deploy:web`, `media:upload`, and live `media:verify` are operator-only future actions requiring the runbook and explicit checkpoint approval.
+- Local Wrangler smoke uses loopback only and persists outside the repository. Never commit credentials, `.dev.vars`, Wrangler state, or generated Cloudflare output.
 
 ## Verification
 
@@ -28,7 +32,5 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm content:validate
-pnpm content:build
-pnpm build:web
-pnpm verify:web
+PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy
 ```

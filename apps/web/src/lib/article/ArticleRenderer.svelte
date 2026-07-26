@@ -11,6 +11,7 @@
   import { assertExhaustiveBlock } from './exhaustive';
   import { footnoteReferenceTargets } from './footnotes';
 
+  import ArticleAudio from './ArticleAudio.svelte';
   let { document }: { document: ArticleDocument } = $props();
   const footnoteTargets = $derived(footnoteReferenceTargets(document.blocks));
 </script>
@@ -21,6 +22,7 @@
     <h1>{document.title}</h1>
     <p class="excerpt">{document.excerpt}</p>
   </header>
+  <ArticleAudio article={document} />
   {#each document.blocks as block, index (index)}
     {#if block.type === 'paragraph'}
       <ParagraphBlock {block} scope={`block-${index}`} />
