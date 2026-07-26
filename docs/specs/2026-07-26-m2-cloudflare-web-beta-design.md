@@ -37,7 +37,8 @@ M2 is complete when:
 5. `jelementi-media` serves immutable media through `media.jelementi.quz.ma`;
 6. the reader preserves global `noindex`, its hydration boundary, and a custom HTTP 404;
 7. an article with `audio` renders basic browser controls while an article without audio remains valid;
-8. the production rollback procedure and a harmless version rollback drill are verified and recorded.
+8. the production rollback procedure and a harmless version rollback drill are verified and recorded;
+9. Jelena receives and can open the accepted production beta link.
 
 ## 2. Scope
 
@@ -77,6 +78,7 @@ M2 is complete when:
 - Every non-production branch may produce a versioned preview URL.
 - Preview URLs require Cloudflare Access and allow only Darko.
 - Production is public but remains globally `noindex`.
+- The existing `content/articles/tristan-da-cunha.md` is the single M2 beta article; Darko re-approves its English copy, claims, Sources, and media before production.
 - Worker custom domain: `jelementi.quz.ma`.
 - Worker name: `jelementi-web`.
 - R2 bucket: `jelementi-media`.
@@ -132,7 +134,7 @@ private GitHub
        → public reader with noindex
 ```
 
-GitHub Actions remains an independent verification system and performs no deployment. Cloudflare Workers Builds owns every remote Worker upload and production promotion after bootstrap.
+GitHub Actions is the independent pre-merge gate and performs no deployment. A protected `main` requires a pull request and a successful GitHub CI check. Cloudflare Workers Builds then repeats the same gate and owns every remote Worker upload and production promotion after bootstrap.
 
 ### Media ownership
 
@@ -220,7 +222,7 @@ The bootstrap sequence is therefore staged:
 5. the final `preview_urls: true` configuration is pushed;
 6. an unauthenticated probe must receive an Access challenge or denial before an authenticated preview is accepted.
 
-If the dashboard cannot attach Access while preview URLs are disabled, execution stops. The fallback is to create the matching Access application/policy before enabling previews, not to accept a temporary public preview.
+If the dashboard cannot attach Cloudflare's official Preview URLs Access protection while preview URLs are disabled, execution stops and the decision is escalated; M2 does not guess a wildcard Access application. When the first real preview URL is generated, repeated unauthenticated probes begin immediately. Any anonymous 200 is a security failure: disable preview URLs, preserve evidence, and stop rollout before authenticated review. The bootstrap preview contains no secrets or embargoed content.
 
 ## 7. Media key and URL contract
 
@@ -239,6 +241,8 @@ articles/tristan-da-cunha/cover-v1.svg
 articles/tristan-da-cunha/map-v1.svg
 articles/tristan-da-cunha/audio-v1.m4a
 ```
+
+The extension is not globally fixed. M2 accepts the existing Tristan da Cunha SVG illustrations, prefers WebP for new raster images, and supports MP3 or M4A for audio. The upload contract maps `.svg`, `.webp`, `.png`, `.jpg`/`.jpeg`, `.mp3`, and `.m4a` to explicit non-generic MIME types. Article image blocks retain width and height whenever those values are known; the upload CLI does not invent dimensions.
 
 The compiler continues to own traversal prevention and base-URL containment. Media keys remain relative and may not contain backslashes, encoded separators, dot segments, query strings, or fragments.
 
@@ -403,6 +407,7 @@ M2 keeps one canonical gate and explicit lower-level commands:
 dev:web          content build + Vite development server
 build:web        content build + Cloudflare adapter build
 preview:web      build + Wrangler 4 local Worker preview
+deploy:web       operator-only full gate + Wrangler production deploy
 verify:web       inspect generated Cloudflare assets and locked HTML invariants
 verify:worker    launch local Wrangler, probe HTTP behavior, then terminate cleanly
 media:upload     guarded manual R2 object upload
@@ -410,6 +415,8 @@ media:verify     read-only verification of published remote media
 verify:deploy    complete local/cloud deployment gate
 verify:remote    post-deploy HTTP probe for a supplied base URL
 ```
+
+`deploy:web` preserves the root-script contract from `handoff.md`. It runs `verify:deploy` before `wrangler deploy` and is reserved for an explicitly approved manual deployment or recovery. Normal GitHub/Cloudflare automation does not call it: Workers Builds runs the gate as its build step and invokes Wrangler directly as its separate deploy step, avoiding a duplicate gate.
 
 `verify:deploy` runs in this order:
 
@@ -448,16 +455,20 @@ Node: 24
 
 Cloudflare replaces the production deploy command with the non-production command for branch builds. A gate failure therefore creates no new version and never changes production traffic.
 
-The Workers Builds user token is stored and used by Cloudflare, not GitHub. Before creation, its permissions are reduced to the minimum viable account and `quz.ma` zone scope. KV permissions are removed because M2 does not use KV. The runbook records token ownership, scope, creation date, and revocation path without recording the token value.
+The GitHub required check is the first gate; the Cloudflare build command is a redundant second gate, not the sole enforcement boundary. Changes to `wrangler.jsonc`, deployment scripts, or Cloudflare build settings follow the same protected PR path. Manual `deploy:web`, dashboard retries, and direct Wrangler deploys are prohibited in the normal path and require a separately approved runbook action.
+
+The Workers Builds user token is stored and used by Cloudflare, not GitHub. Do not accept the automatically proposed broad token without review. Create or select a user token limited to the minimum viable Workers Scripts, R2, account-read, membership-read, and `quz.ma` Workers Routes permissions; omit KV and unrelated-zone access. If Workers Builds cannot operate with that scope, stop for an explicit security decision rather than silently broadening it. The runbook records token ownership, scope, creation date, and revocation path without recording the token value.
 
 ## 11. Access and security boundaries
 
 ### GitHub
 
 - repository visibility is private;
+- `main` has a ruleset requiring a pull request and the successful `CI / verify` GitHub Actions check, with no routine Darko bypass;
 - no Cloudflare token, R2 credential, account ID secret, Access identity, or `.dev.vars` file is committed;
 - GitHub Actions receives no deployment credential;
 - future Studio credentials are not created in M2.
+- Phase 3 must explicitly design how Studio publish commits coexist with this ruleset; M2 grants Studio no bypass actor.
 
 ### Preview
 
@@ -508,12 +519,12 @@ Darko must approve the first beta article's English copy, key claims, Sources se
 
 ### Production probe failure
 
-1. stop further publishing;
+1. freeze new merges plus manual/retry deploy actions, while leaving GitHub CI available to validate the revert;
 2. identify the last known-good Worker version ID;
 3. execute `pnpm exec wrangler rollback <version-id>` with an incident message;
 4. run the complete production remote probe;
-5. create a normal Git revert commit for the bad source commit;
-6. allow the aligned reverted `main` to pass the gate and deploy;
+5. create a normal Git revert commit on an incident branch and obtain a green GitHub CI result;
+6. merge the revert pull request and allow the aligned reverted `main` to pass the redundant Cloudflare gate and deploy;
 7. record version IDs, commit IDs, timestamps, symptoms, and verification evidence.
 
 A fix-forward is not the default for a reader outage. It requires an explicit incident decision after the known-good version is restored.
@@ -575,6 +586,7 @@ It verifies:
 - global `noindex`;
 - no client entry on normal non-search pages;
 - client entry on `/search`;
+- a direct `/search?query=tristan` request resolves the prerendered search asset and does not rely on the 404 fallback;
 - unknown route status 404 and error copy;
 - valid static asset responses;
 - optional audio markup through a focused fixture or SSR test.
@@ -642,8 +654,23 @@ Darko explicitly approves:
 - creating the private GitHub repository;
 - adding the remote;
 - pushing named branches.
+- creating a `main` ruleset that requires pull requests and the `CI / verify` GitHub Actions check before Workers Builds production activation.
 
-No push occurs before this checkpoint.
+No push or GitHub ruleset mutation occurs before this checkpoint.
+
+Before Checkpoint B, perform and record a read-only Cloudflare inventory: authenticated account, `quz.ma` zone, conflicting resource names, the reusable preview Access policy, and existing Workers Builds token scope. This inventory changes no remote state.
+
+### Checkpoint B — Cloudflare bootstrap approval
+
+Darko explicitly approves:
+
+- creating `jelementi-media` and attaching `media.jelementi.quz.ma`;
+- applying the read-only CORS policy and uploading the versioned Tristan da Cunha assets;
+- connecting Workers Builds and creating its reviewed user token;
+- creating the hidden `jelementi-web` version with preview URLs disabled;
+- attaching Access and then enabling protected preview URLs.
+
+No Cloudflare, DNS, Access, token, Worker, or R2 mutation occurs before this checkpoint.
 
 ### M2.2 — R2 and protected preview
 
@@ -652,7 +679,7 @@ Deliver:
 - read-only Cloudflare account/resource inventory;
 - `jelementi-media` bucket;
 - R2 CORS policy and `media.jelementi.quz.ma` custom domain;
-- versioned upload of the current beta article media;
+- versioned upload of the approved `tristan-da-cunha` beta article media;
 - live `media:verify` evidence;
 - private GitHub and Workers Builds connection;
 - initial hidden Worker version with preview URLs disabled;
@@ -676,7 +703,7 @@ Darko explicitly approves:
 - final Worker custom-domain activation;
 - automatic `main` deployment.
 
-This checkpoint requires accepted preview evidence and Darko's content/source/asset approval for the first beta article.
+This checkpoint requires accepted preview evidence and Darko's explicit re-approval of `content/articles/tristan-da-cunha.md`, its Sources, English copy, and selected assets.
 
 ### M2.3 — Production and rollback drill
 
@@ -685,6 +712,7 @@ Deliver:
 - `main` automatic production deployment;
 - `jelementi.quz.ma` custom domain and certificate;
 - complete production acceptance probe;
+- delivery of the verified production link to Jelena for the first beta feedback;
 - two functionally correct Worker versions;
 - rollback of 100% traffic to the previous correct version;
 - verification of that version;
@@ -792,9 +820,10 @@ Before production:
 | Stable media URLs | canonical-key tests and live R2 verification |
 | No accidental overwrite | guarded CLI tests and recorded upload result |
 | Optional web audio | SSR/component test and browser check when audio exists |
+| One real beta article | Darko-approved `tristan-da-cunha` copy, Sources, R2 media, and production route |
 | Private previews | unauthenticated denial plus authenticated Darko success |
 | Automatic `main` production | Workers Builds record tied to the accepted commit |
-| Failed build preserves production | negative build probe with unchanged deployment ID |
+| Failed gate preserves production | candidate build log shows the deploy step skipped and the active production deployment ID unchanged |
 | Public noindex beta | remote meta assertions on every HTML route |
 | Correct custom 404 | unknown production route returns expected body and status 404 |
 | Safe incident rollback | completed correct-version rollback/restoration drill and runbook |
