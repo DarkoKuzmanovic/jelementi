@@ -1,0 +1,23 @@
+{
+  "name": "@jelementi/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@jelementi/article-model": "workspace:*",
+    "@sveltejs/kit": "2.70.1",
+    "svelte": "5.56.8"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "7.0.1",
+    "@sveltejs/vite-plugin-svelte": "7.2.0",
+    "svelte-check": "4.7.3",
+    "vite": "8.1.5"
+  }
+}

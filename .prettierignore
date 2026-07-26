@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+.svelte-kit/
+.expo/
+coverage/
+generated/
+pnpm-lock.yaml
+*.md
