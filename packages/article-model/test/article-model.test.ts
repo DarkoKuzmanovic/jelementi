@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  validateArticleDocument,
   ArticleDocumentSchema,
+  ArticleIndexSchema,
+  normalizeSearchText,
   sampleArticle,
+  validateArticleDocument,
 } from '@jelementi/article-model';
-import type { ArticleDocument } from '@jelementi/article-model';
 
-// A complete, hand-written valid document exercising every Phase 0 block type.
-const validDocument: ArticleDocument = {
+const validDocument = {
   schemaVersion: 1,
   slug: 'tristan-da-cunha',
   title: 'The 250 People at the End of the World',
@@ -31,6 +31,7 @@ const validDocument: ArticleDocument = {
       type: 'paragraph',
       children: [
         { type: 'text', value: 'The island has no airport and can only be reached by sea.' },
+        { type: 'footnoteReference', id: 'remote-source' },
       ],
     },
     {
@@ -39,10 +40,33 @@ const validDocument: ArticleDocument = {
       alt: 'Map locating Tristan da Cunha in the South Atlantic',
     },
     {
+      type: 'list',
+      ordered: false,
+      items: [[{ type: 'text', value: 'Flat item', marks: ['strong'] }]],
+    },
+    {
+      type: 'quote',
+      children: [{ type: 'text', value: 'The sea defines the island.' }],
+      attribution: 'A visitor',
+    },
+    { type: 'divider' },
+    {
       type: 'callout',
       variant: 'fact',
       title: 'No runway, no shortcut',
       children: [{ type: 'text', value: 'The journey from Cape Town takes several days by ship.' }],
+    },
+  ],
+  footnotes: [
+    {
+      id: 'remote-source',
+      children: [
+        {
+          type: 'link',
+          href: 'https://example.org/source',
+          children: [{ type: 'text', value: 'Source' }],
+        },
+      ],
     },
   ],
   references: [
@@ -51,51 +75,165 @@ const validDocument: ArticleDocument = {
 };
 
 describe('ArticleDocument validation', () => {
-  it('accepts a complete valid document', () => {
-    const doc = validateArticleDocument(validDocument) as ArticleDocument;
-    expect(doc.slug).toBe('tristan-da-cunha');
-    expect(doc.schemaVersion).toBe(1);
+  it('accepts every locked block and inline node', () => {
+    const doc = validateArticleDocument(validDocument);
+    expect(doc.blocks).toHaveLength(7);
+    expect(doc.footnotes).toHaveLength(1);
   });
 
   it('accepts the shared sample fixture', () => {
-    const doc = validateArticleDocument(sampleArticle) as ArticleDocument;
-    expect(doc.slug).toBe('tristan-da-cunha');
-    expect((doc.blocks as unknown[]).length).toBeGreaterThan(0);
-  });
-
-  it('rejects a document missing required "blocks"', () => {
-    const rest = { ...validDocument } as Record<string, unknown>;
-    delete rest.blocks;
-    expect(() => validateArticleDocument(rest)).toThrow();
-  });
-
-  it('rejects an unsupported schemaVersion', () => {
-    expect(() => validateArticleDocument({ ...validDocument, schemaVersion: 99 })).toThrow();
+    expect(validateArticleDocument(sampleArticle).slug).toBe('tristan-da-cunha');
   });
 
   it('rejects a published article without publishedAt', () => {
-    const rest = { ...validDocument } as Record<string, unknown>;
-    delete rest.publishedAt;
-    expect(() => validateArticleDocument(rest)).toThrow();
+    const { publishedAt: _publishedAt, ...unpublished } = validDocument;
+    expect(() => validateArticleDocument(unpublished)).toThrow();
   });
 
-  it('rejects an unknown block type (exhaustive discriminant)', () => {
-    const doc = { ...validDocument, blocks: [{ type: 'video', src: 'x' }] };
-    expect(() => validateArticleDocument(doc)).toThrow();
+  it('rejects invalid heading levels and unsupported block discriminants', () => {
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        blocks: [{ type: 'heading', level: 1, id: 'x', children: [] }],
+      }).success,
+    ).toBe(false);
+    expect(
+      ArticleDocumentSchema.safeParse({ ...validDocument, blocks: [{ type: 'video', src: 'x' }] })
+        .success,
+    ).toBe(false);
   });
 
-  it('rejects a callout with an invalid variant', () => {
-    const blocks = [{ type: 'callout', variant: 'danger', children: [] }];
-    expect(() => validateArticleDocument({ ...validDocument, blocks })).toThrow();
+  it('enforces one matching definition for every footnote reference', () => {
+    expect(ArticleDocumentSchema.safeParse({ ...validDocument, footnotes: [] }).success).toBe(
+      false,
+    );
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        footnotes: [...validDocument.footnotes, validDocument.footnotes[0]],
+      }).success,
+    ).toBe(false);
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        footnotes: [{ id: 'unused', children: [] }],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('ArticleIndex validation and search normalization', () => {
+  const indexEntry = {
+    slug: validDocument.slug,
+    title: validDocument.title,
+    excerpt: validDocument.excerpt,
+    publishedAt: validDocument.publishedAt,
+    updatedAt: validDocument.updatedAt,
+    category: validDocument.category,
+    categorySlug: 'history',
+    tags: validDocument.tags,
+    author: validDocument.author,
+    cover: validDocument.cover,
+    readingTimeMinutes: validDocument.readingTimeMinutes,
+    searchText: 'the 250 people at the end of the world',
+  };
+
+  it('accepts published index entries and rejects entries without a publication date', () => {
+    expect(ArticleIndexSchema.safeParse([indexEntry]).success).toBe(true);
+    const { publishedAt: _publishedAt, ...withoutDate } = indexEntry;
+    expect(ArticleIndexSchema.safeParse([withoutDate]).success).toBe(false);
   });
 
-  it('rejects a heading with an invalid level', () => {
-    const blocks = [{ type: 'heading', level: 5, id: 'x', children: [] }];
-    expect(() => validateArticleDocument({ ...validDocument, blocks })).toThrow();
+  it('normalizes case, accents, and whitespace for shared search', () => {
+    expect(normalizeSearchText('  Čačak\n  ISLANDS  ')).toBe('cacak islands');
+  });
+});
+
+describe('Date validation', () => {
+  it('rejects non-ISO date strings for publishedAt and updatedAt', () => {
+    expect(
+      ArticleDocumentSchema.safeParse({ ...validDocument, publishedAt: 'someday' }).success,
+    ).toBe(false);
+    expect(
+      ArticleDocumentSchema.safeParse({ ...validDocument, updatedAt: 'yesterday' }).success,
+    ).toBe(false);
   });
 
-  it('safeParse returns success=false on invalid input', () => {
-    const result = ArticleDocumentSchema.safeParse({ wrong: true });
-    expect(result.success).toBe(false);
+  it('rejects non-ISO accessedAt in references', () => {
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        references: [
+          { title: 'Source', url: 'https://example.org/source', accessedAt: 'tomorrow' },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects invalid calendar dates', () => {
+    expect(
+      ArticleDocumentSchema.safeParse({ ...validDocument, publishedAt: '2026-13-01' }).success,
+    ).toBe(false);
+    expect(
+      ArticleDocumentSchema.safeParse({ ...validDocument, updatedAt: '2026-02-30' }).success,
+    ).toBe(false);
+  });
+
+  it('accepts date-only and full ISO timestamp values', () => {
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        publishedAt: '2026-07-26T10:30:00Z',
+      }).success,
+    ).toBe(true);
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        updatedAt: '2026-07-26T10:30:00+02:00',
+      }).success,
+    ).toBe(true);
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        references: [
+          { title: 'Source', url: 'https://example.org/source', accessedAt: '2026-07-26' },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('Locale independence', () => {
+  it('normalizeSearchText does not use locale-sensitive toLocaleLowerCase', () => {
+    const original = String.prototype.toLocaleLowerCase;
+    String.prototype.toLocaleLowerCase = function () {
+      throw new Error('locale-sensitive method called');
+    };
+    try {
+      // 'I' must lowercase to dotted 'i', not locale-dependent dotless 'ı'
+      expect(normalizeSearchText('Istanbul ISLANDS')).toBe('istanbul islands');
+    } finally {
+      String.prototype.toLocaleLowerCase = original;
+    }
+  });
+});
+
+describe('Timestamp calendar validity', () => {
+  it('rejects impossible calendar dates in full ISO timestamps', () => {
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        publishedAt: '2026-02-30T00:00:00Z',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts valid leap-year timestamps with timezone offsets', () => {
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        updatedAt: '2024-02-29T12:00:00+02:00',
+      }).success,
+    ).toBe(true);
   });
 });

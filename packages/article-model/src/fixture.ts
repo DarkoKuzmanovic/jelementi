@@ -1,13 +1,8 @@
 import type { ArticleDocument } from './schema';
 
 /**
- * Hand-made ArticleDocument fixture for Phase 0.
- *
- * Phase 1 replaces this with the output of the Markdown → ArticleDocument
- * compiler. For now it is constructed by hand and exercised by both the web
- * renderer and the article-model tests. It covers every Phase 0 block type
- * (paragraph, heading, image, fact callout) and both inline node kinds
- * (text with marks, link).
+ * Hand-made ArticleDocument fixture for Phase 0's current web route.
+ * Phase 1 replaces route consumption with generated Markdown output.
  */
 export const sampleArticle: ArticleDocument = {
   schemaVersion: 1,
@@ -32,8 +27,11 @@ export const sampleArticle: ArticleDocument = {
         { type: 'text', value: 'Pull up a map. Find ' },
         { type: 'text', value: 'South America', marks: ['emphasis'] },
         { type: 'text', value: ' on the left and ' },
-        { type: 'text', value: 'Africa', marks: ['emphasis'] },
-        { type: 'text', value: ' on the right.' },
+        { type: 'text', value: 'Africa', marks: ['strong'] },
+        { type: 'text', value: ' on the right' },
+        { type: 'text', value: '.', marks: ['strikethrough'] },
+        { type: 'text', value: ' by sea', marks: ['code'] },
+        { type: 'footnoteReference', id: 'distance' },
       ],
     },
     {
@@ -49,7 +47,7 @@ export const sampleArticle: ArticleDocument = {
         {
           type: 'link',
           href: 'https://example.org/tristan-da-cunha',
-          children: [{ type: 'text', value: 'Read more about the settlement', marks: ['strong'] }],
+          children: [{ type: 'text', value: 'Read more about the settlement' }],
         },
       ],
     },
@@ -57,18 +55,33 @@ export const sampleArticle: ArticleDocument = {
       type: 'image',
       src: 'https://media.jelementi.quz.ma/articles/tristan-da-cunha/map.webp',
       alt: 'Map locating Tristan da Cunha in the South Atlantic',
-      caption: [
-        {
-          type: 'text',
-          value: 'Tristan da Cunha lies roughly 2,400 km from the nearest inhabited land.',
-        },
+      caption: [{ type: 'text', value: 'Tristan da Cunha lies far from inhabited land.' }],
+    },
+    {
+      type: 'list',
+      ordered: false,
+      items: [
+        [{ type: 'text', value: 'No airport' }],
+        [{ type: 'text', value: 'A journey measured in days' }],
       ],
     },
+    {
+      type: 'quote',
+      children: [{ type: 'text', value: 'The sea is the only road home.' }],
+      attribution: 'A Tristan resident',
+    },
+    { type: 'divider' },
     {
       type: 'callout',
       variant: 'fact',
       title: 'No runway, no shortcut',
       children: [{ type: 'text', value: 'The journey from Cape Town takes several days by ship.' }],
+    },
+  ],
+  footnotes: [
+    {
+      id: 'distance',
+      children: [{ type: 'text', value: 'The nearest inhabited land is roughly 2,400 km away.' }],
     },
   ],
   references: [

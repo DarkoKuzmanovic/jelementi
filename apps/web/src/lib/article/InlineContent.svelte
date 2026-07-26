@@ -3,7 +3,7 @@
 
   let { nodes }: { nodes: InlineNode[] } = $props();
 
-  function assertExhaustive(node: never): never {
+  function assertExhaustive(node: never | undefined): never {
     throw new Error(`Unsupported inline node type: ${JSON.stringify(node)}`);
   }
 </script>
@@ -20,7 +20,7 @@
   {:else if marks[0] === 'strikethrough'}
     <s>{@render renderText(value, marks.slice(1))}</s>
   {:else}
-    {@render renderText(value, marks.slice(1))}
+    {assertExhaustive(marks[0])}
   {/if}
 {/snippet}
 
@@ -31,6 +31,8 @@
     <a href={node.href}
       >{#each node.children as child, index (index)}{@render renderNode(child)}{/each}</a
     >
+  {:else if node.type === 'footnoteReference'}
+    <sup id={`footnote-ref-${node.id}`}><a href={`#footnote-${node.id}`}>[{node.id}]</a></sup>
   {:else}
     {assertExhaustive(node)}
   {/if}

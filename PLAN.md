@@ -31,28 +31,28 @@
 ## Run metrics
 
 - **Started-at:** 2026-07-26T13:55:17+02:00
-- **First-worker-at:** not dispatched
-- **Time-to-first-worker:** not measured
-- **Dispatches:** 0 delivered
+- **First-worker-at:** 2026-07-26T13:57:38+02:00
+- **Time-to-first-worker:** 2m21s
+- **Dispatches:** 3 delivered
 - **Burned:** 0
 - **Burned-minutes:** 0
-- **Review-bundles:** 0
-- **Review-dispatches:** 0
+- **Review-bundles:** 2
+- **Review-dispatches:** 2
 - **Worker-retries:** 0
 - **Oracle:** 0
-- **Completed outcomes:** 0/3
-- **Child-runtime-minutes:** 0
+- **Completed outcomes:** 1/3
+- **Child-runtime-minutes:** 38.1
 - **Session compactions observed before run:** 1
 
 ## M1 — Content engine and web reader
 
-**Counters:** dispatches: 0/14 (delivered across outcome ceilings) · burned: 0 · review-bundles: 0 · review-dispatches: 0 · fix-cycles: 0/1 per outcome · oracle: 0 · worker-retries: 0 · direct-edits: 0
+**Counters:** dispatches: 3/14 (delivered across outcome ceilings) · burned: 0 · review-bundles: 2 · review-dispatches: 2 · fix-cycles: 1/1 for M1.1 · oracle: 0 · worker-retries: 0 · direct-edits: 0
 
-- [ ] **M1.1 — Complete the public article contract and pure Markdown compiler**
+- [x] **M1.1 — Complete the public article contract and pure Markdown compiler**
 - [ ] **M1.2 — Generate published content and index atomically from canonical Markdown**
 - [ ] **M1.3 — Ship the complete prerendered web reader, search, CI, and documentation**
 
-## Active outcome — M1.1
+## Completed outcome — M1.1
 
 ### Outcome
 
@@ -60,13 +60,13 @@ Complete the framework-neutral model and pure, filesystem-free Markdown compiler
 
 ### Acceptance
 
-- `@jelementi/article-model` validates all seven block types, all locked inline marks/nodes, footnotes, `ArticleIndexEntry`, and the shared search normalizer.
-- `@jelementi/content-compiler` compiles the approved Markdown/frontmatter grammar into a validated `ArticleDocument` plus body search text.
-- Every unsupported construct fails with stable code, source path, and line/column when available; content is never silently dropped.
-- Media keys resolve only through the explicit compiler option; the compiler reads no files, writes no files, and reads no process-global environment.
-- Tests show RED before implementation and cover every supported discriminant plus representative rejection cases.
-- Full gate is green: format, lint, typecheck, tests, and web build.
-- Documentation: README reflects the compiler/model contract and Phase 1 status; root AGENTS.md records owning boundaries, invariants, and verification commands.
+- [x] `@jelementi/article-model` validates all seven block types, all locked inline marks/nodes, footnotes, `ArticleIndexEntry`, and the shared search normalizer.
+- [x] `@jelementi/content-compiler` compiles the approved Markdown/frontmatter grammar into a validated `ArticleDocument` plus body search text.
+- [x] Every unsupported construct fails with stable code, source path, and line/column when available; content is never silently dropped.
+- [x] Media keys resolve only through the explicit compiler option; the compiler reads no files, writes no files, and reads no process-global environment.
+- [x] Tests show RED before implementation and cover every supported discriminant plus representative rejection cases.
+- [x] Full gate is green: format, lint, typecheck, 42 tests, and web build.
+- [x] Documentation: README reflects the compiler/model contract and Phase 1 status; root AGENTS.md records owning boundaries, invariants, and verification commands.
 
 ### Runway
 
@@ -85,15 +85,15 @@ Complete the framework-neutral model and pure, filesystem-free Markdown compiler
 
 ### Counters
 
-- **Dispatches:** 0/5 delivered
+- **Dispatches:** 3/5 delivered
 - **Burned:** 0
-- **Review-bundles:** 0
-- **Review-dispatches:** 0
-- **Fix-cycles:** 0/1
+- **Review-bundles:** 2
+- **Review-dispatches:** 2
+- **Fix-cycles:** 1/1
 - **Oracle:** 0
 - **Worker-retries:** 0
 - **Direct-edits:** 0
-- **Documentation:** pending — README and AGENTS must be reconciled before gate.
+- **Documentation:** README — updated content contract/current constraints; AGENTS — created ownership boundaries, invariants, and verification commands.
 
 ## Later outcome boundaries
 
@@ -110,6 +110,10 @@ Own generated-data loading, exhaustive final renderers, home/article/category/se
 - 2026-07-26 — Spec approved by Darko; commits `6e436b3` and `a3c0d93`.
 - 2026-07-26 — Gentle grill resolved two branches: invalid non-published content blocks the batch; local sample media must render successfully.
 - 2026-07-26 — Scope checkpoint approved: Standard, contained protected, local delivery, three outcomes.
+- 2026-07-26 — M1.1 worker delivered model/compiler/rendering/docs with RED → GREEN evidence; parent verification found and closed media traversal and ISO-date blockers in the same worker context.
+- 2026-07-26 — First fresh deep review: PASS with locale determinism, timestamp-calendar, and strict nested-frontmatter should-fixes; one reviewer-triggered fix cycle opened.
+- 2026-07-26 — Parent verification continued that same fix cycle to close optional-field silent omission; this continuation did not increment the fix-cycle or unique-dispatch counters.
+- 2026-07-26 — Final parent gate green (format, lint, typecheck, 42/42 tests, web build) and fresh final deep review PASS with no blockers; M1.1 accepted.
 
 ## Deferred
 
