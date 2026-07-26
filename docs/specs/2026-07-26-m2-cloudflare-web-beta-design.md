@@ -1,6 +1,6 @@
 # M2 — Cloudflare Web Beta and R2 Media Design
 
-**Status:** M2.1 accepted; Checkpoint A controls complete; main integration pending PR; Checkpoints B/C not approved<br>
+**Status:** M2.1 and Checkpoint A complete; Checkpoints B/C not approved<br>
 **Date:** 2026-07-26<br>
 **Owner:** Darko<br>
 **Source of truth:** `handoff.md`, Phase 2, plus the approved M2 preflight decisions in this document
