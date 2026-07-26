@@ -104,12 +104,12 @@ At design time:
 - local `main` stops at `a3c0d93` and does not contain M1.1–M1.3;
 - current deployment uses `@sveltejs/adapter-static` and has no Wrangler dependency or configuration.
 
-Before Workers Builds can treat `main` as production, Darko must explicitly approve all of the following in one Git checkpoint:
+At M2 Crew handoff, Darko explicitly approved this local-only branch preparation:
 
-1. integrate the accepted M1 branch into local `main` without rewriting history;
-2. create a private GitHub repository named `jelementi` under the GitHub owner selected from the authenticated account;
-3. add that repository as the remote;
-4. push the required branches.
+1. fast-forward local `main` to the current `crew/m1-content-engine` tip containing accepted M1 and the approved M2 spec, without rewriting history;
+2. create `crew/m2-cloudflare-beta` from that updated local `main`.
+
+This preparation creates no Git remote and performs no push. Checkpoint A later and separately authorizes creating the private GitHub repository, adding its remote, pushing named branches, and applying the `main` ruleset.
 
 The GitHub owner is execution-time account data, not repository configuration. It must be confirmed from authenticated tooling before creation and must not be guessed or embedded in this spec.
 
@@ -650,7 +650,7 @@ Acceptance:
 
 Darko explicitly approves:
 
-- integrating accepted M1 into `main`;
+- verifying that local `main` contains the accepted M1 and approved M2 spec;
 - creating the private GitHub repository;
 - adding the remote;
 - pushing named branches.
@@ -755,7 +755,7 @@ Before production:
 
 **Risk:** connecting current `main` as production would deploy Phase 0/early Phase 1 instead of the accepted reader.
 
-**Mitigation:** Checkpoint A must integrate `crew/m1-content-engine` without history rewriting before production branch activation.
+**Mitigation:** the user-approved local handoff preparation fast-forwards `main` without rewriting history before `crew/m2-cloudflare-beta` is created; Checkpoint A verifies that updated branch before any production activation.
 
 ### A preview URL becomes public before Access
 
