@@ -55,11 +55,14 @@ Stop without broadening scope if:
 - Visibility: public after Darko's second explicit confirmation; the history audit found no recognized secret pattern in 14 commits.
 - Default branch: `main`.
 - Local remote: `origin` → `https://github.com/DarkoKuzmanovic/jelementi.git`.
-- Remote `main`: `edec3445d9b3af45ece8ef72ffd27b3f4b99492b`.
-- Remote `crew/m2-cloudflare-beta`: `f859cc0681892f1f6da9e68722da4e79259a78aa` after the clean-install fix and before this final record update.
+- Remote `main`: `71d419ad3f999a2e69ca286239682308d8791b32` (protected PR #1 merge commit).
+- Retained remote `crew/m2-cloudflare-beta`: PR #1 head `6cf6062c3dfdbd2e90ce3a8f1c29ec1a5f7436bb` before this final evidence update.
 - Ruleset: `19777485`, `Protect main`, active on `refs/heads/main`, no bypass actors, PR required, deletion/non-fast-forward blocked, strict required check-run context `verify`, zero required approvals.
 - Initial remote `main` CI check-run `verify`: registered but failed during frozen install before tests because pnpm 11 rejected unreviewed `esbuild` lifecycle scripts.
 - Clean-install fix: exact `allowBuilds` approvals for `esbuild@0.28.1` and `workerd@1.20260722.1`; a clean clone then passed frozen install and the complete 95/95-test local gate.
+- Protected integration: PR #1 required `verify`, reported SUCCESS on exact head `6cf6062`, and was merged only after Darko's separate approval; merge commit is `71d419a`.
+- Remote merged-main evidence: push CI run `30220719418` reported SUCCESS on exact head `71d419a`.
+- Independent merged-main evidence: a fresh depth-one clone passed `pnpm install --frozen-lockfile` and the complete 95/95-test `verify:deploy` gate.
 - Cloudflare, DNS, Access, Worker, token, and R2 state: unchanged.
 
 ## Resolved blockers
@@ -68,4 +71,4 @@ Stop without broadening scope if:
 2. The designed literal `CI / verify` did not match GitHub's actual Checks API context. The observed check-run name is `verify`; the ruleset and source-of-truth docs were corrected to preserve mandatory CI enforcement.
 3. The first pnpm 11 fix hypothesis (`onlyBuiltDependencies`) failed because pnpm 11 removed that setting. The owning `pnpm-workspace.yaml` boundary now uses exact `allowBuilds` entries; clean install and full gate are green.
 
-Checkpoint A's repository, visibility, branch, and ruleset controls are complete, but integration is not closed: protected `main` remains on the failed `edec3445` check until an explicitly approved pull request lands the clean-install fix and M2.1 delta with a green `verify` result. Checkpoint B must not start before that merge.
+Checkpoint A is complete. Checkpoints B and C remain unapproved; the next authorized action is the documented read-only Cloudflare inventory, not a Cloudflare mutation.
