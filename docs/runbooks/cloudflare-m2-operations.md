@@ -14,13 +14,15 @@ The gate is local-only: format, lint, typecheck, content validation, tests, Clou
 
 Before every remote mutation, write a change record containing: the resource, exact intended change, before-state, operator, approval checkpoint, verification command, and one-step reversal. Do not place credentials or token values in the record.
 
+The public GitHub repository is the approved M2 source after Darko explicitly accepted irreversible source-history disclosure during Checkpoint A. Repository visibility changes are not part of later checkpoints.
+
 ## Checkpoint A — Git integration
 
 Stop until Darko explicitly approves this exact checkpoint. Then and only then:
 
 1. Confirm local `main` includes accepted M1 and the approved M2 design.
-2. Create the private GitHub repository, add its remote, push named branches, and configure the `main` pull-request rule requiring `CI / verify`.
-3. Record the prior Git state and each action's reversal (for example, remove only the newly added remote locally if the bootstrap is abandoned).
+2. Create the GitHub repository with explicitly approved visibility, add its remote, push named branches, and configure the `main` pull-request rule requiring the GitHub Actions check-run context `verify`.
+3. Record the prior Git state and each action's reversal (for example, remove only the newly added remote locally if the bootstrap is abandoned). The literal required context must match GitHub's Checks API, not the UI's combined workflow/job label.
 
 No Cloudflare mutation belongs to Checkpoint A.
 

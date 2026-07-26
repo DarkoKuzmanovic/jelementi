@@ -1,6 +1,6 @@
 # M2 — Cloudflare Web Beta and R2 Media Design
 
-**Status:** Design approved; implementation not started<br>
+**Status:** M2.1 accepted; Checkpoint A controls complete; main integration pending PR; Checkpoints B/C not approved<br>
 **Date:** 2026-07-26<br>
 **Owner:** Darko<br>
 **Source of truth:** `handoff.md`, Phase 2, plus the approved M2 preflight decisions in this document
@@ -10,7 +10,7 @@
 M2 makes the completed Phase 1 reader usable as a protected-preview and public-beta deployment:
 
 ```text
-private GitHub branch
+public GitHub branch
   → complete deploy gate
   → Access-protected Cloudflare Worker preview
   → Darko approval
@@ -30,7 +30,7 @@ manual immutable upload
 
 M2 is complete when:
 
-1. a private GitHub repository drives Cloudflare Workers Builds;
+1. a public GitHub repository drives Cloudflare Workers Builds;
 2. non-production branches receive preview versions visible only to Darko through Cloudflare Access;
 3. a successful `main` build automatically deploys to `jelementi.quz.ma`;
 4. a failed gate leaves the previous production version live;
@@ -47,7 +47,7 @@ M2 is complete when:
 - replace `@sveltejs/adapter-static` with the supported Cloudflare adapter;
 - add a pinned Wrangler 4 deployment toolchain and checked-in Wrangler configuration;
 - preserve prerendered reader behavior on Cloudflare Workers Static Assets;
-- create a private GitHub repository and connect it to Cloudflare Workers Builds;
+- create a public GitHub repository and connect it to Cloudflare Workers Builds;
 - create the `jelementi-web` Worker and `jelementi-media` R2 bucket in Darko's existing Cloudflare account;
 - attach `jelementi.quz.ma` to the Worker and `media.jelementi.quz.ma` to R2;
 - protect every Worker preview URL with Cloudflare Access for Darko only;
@@ -72,7 +72,7 @@ M2 is complete when:
 
 ## 3. Locked decisions
 
-- Deployment approach: private GitHub repository plus Cloudflare Workers Builds.
+- Deployment approach: public GitHub repository plus Cloudflare Workers Builds. The repository was initially created private, but Darko explicitly accepted irreversible source-history disclosure and changed it to public when GitHub Free blocked private-repository rulesets.
 - Production branch: `main`.
 - Every successful `main` build deploys automatically.
 - Every non-production branch may produce a versioned preview URL.
@@ -109,7 +109,7 @@ At M2 Crew handoff, Darko explicitly approved this local-only branch preparation
 1. fast-forward local `main` to the current `crew/m1-content-engine` tip containing accepted M1 and the approved M2 spec, without rewriting history;
 2. create `crew/m2-cloudflare-beta` from that updated local `main`.
 
-This preparation creates no Git remote and performs no push. Checkpoint A later and separately authorizes creating the private GitHub repository, adding its remote, pushing named branches, and applying the `main` ruleset.
+This preparation creates no Git remote and performs no push. Checkpoint A later and separately authorizes creating the GitHub repository, adding its remote, pushing named branches, choosing the final approved visibility, and applying the `main` ruleset.
 
 The GitHub owner is execution-time account data, not repository configuration. It must be confirmed from authenticated tooling before creation and must not be guessed or embedded in this spec.
 
@@ -120,7 +120,7 @@ The Cloudflare account ID and Darko's Access email are also execution-time accou
 ### Source and build ownership
 
 ```text
-private GitHub
+public GitHub
   ├─ non-production branch
   │    → Workers Builds full gate
   │    → wrangler versions upload
@@ -463,8 +463,8 @@ The Workers Builds user token is stored and used by Cloudflare, not GitHub. Do n
 
 ### GitHub
 
-- repository visibility is private;
-- `main` has a ruleset requiring a pull request and the successful `CI / verify` GitHub Actions check, with no routine Darko bypass;
+- repository visibility is public after explicit confirmation and a 14-commit history secret-pattern audit;
+- `main` has a ruleset requiring a pull request and the successful GitHub Actions check-run context `verify` (the CI workflow's `verify` job), with no routine Darko bypass;
 - no Cloudflare token, R2 credential, account ID secret, Access identity, or `.dev.vars` file is committed;
 - GitHub Actions receives no deployment credential;
 - future Studio credentials are not created in M2.
@@ -651,10 +651,10 @@ Acceptance:
 Darko explicitly approves:
 
 - verifying that local `main` contains the accepted M1 and approved M2 spec;
-- creating the private GitHub repository;
+- creating the GitHub repository with the explicitly approved visibility;
 - adding the remote;
 - pushing named branches.
-- creating a `main` ruleset that requires pull requests and the `CI / verify` GitHub Actions check before Workers Builds production activation.
+- creating a `main` ruleset that requires pull requests and the GitHub Actions check-run context `verify` before Workers Builds production activation.
 
 No push or GitHub ruleset mutation occurs before this checkpoint.
 
@@ -681,7 +681,7 @@ Deliver:
 - R2 CORS policy and `media.jelementi.quz.ma` custom domain;
 - versioned upload of the approved `tristan-da-cunha` beta article media;
 - live `media:verify` evidence;
-- private GitHub and Workers Builds connection;
+- public GitHub and Workers Builds connection;
 - initial hidden Worker version with preview URLs disabled;
 - audited Access policy;
 - final preview enablement;
@@ -739,7 +739,7 @@ Before any remote mutation:
 
 Before production:
 
-- [ ] private GitHub repository and branch state are correct;
+- [ ] public GitHub repository and branch/ruleset state are correct;
 - [ ] R2 bucket, custom domain, CORS, object metadata, and asset URLs pass verification;
 - [ ] branch preview is Access-protected and accepted;
 - [ ] the first beta article, Sources, English copy, and assets are approved by Darko;

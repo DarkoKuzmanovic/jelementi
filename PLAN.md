@@ -18,7 +18,7 @@
 - Darko explicitly skipped an additional Crew grill because the approved spec already passed collaborative design, self-review, and a high-risk advisory pressure-test.
 - The existing `content/articles/tristan-da-cunha.md` is the single M2 beta article.
 - R2 assets may be publicly reachable before the article is merged; this beta trade-off is accepted.
-- `main` requires a pull request and the `CI / verify` GitHub Actions check before automatic Cloudflare production deployment.
+- `main` requires a pull request and the successful GitHub Actions check-run context `verify` before automatic Cloudflare production deployment.
 - Preview URLs are enabled only after official Cloudflare Preview URLs Access protection is attached and audited.
 - Incident rollback is Cloudflare version rollback, verification, then a normal Git revert pull request.
 
@@ -60,7 +60,7 @@
 - [ ] **M2.2 — R2 delivery and Access-protected branch preview**
 - [ ] **M2.3 — Automatic production deployment and rollback drill**
 
-Checkpoint A follows an accepted M2.1 and alone authorizes the private GitHub repository, remote, named-branch push, and `main` ruleset. The read-only Cloudflare inventory follows A. Checkpoint B alone authorizes R2, DNS/CORS, Workers Builds/token, hidden Worker, Access attachment, and protected preview enablement. Checkpoint C follows accepted M2.2 and Darko's content/assets re-approval and alone authorizes the production branch setting, `jelementi.quz.ma`, and automatic `main` deployment.
+Checkpoint A follows an accepted M2.1 and alone authorizes the GitHub repository, explicitly confirmed visibility, remote, named-branch push, and `main` ruleset. The read-only Cloudflare inventory follows A. Checkpoint B alone authorizes R2, DNS/CORS, Workers Builds/token, hidden Worker, Access attachment, and protected preview enablement. Checkpoint C follows accepted M2.2 and Darko's content/assets re-approval and alone authorizes the production branch setting, `jelementi.quz.ma`, and automatic `main` deployment.
 
 ## Completed outcome — M2.1
 
@@ -139,7 +139,7 @@ Two worker waves, one pre-review blocker correction, and one deep review consume
 
 ## Future outcome — M2.2
 
-Public immutable R2 delivery plus private GitHub/Workers Builds integration and hidden Worker → audited Access → enabled protected branch preview. It depends on accepted M2.1 and explicit Checkpoints A and B. Production remains inactive. Its future gate is full repository plus remote verification followed by fresh deep scrutinize and a separate fresh deep combined review.
+Public immutable R2 delivery plus public GitHub/Workers Builds integration and hidden Worker → audited Access → enabled protected branch preview. It depends on accepted M2.1 and explicit Checkpoints A and B. Production remains inactive. Its future gate is full repository plus remote verification followed by fresh deep scrutinize and a separate fresh deep combined review.
 
 ## Future outcome — M2.3
 
@@ -162,7 +162,11 @@ Checkpoint-C-controlled automatic `main` production, public custom domain, produ
 - 2026-07-26 — Reviewer found one non-blocking cleanup edge: if a local Worker survives both SIGTERM and SIGKILL and `reap()` throws, temporary config cleanup is skipped. This requires an effectively unreachable Linux process state, targets only `os.tmpdir()`, and did not consume the judgment fix cycle; it is retained explicitly under Deferred.
 - 2026-07-26 — Darko explicitly approved Checkpoint A. Read-only preflight confirmed authenticated GitHub owner `DarkoKuzmanovic`, available private repo name `DarkoKuzmanovic/jelementi`, local `main` at `edec344`, accepted Crew branch at `725c29c`, clean tree, and no remote; before-state and per-resource reversals are recorded in `docs/runbooks/checkpoint-a-2026-07-26.md` before mutation.
 - 2026-07-26 — Checkpoint A partially executed: private `DarkoKuzmanovic/jelementi` created, `origin` added, remote `main` verified at `edec3445`, and `crew/m2-cloudflare-beta` first pushed at `760b6ee7`; default branch is `main` and no unrelated branch was pushed.
-- 2026-07-26 — Checkpoint A stopped incomplete before protection mutation. GitHub returned HTTP 403 for private-repository rulesets (`Upgrade to GitHub Pro or make this repository public`). The mandatory PR + `CI / verify` invariant cannot be enforced on the current account plan; no bypass, public visibility change, or Cloudflare mutation was attempted.
+- 2026-07-26 — Checkpoint A stopped before protection mutation when GitHub returned HTTP 403 for private-repository rulesets. The then-assumed `CI / verify` protection could not be enforced on the private GitHub Free repository; no bypass or Cloudflare mutation was attempted.
+- 2026-07-26 — Darko explicitly chose PUBLIC visibility and confirmed irreversible source-history disclosure after a read-only scan of all 14 commits found no token, private-key, bearer, or secret-assignment pattern; both tracked `.env.example` files contain public localhost values only.
+- 2026-07-26 — `Protect main` ruleset `19777485` is active on `refs/heads/main` with no bypass actor, PR required, deletion/non-fast-forward blocked, strict required check-run context `verify`, and zero required approvals. The locked literal `CI / verify` was corrected as a factual API detail after GitHub's Checks API proved the workflow job reports context `verify`; this preserves the intended mandatory-CI invariant rather than weakening it.
+- 2026-07-26 — Initial remote `main` CI registered the `verify` check but failed clean installation with `ERR_PNPM_IGNORED_BUILDS`. RED reproduced in a clean clone; the first `onlyBuiltDependencies` hypothesis failed because pnpm 11 removed that setting. GREEN uses exact `allowBuilds` entries for `esbuild@0.28.1` and `workerd@1.20260722.1`; a second clean clone passed frozen install and the complete 95/95-test `verify:deploy` gate. Fix commit `f859cc0` is pushed only to the Crew branch.
+- 2026-07-26 — Checkpoint A controls are active, but integration is not closed: protected `main@edec3445` still carries the failed initial `verify` result because the clean-install fix exists only on `crew/m2-cloudflare-beta`. Checkpoint B remains blocked until Darko explicitly authorizes a PR, that PR reports green `verify`, and the protected merge updates `main`.
 
 ## Deferred
 
