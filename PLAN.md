@@ -160,6 +160,7 @@ Checkpoint-C-controlled automatic `main` production, public custom domain, produ
 - 2026-07-26 — Dependency audit remains at the two advisories already present before M2: low `cookie@0.6.0` is a runtime transitive of existing `@sveltejs/kit` (not introduced by Wrangler; Wrangler uses `cookie@1.1.1`), while moderate `uuid@7.0.3` is confined to the Expo mobile toolchain. No high/critical advisory was added; review must weigh the existing low runtime exposure explicitly.
 - 2026-07-26 — Fresh deep M2.1 review returned PASS with 21/21 acceptance items met and an independent 95/95-test canonical gate. The existing low Kit cookie advisory is non-blocking because this prerendered no-auth reader has no cookie-setting sink; no high/critical advisory was introduced.
 - 2026-07-26 — Reviewer found one non-blocking cleanup edge: if a local Worker survives both SIGTERM and SIGKILL and `reap()` throws, temporary config cleanup is skipped. This requires an effectively unreachable Linux process state, targets only `os.tmpdir()`, and did not consume the judgment fix cycle; it is retained explicitly under Deferred.
+- 2026-07-26 — Darko explicitly approved Checkpoint A. Read-only preflight confirmed authenticated GitHub owner `DarkoKuzmanovic`, available private repo name `DarkoKuzmanovic/jelementi`, local `main` at `edec344`, accepted Crew branch at `725c29c`, clean tree, and no remote; before-state and per-resource reversals are recorded in `docs/runbooks/checkpoint-a-2026-07-26.md` before mutation.
 
 ## Deferred
 
