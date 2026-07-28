@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { runMediaCli } from './media-cli';
@@ -19,7 +20,7 @@ function imageHeaders() {
 }
 
 describe('media CLI routing', () => {
-  it('routes upload arguments through injected filesystem, process, and HTTP boundaries', async () => {
+  it('routes package-script upload arguments through injected filesystem, process, and HTTP boundaries', async () => {
     const calls: string[][] = [];
     const fetch: MediaFetch = async (_url, options) =>
       options.method === 'HEAD' && calls.length === 0
@@ -35,6 +36,7 @@ describe('media CLI routing', () => {
       runMediaCli(
         [
           'upload',
+          '--',
           '--file',
           '/tmp/cover.svg',
           '--key',
@@ -89,5 +91,15 @@ describe('media CLI routing', () => {
     ).resolves.toBe(1);
 
     expect(messages.at(-1)).toContain('Usage: media-cli upload');
+  });
+
+  it('keeps live media verification in the canonical deployment gate', async () => {
+    const manifest = JSON.parse(
+      await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as {
+      scripts?: Record<string, string>;
+    };
+
+    expect(manifest.scripts?.['verify:deploy']).toMatch(/&& pnpm media:verify$/);
   });
 });

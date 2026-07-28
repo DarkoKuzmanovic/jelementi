@@ -1,6 +1,6 @@
 # M2 — Cloudflare Web Beta and R2 Media Design
 
-**Status:** M2.1 and Checkpoint A complete; Checkpoints B/C not approved<br>
+**Status:** M2.1, Checkpoints A/B, and M2.2 accepted; Checkpoint C remains closed<br>
 **Date:** 2026-07-26<br>
 **Owner:** Darko<br>
 **Source of truth:** `handoff.md`, Phase 2, plus the approved M2 preflight decisions in this document
@@ -223,6 +223,8 @@ The bootstrap sequence is therefore staged:
 6. an unauthenticated probe must receive an Access challenge or denial before an authenticated preview is accepted.
 
 If the dashboard cannot attach Cloudflare's official Preview URLs Access protection while preview URLs are disabled, execution stops and the decision is escalated; M2 does not guess a wildcard Access application. When the first real preview URL is generated, repeated unauthenticated probes begin immediately. Any anonymous 200 is a security failure: disable preview URLs, preserve evidence, and stop rollout before authenticated review. The bootstrap preview contains no secrets or embargoed content.
+
+**Execution note (2026-07-28):** the live dashboard exposed the `Restricted` control only after Preview URLs were enabled. Execution stopped at the designed escalation boundary. Darko explicitly approved a controlled one-click deviation because the route-less bootstrap preview contained no secrets or embargoed content: Preview was enabled and immediately changed from `Public` to `Restricted`, with immediate disablement as the rollback if Access failed. The resulting reusable policy allows only Darko's email; an anonymous probe returned an Access redirect before authenticated reader acceptance. This deviation is recorded for this bootstrap and does not weaken the default Access-before-preview rule for future Workers.
 
 ## 7. Media key and URL contract
 
@@ -454,6 +456,8 @@ Node: 24
 ```
 
 Cloudflare replaces the production deploy command with the non-production command for branch builds. A gate failure therefore creates no new version and never changes production traffic.
+
+**M2.2 rollout deviation (decided 2026-07-27):** during M2.2 both Workers Builds deploy commands use the route-less `wrangler.m2.jsonc` (`pnpm exec wrangler deploy -c wrangler.m2.jsonc` and `pnpm exec wrangler versions upload -c wrangler.m2.jsonc`). The literal commands above read the routed `wrangler.jsonc`, whose `custom_domain: true` route for `jelementi.quz.ma` would be activated — and its DNS record auto-created — on the first successful `main` build, making production live before the M2.3 checkpoint. The routed production deploy command is restored at M2.3. Full details and the token scope are in `docs/runbooks/checkpoint-b-2026-07-27.md`, step 5.
 
 The GitHub required check is the first gate; the Cloudflare build command is a redundant second gate, not the sole enforcement boundary. Changes to `wrangler.jsonc`, deployment scripts, or Cloudflare build settings follow the same protected PR path. Manual `deploy:web`, dashboard retries, and direct Wrangler deploys are prohibited in the normal path and require a separately approved runbook action.
 

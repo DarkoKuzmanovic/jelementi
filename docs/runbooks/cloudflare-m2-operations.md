@@ -1,6 +1,6 @@
 # Cloudflare M2 Operations Runbook
 
-This runbook is a future operational procedure. M2.1 does not create, upload, deploy, promote, route, or otherwise mutate any remote resource.
+This runbook governs M2 Cloudflare operations. Checkpoint B and the M2.2 protected-preview bootstrap are complete; Checkpoint C remains locked pending explicit approval.
 
 ## Local preflight
 
@@ -10,7 +10,7 @@ Before asking for a checkpoint approval, record the current branch, working-tree
 PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy
 ```
 
-The gate is local-only: format, lint, typecheck, content validation, tests, Cloudflare build, artifact smoke, Wrangler `deploy --dry-run`, and a loopback Worker smoke. It does not run `media:verify` until M2.2.
+The canonical gate is read-only with respect to Cloudflare configuration and deployment: format, lint, typecheck, content validation, tests, Cloudflare build, artifact smoke, Wrangler `deploy --dry-run`, loopback Worker smoke, and live read-only `media:verify`. The live media step joined the gate after M2.2 created and verified the bucket, domain, and referenced objects.
 
 Before every remote mutation, write a change record containing: the resource, exact intended change, before-state, operator, approval checkpoint, verification command, and one-step reversal. Do not place credentials or token values in the record.
 
