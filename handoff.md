@@ -1,6 +1,6 @@
 # Jelementi — razvojni handoff
 
-> **Status:** M2 u toku — M2.2 prihvaćen i dual-model review korekcije verifikovane: canonical 103/103; Checkpoint C ostaje zatvoren
+> **Status:** M2 u toku — M2.2 merged u `main` kroz PR #3, canonical 103/103 i merged-main checks green; Checkpoint C ostaje zatvoren
 > **Naziv projekta:** Jelementi  
 > **Javni domen:** `https://jelementi.quz.ma`  
 > **Beta režim:** unlisted beta — javni URL bez promocije, sa `noindex`  
@@ -1387,8 +1387,8 @@ da pita.
 ## 25. Prvi implementacioni zadatak
 
 > ⚠️ **ISTORIJSKO / ZAVRŠENO.** Ova sekcija je originalni plan prve sesije. Faze 0 i 1 su
-> završene (vidi `ROADMAP.md`), a aktuelni rad prati `PLAN.md` — M2.2 je prihvaćen i
-> PR #3 je u završnom merge close-outu; Checkpoint C i M2.3 ostaju zaključani do eksplicitnog odobrenja. Ne počinjati ponovo od Faze 0.
+> završene (vidi `ROADMAP.md`), a aktuelni rad prati `PLAN.md` — M2.2 je merged kroz PR #3;
+> sledeći rad počinje u novoj Crew sesiji, dok Checkpoint C i M2.3 ostaju zaključani do eksplicitnog odobrenja. Ne počinjati ponovo od Faze 0.
 
 Originalni cilj prve implementacione sesije (izvršeno):
 

@@ -10,13 +10,13 @@
 | Checkpoint A — GitHub repository, remote, branch protection | ✅ Done | Public repo `DarkoKuzmanovic/jelementi`; `main` ruleset active, PR #2 merged |
 | Read-only Cloudflare inventory | ✅ Done | Complete: R2 enabled (0 buckets), DNS names absent, Access audited (`quzma.cloudflareaccess.com`, 0 apps, 0 groups) |
 | Checkpoint B — R2, DNS/CORS, Workers Builds token, Access, preview | ✅ Done | R2/media, route-less Worker, email-scoped Access, and protected preview verified; production route removed |
-| M2.2 — R2 delivery and Access-protected branch preview | ✅ Done | Dual-model review fixes verified; focused 16/16, canonical 103/103, Access-protected preview live, production dark |
+| M2.2 — R2 delivery and Access-protected branch preview | ✅ Done | Merged to `main` via PR #3; dual-model fixes, canonical 103/103, protected preview live, production dark |
 | Checkpoint C — Production domain, auto-deploy, rollback | ⏳ Pending | Requires explicit Darko approval |
 | M2.3 — Automatic production deployment and rollback drill | ⏳ Pending | Depends on Checkpoint C |
 
-**Immediate next action:** Push the fact-checked dual-review fixes to PR #3, require green GitHub CI and Workers Builds, then merge through protected `main`. Checkpoint C remains closed.
+**Immediate next action:** Start a fresh `/crew` session from merged `main` to scope M2.3 and prepare the Checkpoint C decision. Perform no Checkpoint C mutation until Darko explicitly approves it in that session.
 
-**Crew branch:** `crew/m2-cloudflare-beta` — M2.2 is in PR #3 merge close-out; start M2.3 from merged `main` in a fresh Crew branch only after explicit Checkpoint C approval.
+**Crew branch:** `crew/m2-cloudflare-beta` merged through PR #3; do not continue M2.3 on it. A fresh Crew run owns the next branch after its scope checkpoint.
 
 **Deferred items:** 2 (see [Deferred](#deferred) section).
 
@@ -221,6 +221,7 @@ Checkpoint-C-controlled automatic `main` production, public custom domain, produ
 - 2026-07-28 — Final fresh post-governance deep combined review returned `PASS` with no blocker, should-fix, or nit. It independently reconciled the 11 launches as 4 scrutiny plus 7 deep reviews and 9 correction cycles, passed strict Cache-Control pressure tests, range/native-response/diagnostic probes, exact argv and local-only failure checks, focused 15/15 and canonical 102/102 gates, live media verification, config/CORS/security/data-policy/scope audits, and fresh Access/production/CORS/media probes. M2.2 is accepted; Checkpoint C remains closed pending explicit Darko approval.
 - 2026-07-28 — User-requested independent medium-thinking reviews by `xai-auth/grok-4.5` and `anthropic/claude-opus-5` both returned `FIX-FIRST`. Fact-checking confirmed shared maintainer-contract drift, the absent executable guard for the route-less preview config, missing `.dev.vars` ignore coverage, and stale PLAN completion/PR text. Optional first-audio edge compatibility, production-deploy guardrails, generic JSONC parsing, port selection, wider source scans, and other hardening remain outside this accepted M2.2 close-out; the historical zone ID is non-secret operational evidence and was not rewritten from public Git history.
 - 2026-07-28 — Dual-review corrections align `AGENTS.md` with the live read-only media gate and both Wrangler roles, add a test that locks shared config fields plus the routed-production/route-less-preview security delta, ignore `.dev.vars*`, and reconcile M2.2 checklist/current action/governance text. The new config contract test passes 4/4; focused media suites pass 16/16; fresh canonical `verify:deploy` passes 103/103 with live media verification; `.dev.vars` and `.dev.vars.local` are both ignored. Checkpoint C remains closed.
+- 2026-07-28 — PR #3 merged the complete M2.2 branch into protected `main` as `475e734` after both PR checks passed. The merged commit's GitHub `verify` and Cloudflare Workers Builds checks also completed successfully; its tree is identical to the locally verified 103/103 branch tree. Local `main` fast-forwarded cleanly to the merge commit. M2.2 close-out is complete, while Checkpoint C remains closed.
 
 ## Deferred
 
