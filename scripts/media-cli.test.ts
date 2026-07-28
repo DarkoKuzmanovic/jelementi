@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { runMediaCli } from './media-cli';
@@ -19,7 +20,7 @@ function imageHeaders() {
 }
 
 describe('media CLI routing', () => {
-  it('routes upload arguments through injected filesystem, process, and HTTP boundaries', async () => {
+  it('routes package-script upload arguments through injected filesystem, process, and HTTP boundaries', async () => {
     const calls: string[][] = [];
     const fetch: MediaFetch = async (_url, options) =>
       options.method === 'HEAD' && calls.length === 0
@@ -35,6 +36,7 @@ describe('media CLI routing', () => {
       runMediaCli(
         [
           'upload',
+          '--',
           '--file',
           '/tmp/cover.svg',
           '--key',
@@ -89,5 +91,42 @@ describe('media CLI routing', () => {
     ).resolves.toBe(1);
 
     expect(messages.at(-1)).toContain('Usage: media-cli upload');
+  });
+
+  it('keeps live media verification in the canonical deployment gate', async () => {
+    const manifest = JSON.parse(
+      await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as {
+      scripts?: Record<string, string>;
+    };
+
+    expect(manifest.scripts?.['verify:deploy']).toMatch(/&& pnpm media:verify$/);
+  });
+
+  it('locks the route-less preview and dormant production Wrangler boundary', async () => {
+    const parseConfig = (source: string): Record<string, unknown> =>
+      JSON.parse(source.replace(/,\s*([}\]])/g, '$1')) as Record<string, unknown>;
+    const [productionConfig, previewConfig] = await Promise.all([
+      readFile(new URL('../wrangler.jsonc', import.meta.url), 'utf8').then(parseConfig),
+      readFile(new URL('../wrangler.m2.jsonc', import.meta.url), 'utf8').then(parseConfig),
+    ]);
+
+    expect(productionConfig.workers_dev).toBe(false);
+    expect(productionConfig.preview_urls).toBe(false);
+    expect(productionConfig.routes).toEqual([{ pattern: 'jelementi.quz.ma', custom_domain: true }]);
+    expect(previewConfig.workers_dev).toBe(false);
+    expect(previewConfig.preview_urls).toBe(true);
+    expect(previewConfig).not.toHaveProperty('routes');
+
+    for (const key of [
+      'name',
+      'main',
+      'compatibility_date',
+      'compatibility_flags',
+      'assets',
+      'r2_buckets',
+    ]) {
+      expect(previewConfig[key]).toEqual(productionConfig[key]);
+    }
   });
 });

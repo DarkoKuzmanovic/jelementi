@@ -22,6 +22,7 @@ export interface MediaResponse {
   status: number;
   headers: Pick<Headers, 'get'>;
   url?: string;
+  body?: Pick<ReadableStream<Uint8Array>, 'getReader'> | null;
 }
 
 export interface MediaFetchOptions {
@@ -132,7 +133,11 @@ function header(headers: Pick<Headers, 'get'>, name: string): string | undefined
   return headers.get(name) ?? undefined;
 }
 
-function assertImmutableHeaders(url: string, response: MediaResponse, mimeType: string): number {
+function assertImmutableHeaders(
+  url: string,
+  response: MediaResponse,
+  mimeType: string,
+): number | undefined {
   if (response.status < 200 || response.status >= 300) {
     throw mediaError(url, `expected a 2xx status, received ${response.status}`);
   }
@@ -147,16 +152,31 @@ function assertImmutableHeaders(url: string, response: MediaResponse, mimeType: 
     );
   }
   const cacheControl = header(response.headers, 'cache-control')?.toLowerCase() ?? '';
+  const cacheDirectives = cacheControl.split(',').map((directive) => directive.trim());
+  const directiveNames = cacheDirectives.map((directive) => directive.split('=', 1)[0]?.trim());
+  const maxAgeDirectives = cacheDirectives.filter(
+    (_directive, index) => directiveNames[index] === 'max-age',
+  );
+  const hasConflictingDirective = directiveNames.some((name) =>
+    ['private', 'no-store', 'no-cache'].includes(name ?? ''),
+  );
   if (
-    !cacheControl.includes('public') ||
-    !/max-age\s*=\s*31536000/.test(cacheControl) ||
-    !cacheControl.includes('immutable')
+    cacheDirectives.some((directive) => directive.length === 0) ||
+    !cacheDirectives.includes('public') ||
+    !cacheDirectives.includes('immutable') ||
+    maxAgeDirectives.length !== 1 ||
+    !/^max-age\s*=\s*31536000$/.test(maxAgeDirectives[0] ?? '') ||
+    hasConflictingDirective
   ) {
     throw mediaError(url, 'requires public, one-year immutable Cache-Control');
   }
+  // The production media edge zstd-compresses text assets and serves them chunked, which
+  // omits Content-Length. An absent or non-positive Content-Length is therefore "unknown"
+  // rather than a failure: the caller confirms non-emptiness with a byte-range probe
+  // instead of trusting a header the edge does not send.
   const contentLength = Number(header(response.headers, 'content-length'));
   if (!Number.isSafeInteger(contentLength) || contentLength <= 0) {
-    throw mediaError(url, 'requires a non-zero Content-Length');
+    return undefined;
   }
   return contentLength;
 }
@@ -174,6 +194,51 @@ export function validateMediaKey(key: string, contentType: string): MediaKeyDeta
   return { extension, mimeType };
 }
 
+function parseRangeTotal(contentRange: string | undefined): number | undefined {
+  if (contentRange === undefined) return undefined;
+  const match = /^bytes 0-0\/(\d+)$/.exec(contentRange);
+  if (match === null) return undefined;
+  const total = Number(match[1]);
+  if (!Number.isSafeInteger(total) || total <= 0) return undefined;
+  return total;
+}
+
+async function assertSingleByteRangeBody(url: string, response: MediaResponse): Promise<void> {
+  const reader = response.body?.getReader();
+  if (reader === undefined) {
+    throw mediaError(url, 'byte-range response requires a non-empty body');
+  }
+  let failure: Error | undefined;
+  try {
+    let receivedBytes = 0;
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      receivedBytes += chunk.value?.byteLength ?? 0;
+      if (receivedBytes > 1) {
+        failure = mediaError(url, 'byte-range response body must contain exactly one byte');
+        break;
+      }
+    }
+    if (receivedBytes === 0) {
+      failure = mediaError(url, 'byte-range response requires a non-empty body');
+    }
+  } catch (error: unknown) {
+    failure = mediaError(url, `byte-range response body read failed: ${errorMessage(error)}`);
+  } finally {
+    try {
+      await reader.cancel();
+    } catch (error: unknown) {
+      const cancellationInvariant = `byte-range response body cancellation failed: ${errorMessage(error)}`;
+      failure =
+        failure === undefined
+          ? mediaError(url, cancellationInvariant)
+          : new Error(`${failure.message}; additionally, ${cancellationInvariant}`);
+    }
+  }
+  if (failure !== undefined) throw failure;
+}
+
 export async function verifyMediaUrl(url: string, { fetch }: VerifyMediaOptions): Promise<void> {
   const parsedUrl = assertProductionMediaUrl(url);
   const mimeType = expectedMimeType(parsedUrl);
@@ -184,9 +249,15 @@ export async function verifyMediaUrl(url: string, { fetch }: VerifyMediaOptions)
     throw mediaError(url, `HEAD request failed: ${errorMessage(error)}`);
   }
   assertResponseOrigin(url, head);
-  const contentLength = assertImmutableHeaders(url, head, mimeType);
-  if (mimeType !== 'audio/mpeg' && mimeType !== 'audio/mp4') return;
+  const headLength = assertImmutableHeaders(url, head, mimeType);
+  const isAudio = mimeType === 'audio/mpeg' || mimeType === 'audio/mp4';
 
+  // A definitive non-zero Content-Length already proves a non-audio asset is non-empty.
+  if (!isAudio && headLength !== undefined) return;
+
+  // Otherwise — audio always needs range semantics, and non-audio needs a fallback when
+  // the edge omitted Content-Length (zstd/chunked) — confirm non-emptiness and range
+  // support with a single-byte probe instead of downloading the whole object.
   let range: MediaResponse;
   try {
     range = await fetch(url, {
@@ -199,14 +270,19 @@ export async function verifyMediaUrl(url: string, { fetch }: VerifyMediaOptions)
   }
   assertResponseOrigin(url, range);
   if (range.status !== 206) {
-    throw mediaError(url, `audio byte-range request must return 206, received ${range.status}`);
+    throw mediaError(url, `byte-range request must return 206, received ${range.status}`);
   }
-  if (header(range.headers, 'accept-ranges')?.toLowerCase() !== 'bytes') {
+  const rangeTotal = parseRangeTotal(header(range.headers, 'content-range'));
+  if (rangeTotal === undefined) {
+    throw mediaError(url, 'byte-range response requires a Content-Range of bytes 0-0/<total>');
+  }
+  if (headLength !== undefined && headLength !== rangeTotal) {
+    throw mediaError(url, 'byte-range response has an inconsistent Content-Range');
+  }
+  if (isAudio && header(range.headers, 'accept-ranges')?.toLowerCase() !== 'bytes') {
     throw mediaError(url, 'audio byte-range response requires Accept-Ranges: bytes');
   }
-  if (header(range.headers, 'content-range') !== `bytes 0-0/${contentLength}`) {
-    throw mediaError(url, 'audio byte-range response has an inconsistent Content-Range');
-  }
+  await assertSingleByteRangeBody(url, range);
 }
 
 export async function uploadMedia({

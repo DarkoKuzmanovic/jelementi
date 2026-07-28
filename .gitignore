@@ -19,6 +19,7 @@ coverage/
 
 # Cloudflare / Wrangler (Phase 2+)
 .wrangler/
+.dev.vars*
 
 # Expo
 *.jks

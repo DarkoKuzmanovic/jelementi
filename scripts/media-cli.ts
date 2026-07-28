@@ -93,6 +93,7 @@ export async function runMediaCli(
   }: MediaCliOptions,
 ): Promise<number> {
   const command = args[0];
+  const commandArgs = args[1] === '--' ? args.slice(2) : args.slice(1);
   if (command !== 'upload' && command !== 'verify') {
     stderr('Usage: media-cli <upload|verify>');
     return 1;
@@ -100,7 +101,7 @@ export async function runMediaCli(
   try {
     const mediaBaseUrl = loadMediaBaseUrl({ rootDir, ...(env === undefined ? {} : { env }) });
     if (command === 'upload') {
-      const { file, key, contentType } = parseUploadArguments(args.slice(1));
+      const { file, key, contentType } = parseUploadArguments(commandArgs);
       const url = await uploadMedia({
         file,
         key,
@@ -112,7 +113,7 @@ export async function runMediaCli(
       });
       stdout(url);
     } else {
-      if (args.length !== 1) throw new Error('Usage: media-cli verify');
+      if (commandArgs.length !== 0) throw new Error('Usage: media-cli verify');
       const batch = await validateContent({ rootDir, mediaBaseUrl });
       await verifyPublishedMedia({ batch, fetch: fetchImpl });
       stdout('Media verification succeeded.');

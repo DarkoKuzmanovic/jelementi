@@ -17,7 +17,7 @@
     "verify:wrangler": "tsx scripts/verify-deploy.ts",
     "media:upload": "tsx scripts/media-cli.ts upload",
     "media:verify": "tsx scripts/media-cli.ts verify",
-    "verify:deploy": "pnpm format && pnpm lint && pnpm typecheck && pnpm content:validate && pnpm test && pnpm build:web && pnpm verify:web && pnpm verify:wrangler && pnpm verify:worker",
+    "verify:deploy": "pnpm format && pnpm lint && pnpm typecheck && pnpm content:validate && pnpm test && pnpm build:web && pnpm verify:web && pnpm verify:wrangler && pnpm verify:worker && pnpm media:verify",
     "content:validate": "tsx scripts/content-cli.ts validate",
     "content:build": "tsx scripts/content-cli.ts build",
     "content:watch": "tsx scripts/content-cli.ts watch",

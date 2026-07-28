@@ -9,6 +9,7 @@ import {
   verifyPublishedMedia,
   type MediaFetch,
   type MediaProcessRunner,
+  type MediaResponse,
 } from './media';
 
 const mediaBaseUrl = 'https://media.jelementi.quz.ma/';
@@ -18,8 +19,19 @@ function response(
   status: number,
   headers: Record<string, string> = {},
   url?: string,
-): { status: number; headers: Headers; url?: string } {
-  return { status, headers: new Headers(headers), ...(url === undefined ? {} : { url }) };
+  body?: ReadableStream<Uint8Array> | null,
+): {
+  status: number;
+  headers: Headers;
+  url?: string;
+  body?: ReadableStream<Uint8Array> | null;
+} {
+  return {
+    status,
+    headers: new Headers(headers),
+    ...(url === undefined ? {} : { url }),
+    ...(body === undefined ? {} : { body }),
+  };
 }
 
 function imageHeaders(): Record<string, string> {
@@ -205,6 +217,12 @@ describe('media lifecycle guards', () => {
     ).resolves.toBeUndefined();
 
     const audioUrl = `${mediaBaseUrl}articles/tristan-da-cunha/audio-v1.m4a`;
+    const audioBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(Uint8Array.of(0));
+        controller.close();
+      },
+    });
     const audioFetch: MediaFetch = async (_url, init) => {
       if (init?.method === 'HEAD') {
         return response(200, {
@@ -214,12 +232,17 @@ describe('media lifecycle guards', () => {
           'content-type': 'audio/mp4',
         });
       }
-      return response(206, {
-        'accept-ranges': 'bytes',
-        'content-range': 'bytes 0-0/100',
-        'content-length': '1',
-        'content-type': 'audio/mp4',
-      });
+      return response(
+        206,
+        {
+          'accept-ranges': 'bytes',
+          'content-range': 'bytes 0-0/100',
+          'content-length': '1',
+          'content-type': 'audio/mp4',
+        },
+        undefined,
+        audioBody,
+      );
     };
     await expect(verifyMediaUrl(audioUrl, { fetch: audioFetch })).resolves.toBeUndefined();
 
@@ -234,6 +257,244 @@ describe('media lifecycle guards', () => {
         : response(206, { 'accept-ranges': 'bytes', 'content-range': 'bytes 0-1/100' });
     await expect(verifyMediaUrl(audioUrl, { fetch: malformedRange })).rejects.toThrow(
       'Content-Range',
+    );
+  });
+
+  it('rejects Cache-Control lookalikes and conflicting directives', async () => {
+    const invalidPolicies = [
+      'notpublic, max-age=31536000, immutable',
+      'public, x-max-age=31536000, immutable',
+      'public, max-age=31536000, notimmutable',
+      'public, max-age=31536000, immutable, private',
+      'public, max-age=31536000, immutable, no-store',
+      'public, max-age=31536000, immutable, no-cache',
+    ];
+
+    for (const cacheControl of invalidPolicies) {
+      const invalidFetch: MediaFetch = async () =>
+        response(200, { ...imageHeaders(), 'cache-control': cacheControl });
+      await expect(
+        verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: invalidFetch }),
+      ).rejects.toThrow('requires public, one-year immutable Cache-Control');
+    }
+  });
+
+  it('confirms a non-audio asset whose HEAD omits Content-Length via a byte-range probe', async () => {
+    // The production media edge zstd-compresses text assets and serves them chunked, so
+    // the HEAD carries no Content-Length; non-emptiness must come from the range probe.
+    const chunkedBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(Uint8Array.of(0));
+        controller.close();
+      },
+    });
+    const chunkedEdge: MediaFetch = async (_url, init) =>
+      init?.method === 'HEAD'
+        ? response(200, {
+            'cache-control': 'public, max-age=31536000, immutable',
+            'content-encoding': 'zstd',
+            'content-type': 'image/svg+xml',
+          })
+        : response(
+            206,
+            {
+              'content-length': '1',
+              'content-range': 'bytes 0-0/378',
+              'content-type': 'image/svg+xml',
+            },
+            undefined,
+            chunkedBody,
+          );
+    await expect(
+      verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: chunkedEdge }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects an empty range body and cancels an oversized range body', async () => {
+    const head = response(200, {
+      'cache-control': 'public, max-age=31536000, immutable',
+      'content-type': 'image/svg+xml',
+    });
+    const emptyBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close();
+      },
+    });
+    const emptyFetch: MediaFetch = async (_url, init) =>
+      init.method === 'HEAD'
+        ? head
+        : response(
+            206,
+            { 'content-range': 'bytes 0-0/378', 'content-type': 'image/svg+xml' },
+            undefined,
+            emptyBody,
+          );
+
+    await expect(verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: emptyFetch })).rejects.toThrow(
+      'non-empty body',
+    );
+
+    let oversizedCancelled = false;
+    const oversizedBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(Uint8Array.of(0, 1));
+      },
+      cancel() {
+        oversizedCancelled = true;
+      },
+    });
+    const oversizedFetch: MediaFetch = async (_url, init) =>
+      init.method === 'HEAD'
+        ? head
+        : response(
+            206,
+            { 'content-range': 'bytes 0-0/378', 'content-type': 'image/svg+xml' },
+            undefined,
+            oversizedBody,
+          );
+
+    await expect(
+      verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: oversizedFetch }),
+    ).rejects.toThrow('exactly one byte');
+    expect(oversizedCancelled).toBe(true);
+
+    let splitOversizedCancelled = false;
+    const splitOversizedBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(Uint8Array.of(0));
+        controller.enqueue(Uint8Array.of(1));
+      },
+      cancel() {
+        splitOversizedCancelled = true;
+      },
+    });
+    const splitOversizedFetch: MediaFetch = async (_url, init) =>
+      init.method === 'HEAD'
+        ? head
+        : response(
+            206,
+            { 'content-range': 'bytes 0-0/378', 'content-type': 'image/svg+xml' },
+            undefined,
+            splitOversizedBody,
+          );
+
+    await expect(
+      verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: splitOversizedFetch }),
+    ).rejects.toThrow('exactly one byte');
+    expect(splitOversizedCancelled).toBe(true);
+  });
+
+  it('contextualizes range-body read and cancellation failures without losing validation errors', async () => {
+    const url = `${mediaBaseUrl}${key}`;
+    const head = response(200, {
+      'cache-control': 'public, max-age=31536000, immutable',
+      'content-type': 'image/svg+xml',
+    });
+    const readFailureBody = {
+      getReader() {
+        return {
+          async read() {
+            throw new Error('synthetic body failure');
+          },
+          async cancel() {},
+        };
+      },
+    } as unknown as ReadableStream<Uint8Array>;
+    const readFailureFetch: MediaFetch = async (_url, init) =>
+      init.method === 'HEAD'
+        ? head
+        : response(
+            206,
+            { 'content-range': 'bytes 0-0/378', 'content-type': 'image/svg+xml' },
+            undefined,
+            readFailureBody,
+          );
+
+    await expect(verifyMediaUrl(url, { fetch: readFailureFetch })).rejects.toThrow(
+      `Media verification failed for ${url}: byte-range response body read failed: synthetic body failure`,
+    );
+
+    const cancellationFailureBody = {
+      getReader() {
+        return {
+          async read() {
+            return { done: false, value: Uint8Array.of(0, 1) };
+          },
+          async cancel() {
+            throw new Error('synthetic cancellation failure');
+          },
+        };
+      },
+    } as unknown as ReadableStream<Uint8Array>;
+    const cancellationFailureFetch: MediaFetch = async (_url, init) =>
+      init.method === 'HEAD'
+        ? head
+        : response(
+            206,
+            { 'content-range': 'bytes 0-0/378', 'content-type': 'image/svg+xml' },
+            undefined,
+            cancellationFailureBody,
+          );
+
+    await expect(verifyMediaUrl(url, { fetch: cancellationFailureFetch })).rejects.toThrow(
+      `Media verification failed for ${url}: byte-range response body must contain exactly one byte; additionally, byte-range response body cancellation failed: synthetic cancellation failure`,
+    );
+  });
+
+  it('rejects a byte-range probe whose Content-Range is missing, malformed, or zero', async () => {
+    const headWithoutLength = (): MediaResponse =>
+      response(200, {
+        'cache-control': 'public, max-age=31536000, immutable',
+        'content-type': 'image/svg+xml',
+      });
+
+    const missingRange: MediaFetch = async (_url, init) =>
+      init?.method === 'HEAD'
+        ? headWithoutLength()
+        : response(206, { 'content-length': '1', 'content-type': 'image/svg+xml' });
+    await expect(verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: missingRange })).rejects.toThrow(
+      'Content-Range',
+    );
+
+    const malformedRange: MediaFetch = async (_url, init) =>
+      init?.method === 'HEAD'
+        ? headWithoutLength()
+        : response(206, {
+            'content-length': '1',
+            'content-range': 'bytes 0-1/378',
+            'content-type': 'image/svg+xml',
+          });
+    await expect(
+      verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: malformedRange }),
+    ).rejects.toThrow('Content-Range');
+
+    const zeroTotal: MediaFetch = async (_url, init) =>
+      init?.method === 'HEAD'
+        ? headWithoutLength()
+        : response(206, {
+            'content-length': '0',
+            'content-range': 'bytes 0-0/0',
+            'content-type': 'image/svg+xml',
+          });
+    await expect(verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: zeroTotal })).rejects.toThrow(
+      'Content-Range',
+    );
+  });
+
+  it('rejects a byte-range probe that the edge does not honour with 206', async () => {
+    const rangeIgnored: MediaFetch = async (_url, init) =>
+      init?.method === 'HEAD'
+        ? response(200, {
+            'cache-control': 'public, max-age=31536000, immutable',
+            'content-type': 'image/svg+xml',
+          })
+        : response(200, {
+            'cache-control': 'public, max-age=31536000, immutable',
+            'content-length': '378',
+            'content-type': 'image/svg+xml',
+          });
+    await expect(verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: rangeIgnored })).rejects.toThrow(
+      '206',
     );
   });
 

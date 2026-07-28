@@ -1,14 +1,14 @@
 # Jelementi — razvojni handoff
 
-> **Status:** arhitektura i MVP zaključani posle grill-a; spremno za implementaciju  
+> **Status:** M2 u toku — M2.2 prihvaćen i dual-model review korekcije verifikovane: canonical 103/103; Checkpoint C ostaje zatvoren
 > **Naziv projekta:** Jelementi  
 > **Javni domen:** `https://jelementi.quz.ma`  
 > **Beta režim:** unlisted beta — javni URL bez promocije, sa `noindex`  
 > **Primarni jezik proizvoda:** engleski  
 > **Primarni jezik razgovora i internog planiranja:** srpski  
 > **Ciljna platforma:** web + privatni Android build  
-> **Repozitorijum:** novi javni monorepo; ne nastavljati na istoriji Lenkalice  
-> **Poslednje usklađivanje:** 2026-07-26
+> **Repozitorijum:** javni monorepo `DarkoKuzmanovic/jelementi`; ne nastavljati na istoriji Lenkalice
+> **Poslednje usklađivanje:** 2026-07-28
 
 ---
 
@@ -363,10 +363,10 @@ tags:
   - communities
 author: "Jelementi"
 cover:
-  src: "https://media.jelementi.quz.ma/articles/tristan-da-cunha/cover.webp"
+  src: "https://media.jelementi.quz.ma/articles/tristan-da-cunha/cover-v1.webp"
   alt: "The volcanic island of Tristan da Cunha in the South Atlantic"
 audio:
-  src: "https://media.jelementi.quz.ma/articles/tristan-da-cunha/audio.mp3"
+  src: "https://media.jelementi.quz.ma/articles/tristan-da-cunha/audio-v1.mp3"
   durationSeconds: 1842
 references:
   - title: "Tristan da Cunha — Government and history"
@@ -384,8 +384,8 @@ The journey from Cape Town takes several days by ship.
 :::
 ```
 
-`media.jelementi.quz.ma` je predloženi, ne još zaključani R2 custom hostname.
-Stvarna vrednost mora dolaziti iz `PUBLIC_MEDIA_BASE_URL`.
+`media.jelementi.quz.ma` je zaključani i aktivni R2 custom hostname; kanonski media ključevi koriste obavezni `-vN` suffix.
+Produkcijski `PUBLIC_MEDIA_BASE_URL` je `https://media.jelementi.quz.ma/`; lokalni development može koristiti loopback fixture bazu.
 
 ### Frontmatter pravila
 
@@ -859,13 +859,13 @@ dev serveru.
 
 ### R2
 
-Predloženi bucket:
+Aktivni bucket:
 
 ```text
 jelementi-media
 ```
 
-Predložena putanja:
+Kanonska versioned putanja:
 
 ```text
 articles/
@@ -1386,9 +1386,11 @@ da pita.
 
 ## 25. Prvi implementacioni zadatak
 
-Počni sa **Fazom 0 — Bootstrap i prvi arhitektonski dokaz**.
+> ⚠️ **ISTORIJSKO / ZAVRŠENO.** Ova sekcija je originalni plan prve sesije. Faze 0 i 1 su
+> završene (vidi `ROADMAP.md`), a aktuelni rad prati `PLAN.md` — M2.2 je prihvaćen i
+> PR #3 je u završnom merge close-outu; Checkpoint C i M2.3 ostaju zaključani do eksplicitnog odobrenja. Ne počinjati ponovo od Faze 0.
 
-Cilj prve implementacione sesije:
+Originalni cilj prve implementacione sesije (izvršeno):
 
 - inicijalizovati novi Git repo i pnpm monorepo;
 - napraviti SvelteKit web app;
@@ -1419,7 +1421,6 @@ Na kraju agent na srpskom izveštava:
 
 - finalni logo i tagline;
 - tačna paleta i font kombinacija;
-- da li R2 koristi `media.jelementi.quz.ma` ili drugi custom hostname;
 - GitHub App naspram fine-grained tokena za Studio;
 - tačan provider/API za deployment status;
 - Android application ID;

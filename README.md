@@ -36,10 +36,12 @@ pnpm format
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm media:verify       # read-only live R2 media verification
+pnpm verify:deploy      # complete non-deploy gate, including media:verify
 ```
 
 
-## Cloudflare M2.1 local target
+## Cloudflare M2 deployment gate
 
 `build:web` emits the Cloudflare adapter artifact in `.svelte-kit/cloudflare`. `preview:web` starts Wrangler only on loopback with local persistence under `/tmp`; `verify:worker` starts the same local runtime, polls readiness, exercises reader routes and the static 404 path, then terminates it.
 
@@ -47,9 +49,9 @@ pnpm test
 PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy
 ```
 
-`verify:deploy` is the canonical non-deploy gate: format, lint, typecheck, content validation, tests, Cloudflare build, artifact assertions, Wrangler `deploy --dry-run`, and the local Worker smoke. It does not contact a public site and M2.1 deliberately excludes live `media:verify`.
+`verify:deploy` is the canonical non-deploy gate: format, lint, typecheck, content validation, tests, Cloudflare build, artifact assertions, Wrangler `deploy --dry-run`, local Worker smoke, and read-only live `media:verify`. It performs no upload, deployment, or Cloudflare configuration mutation, but it does contact the public `media.jelementi.quz.ma` origin and therefore requires network access.
 
-`deploy:web` is operator-only and runs the gate before a real Wrangler deployment; do not use it without a later checkpoint approval. `media:upload` and `media:verify` are future M2.2 operators for immutable R2 media and are not CI steps. The checked-in Worker binding `R2_MEDIA` is reserved for future server work; M2 application code does not read or write it.
+`deploy:web` is operator-only and runs the gate before a real Wrangler deployment; do not use it without the applicable checkpoint approval. `media:upload` is an operator-only immutable R2 write; `media:verify` is read-only and is part of both `verify:deploy` and CI after M2.2. The checked-in Worker binding `R2_MEDIA` is reserved for future server work; M2 application code does not read or write it.
 
 Operational checkpoint, upload, Access, production-probe, and rollback procedures are in [the Cloudflare M2 operations runbook](docs/runbooks/cloudflare-m2-operations.md).
 
@@ -57,4 +59,4 @@ Reader pages are server-rendered static HTML with JavaScript disabled per page. 
 
 ## CI
 
-GitHub Actions runs Node 24 with pnpm 11.1.3 and a frozen lockfile. It executes the canonical `verify:deploy` local-only gate with the HTTPS media base; CI has read-only repository permissions and no credential, upload, deploy, promotion, DNS, Access, or R2 step.
+GitHub Actions runs Node 24 with pnpm 11.1.3 and a frozen lockfile. It executes `verify:deploy` with the HTTPS media base. Its only public-origin operation is unauthenticated read-only media verification; CI has read-only repository permissions and no credential, upload, deployment, promotion, DNS, Access, or R2 mutation step.
