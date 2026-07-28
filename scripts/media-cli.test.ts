@@ -102,4 +102,31 @@ describe('media CLI routing', () => {
 
     expect(manifest.scripts?.['verify:deploy']).toMatch(/&& pnpm media:verify$/);
   });
+
+  it('locks the route-less preview and dormant production Wrangler boundary', async () => {
+    const parseConfig = (source: string): Record<string, unknown> =>
+      JSON.parse(source.replace(/,\s*([}\]])/g, '$1')) as Record<string, unknown>;
+    const [productionConfig, previewConfig] = await Promise.all([
+      readFile(new URL('../wrangler.jsonc', import.meta.url), 'utf8').then(parseConfig),
+      readFile(new URL('../wrangler.m2.jsonc', import.meta.url), 'utf8').then(parseConfig),
+    ]);
+
+    expect(productionConfig.workers_dev).toBe(false);
+    expect(productionConfig.preview_urls).toBe(false);
+    expect(productionConfig.routes).toEqual([{ pattern: 'jelementi.quz.ma', custom_domain: true }]);
+    expect(previewConfig.workers_dev).toBe(false);
+    expect(previewConfig.preview_urls).toBe(true);
+    expect(previewConfig).not.toHaveProperty('routes');
+
+    for (const key of [
+      'name',
+      'main',
+      'compatibility_date',
+      'compatibility_flags',
+      'assets',
+      'r2_buckets',
+    ]) {
+      expect(previewConfig[key]).toEqual(productionConfig[key]);
+    }
+  });
 });
