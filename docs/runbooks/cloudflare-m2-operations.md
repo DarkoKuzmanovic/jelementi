@@ -1,6 +1,6 @@
 # Cloudflare M2 Operations Runbook
 
-This runbook governs M2 Cloudflare operations. Checkpoint B and the M2.2 protected-preview bootstrap are complete; Checkpoint C remains locked pending explicit approval.
+This runbook governs M2 Cloudflare operations. Checkpoints A/B/C and M2 are complete (2026-08-11). Production is live on `jelementi.quz.ma`; keep this document as the operator procedure for media upload, production probe, and incident rollback.
 
 ## Local preflight
 
@@ -43,7 +43,9 @@ Stop until Darko explicitly approves this exact checkpoint and the inventory is 
 
 ## Checkpoint C — production
 
-Stop until Darko explicitly approves C after accepting the protected preview and re-approving the Tristan article's English copy, Sources, and assets.
+**Status:** COMPLETE 2026-08-11. The steps below remain the historical activation checklist and the reference for any future re-activation or audit.
+
+Originally: stop until Darko explicitly approves C after accepting the protected preview and re-approving the Tristan article's English copy, Sources, and assets.
 
 1. Reconfirm the `main` branch setting, route target, last known-good Worker version ID, and every recorded reversal.
 2. Enable the `jelementi.quz.ma` production custom-domain route through the approved Workers Builds flow.

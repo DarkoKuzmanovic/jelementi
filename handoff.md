@@ -1,6 +1,6 @@
 # Jelementi — razvojni handoff
 
-> **Status:** M2 u toku — M2.1/M2.2 merged u `main` (PR #1–#3); Checkpoint C i M2.3 zaključani do eksplicitnog odobrenja; nema aktivnog `PLAN.md` dok ne krene nova `/crew` sesija
+> **Status:** M2 i Checkpoint C **završeni** (2026-08-11) — produkcija `https://jelementi.quz.ma` (unlisted, `noindex`), R2 media, Access preview-i; sledeći mileston **M3 Studio** (nema dizajna/PLAN-a još)
 > **Naziv projekta:** Jelementi  
 > **Javni domen:** `https://jelementi.quz.ma`  
 > **Beta režim:** unlisted beta — javni URL bez promocije, sa `noindex`  
@@ -8,7 +8,7 @@
 > **Primarni jezik razgovora i internog planiranja:** srpski  
 > **Ciljna platforma:** web + privatni Android build  
 > **Repozitorijum:** javni monorepo `DarkoKuzmanovic/jelementi`; ne nastavljati na istoriji Lenkalice
-> **Poslednje usklađivanje:** 2026-08-10
+> **Poslednje usklađivanje:** 2026-08-11
 
 ---
 
@@ -1386,10 +1386,10 @@ da pita.
 
 ## 25. Prvi implementacioni zadatak
 
-> ⚠️ **ISTORIJSKO / ZAVRŠENO.** Ova sekcija je originalni plan prve sesije. Faze 0 i 1 su
-> završene (vidi `ROADMAP.md`); M2.1/M2.2 su merged kroz PR #1–#3. Trajne odluke su u
-> `DECISIONS.md`. Nema aktivnog `PLAN.md` dok ne krene sveža `/crew` sesija za Checkpoint C / M2.3.
-> Ne počinjati ponovo od Faze 0.
+> ⚠️ **ISTORIJSKO / ZAVRŠENO.** Ova sekcija je originalni plan prve sesije. Faze 0–2 (M0–M2)
+> su završene (vidi `ROADMAP.md` i `DECISIONS.md`). Sledeći rad je **M3 Studio** — prvo
+> odobreni dizajn, pa tek onda implementacija. Nema aktivnog `PLAN.md` dok ne krene sveža
+> `/crew` sesija za M3. Ne počinjati ponovo od Faze 0.
 
 Originalni cilj prve implementacione sesije (izvršeno):
 

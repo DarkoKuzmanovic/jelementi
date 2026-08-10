@@ -61,3 +61,12 @@ Not authorization to implement; pick up when related surface is next touched or 
 - Stage P and Stage A completed: production deploy command uses routed `wrangler.jsonc`; `jelementi.quz.ma` is live; `verify:remote` is the production acceptance probe.
 - Correct-version rollback drill **skipped** (Darko, 2026-08-11): optional for this personal unlisted beta. Incident recovery remains Cloudflare version deploy to a recorded prior version, or a normal Git revert PR through Workers Builds.
 - Production `wrangler.jsonc` must keep `preview_urls: true` with `workers_dev: false`. A production deploy with `preview_urls: false` disables Worker-level version previews (anonymous probes return Cloudflare 404 JSON instead of Access 302). Branch `versions upload` alone did not restore them after Stage A. Access policy on `*-jelementi-web.*.workers.dev` remains the preview gate; do not enable `workers_dev`.
+
+## 2026-08-11 — M2 and Checkpoint C complete
+
+- **Checkpoint C and M2 are complete.** Production `https://jelementi.quz.ma` is live (unlisted beta, global `noindex`), Workers Builds auto-deploys from green `main`, R2 media serves at `media.jelementi.quz.ma`, and Access-protected version/branch previews work (anonymous Access 302; authenticated browser smoke passed by Darko).
+- Production config contract: `workers_dev: false`, `preview_urls: true`, route `jelementi.quz.ma`. Branch uploads remain on route-less `wrangler.m2.jsonc`.
+- Acceptance probes: `verify:deploy` (pre-merge gate, includes live `media:verify`); `verify:remote -- --base-url https://jelementi.quz.ma` (post-deploy production only).
+- **Waivers / deviations:** correct-version rollback drill not run (Darko, 2026-08-11). Incident recovery remains Cloudflare version deploy to a recorded prior version, then a normal Git revert PR. M2 design outcome item 9 (send Jelena the production link) is a product action outside engineering close-out.
+- **Next milestone:** M3 — minimal Access-protected publishing Studio. No M3 design/PLAN yet; do not start implementation without an approved design and explicit scope.
+- Low-priority engineering follow-ups remain in “Known follow-ups” above; they are not M2 blockers.
