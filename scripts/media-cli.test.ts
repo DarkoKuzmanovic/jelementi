@@ -103,7 +103,7 @@ describe('media CLI routing', () => {
     expect(manifest.scripts?.['verify:deploy']).toMatch(/&& pnpm media:verify$/);
   });
 
-  it('locks the route-less preview and dormant production Wrangler boundary', async () => {
+  it('locks production custom domain with Access-protected previews and route-less branch uploads', async () => {
     const parseConfig = (source: string): Record<string, unknown> =>
       JSON.parse(source.replace(/,\s*([}\]])/g, '$1')) as Record<string, unknown>;
     const [productionConfig, previewConfig] = await Promise.all([
@@ -111,8 +111,10 @@ describe('media CLI routing', () => {
       readFile(new URL('../wrangler.m2.jsonc', import.meta.url), 'utf8').then(parseConfig),
     ]);
 
+    // Production stays off workers.dev; preview URLs stay on so branch/version previews
+    // survive main deploys (preview_urls:false on deploy disables Worker-level previews).
     expect(productionConfig.workers_dev).toBe(false);
-    expect(productionConfig.preview_urls).toBe(false);
+    expect(productionConfig.preview_urls).toBe(true);
     expect(productionConfig.routes).toEqual([{ pattern: 'jelementi.quz.ma', custom_domain: true }]);
     expect(previewConfig.workers_dev).toBe(false);
     expect(previewConfig.preview_urls).toBe(true);

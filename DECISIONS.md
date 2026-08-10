@@ -55,3 +55,9 @@ Not authorization to implement; pick up when related surface is next touched or 
 - Darko approved Checkpoint C item 2 only: local M2.3 Stage I implementation. Stages P (push/PR), A (production deploy-command flip + first routed deploy), and the rollback drill remain closed until separately named approvals.
 - Stage S completed the same day: `jelementi-workers-build` is the Jelementi Workers Builds token; broad `quzma build token` is retained for the separate `quz.ma` Worker and was not revoked.
 - `verify:remote` is the post-deploy production probe; it is not part of `verify:deploy` and must not target Access-protected preview URLs.
+
+## 2026-08-10 — Stage P/A production activation; drill skipped; preview URLs
+
+- Stage P and Stage A completed: production deploy command uses routed `wrangler.jsonc`; `jelementi.quz.ma` is live; `verify:remote` is the production acceptance probe.
+- Correct-version rollback drill **skipped** (Darko, 2026-08-11): optional for this personal unlisted beta. Incident recovery remains Cloudflare version deploy to a recorded prior version, or a normal Git revert PR through Workers Builds.
+- Production `wrangler.jsonc` must keep `preview_urls: true` with `workers_dev: false`. A production deploy with `preview_urls: false` disables Worker-level version previews (anonymous probes return Cloudflare 404 JSON instead of Access 302). Branch `versions upload` alone did not restore them after Stage A. Access policy on `*-jelementi-web.*.workers.dev` remains the preview gate; do not enable `workers_dev`.
