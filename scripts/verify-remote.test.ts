@@ -8,7 +8,8 @@ import {
 
 const noindex = '<meta name="robots" content="noindex">';
 const bootstrap = '<script>kit.start()</script>';
-const assetPath = '/_app/immutable/chunks/DAT3xHzh.js';
+const assetPath = '/_app/immutable/assets/0.CaVLUDTh.css';
+const relativeAssetHref = './_app/immutable/assets/0.CaVLUDTh.css';
 
 const routes: RemoteRoutes = {
   articles: [
@@ -51,7 +52,7 @@ function readerFetch(baseHost = 'jelementi.quz.ma'): {
       if (path === '/') {
         return {
           status: 200,
-          body: `${noindex}<h1>Jelementi</h1><script src="${assetPath}"></script>`,
+          body: `${noindex}<h1>Jelementi</h1><link href="${relativeAssetHref}" rel="stylesheet">`,
           finalUrl: url,
           headers: new Headers({ 'content-type': 'text/html' }),
         };

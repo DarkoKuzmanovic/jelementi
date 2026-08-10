@@ -6,7 +6,9 @@ import { verifyPublishedMedia, type MediaFetch } from './media';
 
 const clientEntryPattern = /(?:\/_app\/immutable\/entry\/start|\bkit\.start\(\))/i;
 const noindexPattern = /<meta\s+name=["']robots["']\s+content=["']noindex["']/i;
-const staticAssetPattern = /(?:src|href)=["'](\/_app\/immutable\/[^"']+\.js)["']/i;
+// Prerendered non-hydrated pages ship relative CSS (./_app or ../_app) and no client JS.
+const staticAssetPattern =
+  /(?:src|href)=["']((?:\.\.\/)*(?:\.\/)?_app\/immutable\/[^"']+\.(?:js|css)|\/_app\/immutable\/[^"']+\.(?:js|css))["']/i;
 
 export interface RemoteHttpResponse {
   status: number;
@@ -126,8 +128,15 @@ function assertHydration(response: RemoteHttpResponse, path: string): void {
 
 function extractStaticAssetPath(homeBody: string): string {
   const match = staticAssetPattern.exec(homeBody);
-  assert(match?.[1] !== undefined, 'Home page has no /_app/immutable/*.js static asset reference.');
-  return match[1];
+  assert(
+    match?.[1] !== undefined,
+    'Home page has no /_app/immutable/*.{js,css} static asset reference.',
+  );
+  const raw = match[1];
+  const marker = '_app/immutable/';
+  const at = raw.indexOf(marker);
+  assert(at >= 0, 'Static asset path missing _app/immutable/ segment.');
+  return `/${raw.slice(at)}`;
 }
 
 async function defaultFetch(url: string): Promise<RemoteHttpResponse> {
