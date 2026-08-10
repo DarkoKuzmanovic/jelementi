@@ -49,3 +49,9 @@ Not authorization to implement; pick up when related surface is next touched or 
 
 - Closed M2 execution archive (`PLAN.md`) was graduated: durable decisions live here, strategic state in `ROADMAP.md`, evidence in git history. No active Crew DAG until a new run starts for M2.3 / Checkpoint C.
 - Merged leftover run branches `crew/m1-content-engine` and `crew/m2-cloudflare-beta` were discarded after merge into `main`.
+
+## 2026-08-10 — Checkpoint C / Stage I
+
+- Darko approved Checkpoint C item 2 only: local M2.3 Stage I implementation. Stages P (push/PR), A (production deploy-command flip + first routed deploy), and the rollback drill remain closed until separately named approvals.
+- Stage S completed the same day: `jelementi-workers-build` is the Jelementi Workers Builds token; broad `quzma build token` is retained for the separate `quz.ma` Worker and was not revoked.
+- `verify:remote` is the post-deploy production probe; it is not part of `verify:deploy` and must not target Access-protected preview URLs.

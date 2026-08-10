@@ -1,6 +1,6 @@
 # Checkpoint C Decision Packet
 
-**Status:** NOT APPROVED — production remains dark  
+**Status:** Stage S + local Stage I DONE; production remains dark; Stages P/A/drill NOT APPROVED  
 **Prepared:** 2026-07-29  
 **Scope:** Workers Builds credential repair, Checkpoint C approval, M2.3 implementation, production activation, verification, and correct-version rollback/restoration drill
 
@@ -10,19 +10,19 @@ This packet is a decision record, not authority to mutate Cloudflare, GitHub, DN
 
 | Boundary | Current evidence | Result |
 |---|---|---|
-| Repository | Local `main` matches `origin/main` at `6576bce`; tracked state is otherwise clean and this decision packet is untracked | PASS |
+| Repository | Local `main` matches `origin/main` at `b0e317c`; tracked state clean after crew-migrate | PASS |
 | Production darkness | `jelementi.quz.ma` returns DNS `ENOTFOUND`; `/` and `/not-found` are unreachable | PASS |
-| Protected preview | Anonymous request to the accepted version preview returns HTTP 302 to the Cloudflare Access team origin | PASS |
+| Protected preview | Anonymous request to version preview returns HTTP 302 to the Cloudflare Access team origin | PASS |
 | Content/assets | Darko explicitly re-approved `content/articles/tristan-da-cunha.md`, its Sources and English copy, plus `cover-v1.svg` and `map-v1.svg` for the test/unlisted beta | PASS |
 | Indexing boundary | Global `noindex` remains mandatory; formal asset-rights evidence remains deferred | PASS |
-| Workers Builds branch | Production branch is `main`; latest successful `main` build is tied to commit `6576bce` | PASS |
+| Workers Builds branch | Production branch is `main`; Stage S canary build `#87a95808` on `main` succeeded | PASS |
 | Build command | `pnpm verify:deploy` | PASS |
 | Current production deploy command | `pnpm exec wrangler deploy -c wrangler.m2.jsonc` | SAFE PRE-C STATE |
 | Current non-production deploy command | `pnpm exec wrangler versions upload -c wrangler.m2.jsonc` | PASS |
-| Active route-less deployment | Version `49cc5164-2c02-4bfd-a0fb-db086bb483e1` receives 100% of Worker deployment traffic but has no production route | RECORDED BASELINE |
-| R2 | `jelementi-media` exists; live media verification previously passed | PASS |
-| Workers Builds deployment token | Selected token is `quzma build token`; dashboard shows unrelated permissions and `All zones` scope | **FAIL** |
-| Production probe tooling | The approved design requires `verify:remote`, but no executable root command or implementation exists | **M2.3 WORK REQUIRED** |
+| Active route-less deployment | Version `3f7efae6-c58c-45be-9684-5c4c182292e4` receives 100% of Worker deployment traffic but has no production route (`No targets deployed`) | RECORDED BASELINE |
+| R2 | `jelementi-media` exists; live media verification passed on Stage S canary | PASS |
+| Workers Builds deployment token | Selected token is `jelementi-workers-build` (Stage S scope; `quz.ma` only). Broad `quzma build token` retained for the separate `quz.ma` Worker Builds project — not revoked | PASS |
+| Production probe tooling | `pnpm verify:remote -- --base-url <https-origin>` implemented on branch `crew/m2.3-verify-remote` with unit tests; not yet run against live production (domain still dark) | **IMPLEMENTED — AWAIT PRODUCTION** |
 
 The OAuth credential used by local Wrangler is also write-capable and must remain read-only during preparation. It is not an approved substitute for the Workers Builds deployment token.
 
@@ -33,7 +33,7 @@ Stop without production activation if any of the following remains true:
 1. Workers Builds still uses `quzma build token` or another unexplained broad token.
 2. The replacement token includes KV, unrelated products, or Workers Routes access outside `quz.ma`.
 3. Cloudflare requires broader permissions than the locked minimum and Darko has not made a separate security decision.
-4. `pnpm verify:remote -- --base-url <url>` is absent, untested, or cannot fail closed.
+4. `pnpm verify:remote -- --base-url <url>` is absent, untested, or cannot fail closed. *(implementation present as of Stage I; still must pass against live production before activation close-out.)*
 5. The canonical local gate, GitHub `verify` check, Cloudflare build gate, protected preview, or live media verification is red.
 6. `jelementi.quz.ma` becomes reachable before production activation is approved.
 7. The production deploy command and non-production deploy command cannot be shown independently in the dashboard.
@@ -245,7 +245,7 @@ After activation and the drill:
 
 ## 11. Primary risks
 
-1. **Broad deployment credential:** current token can affect unrelated products/zones. Mitigation: Stage S, fail-closed correction, and revocation before activation.
+1. **Broad deployment credential:** mitigated for Jelementi by Stage S (`jelementi-workers-build`). Broad `quzma build token` remains only for the separate `quz.ma` project and was not revoked. Residual risk: never re-select the broad token on Jelementi.
 2. **Wrong config promoted:** using `wrangler.m2.jsonc` leaves production dark; using `wrangler.jsonc` on a branch exposes production. Mitigation: independently locked commands and config-contract tests.
 3. **Build race during command change:** an in-flight/retried `main` build could activate production early. Mitigation: idle-queue evidence, retry freeze, and immediate command recheck.
 4. **Custom domain activates before approval:** saving/retrying the routed command can create DNS and traffic. Mitigation: Stage A approval and pre-authorized reversal before saving.
@@ -258,10 +258,37 @@ After activation and the drill:
 
 The execution asks are separate and may be approved together only if Darko names each one:
 
-1. **Approve Stage S:** create/select/test the scoped Workers Builds token, inventory the broad token's consumers, and revoke it only if exclusivity is proven; otherwise only deselect it from Jelementi.
-2. **Approve Checkpoint C + local Stage I:** authorize M2.3 implementation locally; no remote mutation.
+1. **Approve Stage S:** **DONE 2026-08-10** — see §13 (`jelementi-workers-build` selected; broad token retained for `quz.ma`).
+2. **Approve Checkpoint C + local Stage I:** **DONE 2026-08-10** — local `verify:remote` implementation authorized and delivered on `crew/m2.3-verify-remote` (no remote mutation).
 3. **Approve Stage P:** push the named branch, open the PR, and allow the resulting route-less preview upload.
 4. **Approve Stage A:** change only the production deploy command, merge the accepted PR, and pre-authorize the exact first-launch emergency reversal.
 5. **Approve the drill:** shift traffic to exact proven `A`, unconditionally restore `B`, and verify final 100% `B`.
 
 A rejection or failure at any stage leaves later stages closed.
+
+## 13. Stage S completion record (2026-08-10)
+
+Stage S executed as a security remediation only. Production remains dark. Checkpoint C local Stage I was approved 2026-08-10; later stages (P/A/drill) remain closed until separately approved.
+
+| Step | Outcome |
+|---|---|
+| S1 | Dedicated user token `jelementi-workers-build` matches locked Stage S permissions (Account Settings Read, Workers Scripts Edit, Workers R2 Storage Edit, Zone Workers Routes Edit on `quz.ma` only, Memberships Read). No extras. |
+| S2 | Token selected on `jelementi-web` Builds. Deploy and version commands unchanged (`wrangler.m2.jsonc`). Build command remains `pnpm verify:deploy`. |
+| S3 | Retried `main` build `#87a95808` green. Deploy logged `No targets deployed for jelementi-web`. Current Version ID `3f7efae6-c58c-45be-9684-5c4c182292e4`. Anonymous preview `https://3f7efae6-jelementi-web.darko-kuzmanovic.workers.dev/` returns HTTP 302 to Access. `jelementi.quz.ma` DNS still absent. |
+| S4 | Inventory: broad `quzma build token` still selected on the separate `quzma` Worker Builds project (`github.com/DarkoKuzmanovic/quz.ma`). Not exclusive to Jelementi. |
+| S5 | **Not revoked.** Broad token retained for `quz.ma`. Jelementi uses only `jelementi-workers-build`. |
+
+No production route, Access policy, R2, or DNS changes were made during Stage S. Token **values** are not recorded here.
+
+## 14. Stage I completion record (2026-08-10)
+
+Checkpoint C item 2 (local Stage I only) approved. No GitHub push, Cloudflare mutation, or production activation.
+
+| Item | Outcome |
+|---|---|
+| Command | `pnpm verify:remote -- --base-url <https-origin>` |
+| Implementation | `scripts/verify-remote.ts` + `scripts/verify-remote.test.ts` |
+| Coverage | HTTPS origin parsing; readiness poll; all published article/category routes from `generated/index.json`; `/`, `/search`, `/search?query=tristan`, `/about`; static asset from home HTML; 404 fallback; global `noindex`; hydration boundaries; fail-closed on network error, unexpected-origin redirect, missing noindex, media contract failure |
+| Media | Reuses `verifyPublishedMedia` against `PUBLIC_MEDIA_BASE_URL` / content batch |
+| Gate | Local `PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy` required green before Stage P |
+| Not done | Stage P push/PR; production deploy-command flip; live `verify:remote` against `https://jelementi.quz.ma` (domain still dark) |

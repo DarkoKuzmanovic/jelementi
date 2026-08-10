@@ -38,6 +38,7 @@ pnpm typecheck
 pnpm test
 pnpm media:verify       # read-only live R2 media verification
 pnpm verify:deploy      # complete non-deploy gate, including media:verify
+pnpm verify:remote -- --base-url https://jelementi.quz.ma  # post-deploy production probe (after production is live)
 ```
 
 
@@ -48,6 +49,8 @@ pnpm verify:deploy      # complete non-deploy gate, including media:verify
 ```bash
 PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy
 ```
+
+`verify:remote` is the post-deploy HTTP probe for a supplied HTTPS origin. It is **not** part of `verify:deploy` and must not be pointed at Access-protected preview URLs (anonymous Access 302 is an intentional fail). Use it only after production is live or against an intentionally public origin.
 
 `verify:deploy` is the canonical non-deploy gate: format, lint, typecheck, content validation, tests, Cloudflare build, artifact assertions, Wrangler `deploy --dry-run`, local Worker smoke, and read-only live `media:verify`. It performs no upload, deployment, or Cloudflare configuration mutation, but it does contact the public `media.jelementi.quz.ma` origin and therefore requires network access.
 

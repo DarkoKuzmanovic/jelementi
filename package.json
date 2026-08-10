@@ -15,6 +15,7 @@
     "verify:web": "tsx scripts/verify-web.ts",
     "verify:worker": "tsx scripts/verify-worker.ts",
     "verify:wrangler": "tsx scripts/verify-deploy.ts",
+    "verify:remote": "tsx scripts/verify-remote.ts",
     "media:upload": "tsx scripts/media-cli.ts upload",
     "media:verify": "tsx scripts/media-cli.ts verify",
     "verify:deploy": "pnpm format && pnpm lint && pnpm typecheck && pnpm content:validate && pnpm test && pnpm build:web && pnpm verify:web && pnpm verify:wrangler && pnpm verify:worker && pnpm media:verify",
