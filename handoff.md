@@ -1,6 +1,6 @@
 # Jelementi — razvojni handoff
 
-> **Status:** M2 u toku — M2.2 merged u `main` kroz PR #3, canonical 103/103 i merged-main checks green; Checkpoint C ostaje zatvoren
+> **Status:** M2 u toku — M2.1/M2.2 merged u `main` (PR #1–#3); Checkpoint C i M2.3 zaključani do eksplicitnog odobrenja; nema aktivnog `PLAN.md` dok ne krene nova `/crew` sesija
 > **Naziv projekta:** Jelementi  
 > **Javni domen:** `https://jelementi.quz.ma`  
 > **Beta režim:** unlisted beta — javni URL bez promocije, sa `noindex`  
@@ -8,7 +8,7 @@
 > **Primarni jezik razgovora i internog planiranja:** srpski  
 > **Ciljna platforma:** web + privatni Android build  
 > **Repozitorijum:** javni monorepo `DarkoKuzmanovic/jelementi`; ne nastavljati na istoriji Lenkalice
-> **Poslednje usklađivanje:** 2026-07-28
+> **Poslednje usklađivanje:** 2026-08-10
 
 ---
 
@@ -1387,8 +1387,9 @@ da pita.
 ## 25. Prvi implementacioni zadatak
 
 > ⚠️ **ISTORIJSKO / ZAVRŠENO.** Ova sekcija je originalni plan prve sesije. Faze 0 i 1 su
-> završene (vidi `ROADMAP.md`), a aktuelni rad prati `PLAN.md` — M2.2 je merged kroz PR #3;
-> sledeći rad počinje u novoj Crew sesiji, dok Checkpoint C i M2.3 ostaju zaključani do eksplicitnog odobrenja. Ne počinjati ponovo od Faze 0.
+> završene (vidi `ROADMAP.md`); M2.1/M2.2 su merged kroz PR #1–#3. Trajne odluke su u
+> `DECISIONS.md`. Nema aktivnog `PLAN.md` dok ne krene sveža `/crew` sesija za Checkpoint C / M2.3.
+> Ne počinjati ponovo od Faze 0.
 
 Originalni cilj prve implementacione sesije (izvršeno):
 

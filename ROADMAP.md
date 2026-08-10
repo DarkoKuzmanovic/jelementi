@@ -9,7 +9,7 @@
 
 ## Current
 
-- **M2** — Deploy the unlisted Cloudflare web beta with R2-backed media.
+- **M2** — Deploy the unlisted Cloudflare web beta with R2-backed media. M2.1 and M2.2 are shipped; M2.3 (production deploy + rollback drill) and Checkpoint C remain, gated on explicit approval.
 
 ## Planned
 
