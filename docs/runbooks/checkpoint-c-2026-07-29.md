@@ -1,6 +1,6 @@
 # Checkpoint C Decision Packet
 
-**Status:** Stage S/I/P/A DONE 2026-08-10 — production live on `jelementi.quz.ma`; rollback drill SKIPPED 2026-08-11 by Darko; preview-URL restore follows production `preview_urls: true`  
+**Status:** COMPLETE 2026-08-11 — Checkpoint C and M2 closed. Production live; Access previews restored and human-smoked; rollback drill skipped by choice.  
 **Prepared:** 2026-07-29  
 **Scope:** Workers Builds credential repair, Checkpoint C approval, M2.3 implementation, production activation, verification, and correct-version rollback/restoration drill
 

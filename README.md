@@ -1,6 +1,6 @@
 # Jelementi
 
-Jelementi is a custom-built digital magazine. Phase 1 is a generated, prerendered English beta reader.
+Jelementi is a custom-built digital magazine. The Phase 1 reader is a generated, prerendered English beta; M2 ships it as an unlisted Cloudflare Worker at [`https://jelementi.quz.ma`](https://jelementi.quz.ma) (`noindex`) with R2 media and Access-protected branch previews.
 
 ## Content boundary
 

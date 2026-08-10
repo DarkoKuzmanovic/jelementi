@@ -1,9 +1,9 @@
 # M2 — Cloudflare Web Beta and R2 Media Design
 
-**Status:** M2.1, Checkpoints A/B, and M2.2 accepted; Checkpoint C remains closed<br>
+**Status:** COMPLETE 2026-08-11 — M2.1–M2.3 and Checkpoints A/B/C accepted; production live; rollback drill waived by product owner<br>
 **Date:** 2026-07-26<br>
 **Owner:** Darko<br>
-**Source of truth:** `handoff.md`, Phase 2, plus the approved M2 preflight decisions in this document
+**Source of truth:** `handoff.md`, Phase 2, plus the approved M2 preflight decisions in this document; close-out recorded in `DECISIONS.md` and `ROADMAP.md`
 
 ## 1. Outcome
 
