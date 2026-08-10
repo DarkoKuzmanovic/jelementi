@@ -1,6 +1,6 @@
 # Checkpoint C Decision Packet
 
-**Status:** Stage S + local Stage I DONE; production remains dark; Stages P/A/drill NOT APPROVED  
+**Status:** Stage S/I/P/A DONE 2026-08-10 — production live on `jelementi.quz.ma`; rollback drill SKIPPED 2026-08-11 by Darko; preview-URL restore follows production `preview_urls: true`  
 **Prepared:** 2026-07-29  
 **Scope:** Workers Builds credential repair, Checkpoint C approval, M2.3 implementation, production activation, verification, and correct-version rollback/restoration drill
 
@@ -148,7 +148,7 @@ Non-production deploy command:
                                                    (must not change)
 ```
 
-The routed `wrangler.jsonc` declares exactly one production custom domain, `jelementi.quz.ma`, with `workers_dev: false` and `preview_urls: false`. The preview config remains route-less with `workers_dev: false` and `preview_urls: true` behind Access.
+The routed `wrangler.jsonc` declares exactly one production custom domain, `jelementi.quz.ma`, with `workers_dev: false` and `preview_urls: true` (Access-protected version previews; must stay true so production deploys do not disable branch previews). The preview config remains route-less with `workers_dev: false` and `preview_urls: true` behind Access.
 
 ### Before-state record
 
@@ -260,9 +260,9 @@ The execution asks are separate and may be approved together only if Darko names
 
 1. **Approve Stage S:** **DONE 2026-08-10** — see §13 (`jelementi-workers-build` selected; broad token retained for `quz.ma`).
 2. **Approve Checkpoint C + local Stage I:** **DONE 2026-08-10** — local `verify:remote` implementation authorized and delivered on `crew/m2.3-verify-remote` (no remote mutation).
-3. **Approve Stage P:** push the named branch, open the PR, and allow the resulting route-less preview upload.
-4. **Approve Stage A:** change only the production deploy command, merge the accepted PR, and pre-authorize the exact first-launch emergency reversal.
-5. **Approve the drill:** shift traffic to exact proven `A`, unconditionally restore `B`, and verify final 100% `B`.
+3. **Approve Stage P:** **DONE 2026-08-10** — PR #7 (`verify:remote`) merged; route-less branch uploads used `wrangler.m2.jsonc`.
+4. **Approve Stage A:** **DONE 2026-08-10** — production deploy command flipped to `wrangler.jsonc`; first routed deploy; production probe green after PR #8 static-asset fix. Current production version recorded in DECISIONS/ops notes as B=`4047534a-…` @100%.
+5. **Approve the drill:** **SKIPPED 2026-08-11** (Darko) — optional for personal unlisted beta; recovery remains version deploy or Git revert PR.
 
 A rejection or failure at any stage leaves later stages closed.
 

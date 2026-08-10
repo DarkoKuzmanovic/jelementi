@@ -9,7 +9,7 @@
 
 ## Current
 
-- **M2** — Deploy the unlisted Cloudflare web beta with R2-backed media. M2.1 and M2.2 are shipped; M2.3 (production deploy + rollback drill) and Checkpoint C remain, gated on explicit approval.
+- **M2** — Deploy the unlisted Cloudflare web beta with R2-backed media. M2.1–M2.3 production activation shipped (`jelementi.quz.ma` live, `noindex`); correct-version rollback drill skipped by choice. Remaining: restore/confirm Access-protected branch previews after production `preview_urls` fix, then M2 close-out.
 
 ## Planned
 
