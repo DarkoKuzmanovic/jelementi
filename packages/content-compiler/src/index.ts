@@ -12,7 +12,7 @@ import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import { parseDocument } from 'yaml';
-import type { ArticleSourceFrontmatter } from './article-source';
+import type { ArticleSourceFrontmatter, ArticleSourceInput } from './article-source';
 
 export interface CompileArticleInput {
   markdown: string;
@@ -70,21 +70,37 @@ interface AstNode {
 
 type Frontmatter = ArticleSourceFrontmatter;
 
+function raiseIssue(
+  sourcePath: string,
+  code: string,
+  message: string,
+  line?: number,
+  column?: number,
+): ContentCompileError {
+  return new ContentCompileError([
+    {
+      code,
+      message,
+      sourcePath,
+      line: line ?? 1,
+      column: column ?? 1,
+    },
+  ]);
+}
+
 function issue(
   input: CompileArticleInput,
   code: string,
   message: string,
   node?: AstNode,
 ): ContentCompileError {
-  return new ContentCompileError([
-    {
-      code,
-      message,
-      sourcePath: input.sourcePath,
-      line: node?.position?.start?.line ?? 1,
-      column: node?.position?.start?.column ?? 1,
-    },
-  ]);
+  return raiseIssue(
+    input.sourcePath,
+    code,
+    message,
+    node?.position?.start?.line,
+    node?.position?.start?.column,
+  );
 }
 
 function asString(value: unknown): string | undefined {
@@ -98,26 +114,29 @@ function asStringArray(value: unknown): string[] | undefined {
     : undefined;
 }
 
-function parseFrontmatter(input: CompileArticleInput): Frontmatter {
-  const match = input.markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
-  if (!match?.[1])
-    throw issue(
-      input,
+function parseFrontmatterYaml(raw: string, sourcePath: string): Record<string, unknown> {
+  const yaml = parseDocument(raw);
+  if (yaml.errors.length > 0) {
+    const error = yaml.errors[0];
+    throw raiseIssue(
+      sourcePath,
       'INVALID_FRONTMATTER',
-      'Expected YAML frontmatter at the start of the file.',
+      error?.message ?? 'Invalid YAML frontmatter.',
+      error?.linePos?.[0]?.line,
+      error?.linePos?.[0]?.col,
     );
-  const yaml = parseDocument(match[1]);
-  if (yaml.errors.length > 0)
-    throw issue(
-      input,
-      'INVALID_FRONTMATTER',
-      yaml.errors[0]?.message ?? 'Invalid YAML frontmatter.',
-    );
+  }
   const value: unknown = yaml.toJSON();
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw issue(input, 'INVALID_FRONTMATTER', 'Frontmatter must be a YAML mapping.');
+    throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', 'Frontmatter must be a YAML mapping.');
   }
-  const record = value as Record<string, unknown>;
+  return value as Record<string, unknown>;
+}
+
+function frontmatterFromRecord(
+  record: Record<string, unknown>,
+  sourcePath: string,
+): Frontmatter {
   const allowed = new Set([
     'title',
     'slug',
@@ -134,7 +153,11 @@ function parseFrontmatter(input: CompileArticleInput): Frontmatter {
   ]);
   for (const key of Object.keys(record)) {
     if (!allowed.has(key))
-      throw issue(input, 'INVALID_FRONTMATTER', `Unsupported frontmatter field "${key}".`);
+      throw raiseIssue(
+        sourcePath,
+        'INVALID_FRONTMATTER',
+        `Unsupported frontmatter field "${key}".`,
+      );
   }
   const cover = record.cover;
   const references = record.references;
@@ -155,8 +178,8 @@ function parseFrontmatter(input: CompileArticleInput): Frontmatter {
     typeof (cover as Record<string, unknown>).alt !== 'string' ||
     !Array.isArray(references)
   ) {
-    throw issue(
-      input,
+    throw raiseIssue(
+      sourcePath,
       'INVALID_FRONTMATTER',
       'Frontmatter is missing a required field or contains an invalid value.',
     );
@@ -164,41 +187,49 @@ function parseFrontmatter(input: CompileArticleInput): Frontmatter {
   const coverRecord = cover as Record<string, unknown>;
   for (const key of Object.keys(coverRecord)) {
     if (key !== 'src' && key !== 'alt')
-      throw issue(input, 'INVALID_FRONTMATTER', `Unknown cover field "${key}".`);
+      throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', `Unknown cover field "${key}".`);
   }
   if (record.publishedAt !== undefined && !asString(record.publishedAt)) {
-    throw issue(
-      input,
+    throw raiseIssue(
+      sourcePath,
       'INVALID_FRONTMATTER',
       'publishedAt must be a non-empty string when present.',
     );
   }
   if (status === 'published' && !asString(record.publishedAt)) {
-    throw issue(input, 'INVALID_FRONTMATTER', 'publishedAt is required for published articles.');
+    throw raiseIssue(
+      sourcePath,
+      'INVALID_FRONTMATTER',
+      'publishedAt is required for published articles.',
+    );
   }
   const parsedReferences = references.map((reference) => {
     if (reference === null || typeof reference !== 'object' || Array.isArray(reference)) {
-      throw issue(input, 'INVALID_FRONTMATTER', 'Each reference must be a mapping.');
+      throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', 'Each reference must be a mapping.');
     }
     const item = reference as Record<string, unknown>;
     if (!asString(item.title) || !asString(item.url)) {
-      throw issue(input, 'INVALID_FRONTMATTER', 'Each reference requires title and url.');
+      throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', 'Each reference requires title and url.');
     }
     const allowedRefKeys = new Set(['title', 'url', 'publisher', 'accessedAt']);
     for (const key of Object.keys(item)) {
       if (!allowedRefKeys.has(key))
-        throw issue(input, 'INVALID_FRONTMATTER', `Unknown reference field "${key}".`);
+        throw raiseIssue(
+          sourcePath,
+          'INVALID_FRONTMATTER',
+          `Unknown reference field "${key}".`,
+        );
     }
     if (item.publisher !== undefined && !asString(item.publisher)) {
-      throw issue(
-        input,
+      throw raiseIssue(
+        sourcePath,
         'INVALID_FRONTMATTER',
         'reference.publisher must be a non-empty string when present.',
       );
     }
     if (item.accessedAt !== undefined && !asString(item.accessedAt)) {
-      throw issue(
-        input,
+      throw raiseIssue(
+        sourcePath,
         'INVALID_FRONTMATTER',
         'reference.accessedAt must be a non-empty string when present.',
       );
@@ -215,11 +246,15 @@ function parseFrontmatter(input: CompileArticleInput): Frontmatter {
     audio !== undefined &&
     (audio === null || typeof audio !== 'object' || Array.isArray(audio))
   ) {
-    throw issue(input, 'INVALID_FRONTMATTER', 'audio must be a mapping.');
+    throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', 'audio must be a mapping.');
   }
   const audioRecord = audio as Record<string, unknown> | undefined;
   if (audioRecord !== undefined && !asString(audioRecord.src)) {
-    throw issue(input, 'INVALID_FRONTMATTER', 'audio.src is required when audio is present.');
+    throw raiseIssue(
+      sourcePath,
+      'INVALID_FRONTMATTER',
+      'audio.src is required when audio is present.',
+    );
   }
   if (
     audioRecord?.durationSeconds !== undefined &&
@@ -227,17 +262,22 @@ function parseFrontmatter(input: CompileArticleInput): Frontmatter {
       !Number.isInteger(audioRecord.durationSeconds) ||
       audioRecord.durationSeconds < 1)
   ) {
-    throw issue(input, 'INVALID_FRONTMATTER', 'audio.durationSeconds must be a positive integer.');
+    throw raiseIssue(
+      sourcePath,
+      'INVALID_FRONTMATTER',
+      'audio.durationSeconds must be a positive integer.',
+    );
   }
   if (audioRecord !== undefined) {
     for (const key of Object.keys(audioRecord)) {
       if (key !== 'src' && key !== 'durationSeconds')
-        throw issue(input, 'INVALID_FRONTMATTER', `Unknown audio field "${key}".`);
+        throw raiseIssue(
+          sourcePath,
+          'INVALID_FRONTMATTER',
+          `Unknown audio field "${key}".`,
+        );
     }
   }
-  const stem = input.sourcePath.split('/').pop()?.replace(/\.md$/, '');
-  if (stem !== record.slug)
-    throw issue(input, 'INVALID_FRONTMATTER', 'Source filename must match frontmatter slug.');
   return {
     title: record.title as string,
     slug: record.slug as string,
@@ -264,6 +304,59 @@ function parseFrontmatter(input: CompileArticleInput): Frontmatter {
       : {}),
     references: parsedReferences,
   };
+}
+
+function parseFrontmatter(input: CompileArticleInput): Frontmatter {
+  const match = input.markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match?.[1])
+    throw issue(
+      input,
+      'INVALID_FRONTMATTER',
+      'Expected YAML frontmatter at the start of the file.',
+    );
+  const record = parseFrontmatterYaml(match[1], input.sourcePath);
+  const frontmatter = frontmatterFromRecord(record, input.sourcePath);
+  const stem = input.sourcePath.split('/').pop()?.replace(/\.md$/, '');
+  if (stem !== frontmatter.slug)
+    throw issue(
+      input,
+      'INVALID_FRONTMATTER',
+      'Source filename must match frontmatter slug.',
+    );
+  return frontmatter;
+}
+
+/**
+ * Decode canonical article source into editable frontmatter plus the exact
+ * body bytes. This is the Studio-facing pure counterpart of
+ * {@link serializeArticleSource}: it reuses the same compiler-owned
+ * frontmatter validation as `compileArticle` so every accepted source decodes
+ * deterministically and no Markdown ownership moves into Studio.
+ *
+ * The body is returned verbatim after the canonical closing delimiter,
+ * including empty bodies and LF-normalized bytes of serialized sources.
+ * Malformed delimiters, duplicate or unknown frontmatter keys, invalid field
+ * shapes, and a slug that does not match the source filename are rejected with
+ * a structured source-located {@link ContentCompileError}.
+ */
+export function parseArticleSource(markdown: string, sourcePath: string): ArticleSourceInput {
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/);
+  if (!match?.[1])
+    throw raiseIssue(
+      sourcePath,
+      'INVALID_FRONTMATTER',
+      'Expected YAML frontmatter at the start of the file.',
+    );
+  const record = parseFrontmatterYaml(match[1], sourcePath);
+  const frontmatter = frontmatterFromRecord(record, sourcePath);
+  const stem = sourcePath.split('/').pop()?.replace(/\.md$/, '');
+  if (stem !== frontmatter.slug)
+    throw raiseIssue(
+      sourcePath,
+      'INVALID_FRONTMATTER',
+      'Source filename must match frontmatter slug.',
+    );
+  return { frontmatter, body: match[2] ?? '' };
 }
 
 function resolveMedia(input: CompileArticleInput, key: string, node?: AstNode): string {

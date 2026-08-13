@@ -23,4 +23,19 @@
       "bucket_name": "jelementi-media",
     },
   ],
+  "secrets": {
+    "required": ["GITHUB_APP_PRIVATE_KEY"]
+  },
+  "vars": {
+    "ACCESS_AUD": "change-me-at-checkpoint-b",
+    "ACCESS_TEAM_DOMAIN": "https://change-me-at-checkpoint-b.cloudflareaccess.com",
+    "ALLOWED_OPERATOR_EMAIL": "change-me-at-checkpoint-b",
+    "GITHUB_APP_CLIENT_ID": "change-me-at-checkpoint-a",
+    "GITHUB_APP_ID": "change-me-at-checkpoint-a",
+    "GITHUB_INSTALLATION_ID": "change-me-at-checkpoint-a",
+    "GITHUB_REPO_NAME": "jelementi",
+    "GITHUB_REPO_OWNER": "DarkoKuzmanovic",
+    "PRODUCTION_ORIGIN": "https://jelementi.quz.ma",
+    "PUBLIC_MEDIA_BASE_URL": "https://media.jelementi.quz.ma/"
+  }
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ContentCompileError,
   compileArticle,
+  parseArticleSource,
   serializeArticleSource,
   type ArticleSourceFrontmatter,
 } from '@jelementi/content-compiler';
@@ -237,3 +238,201 @@ describe('serializeArticleSource', () => {
     expect(issues[0]?.line).toBeTypeOf('number');
   });
 });
+
+describe('parseArticleSource', () => {
+  const sourcePath = 'content/articles/draft-notes.md';
+
+  it('parses the full canonical source back into identical frontmatter and body', () => {
+    const source = serializeArticleSource({ frontmatter: fullFrontmatter, body: fullBody });
+    expect(parseArticleSource(source, 'content/articles/tristan-da-cunha.md')).toEqual({
+      frontmatter: fullFrontmatter,
+      body: fullBody,
+    });
+  });
+
+  it('parses a draft with an empty body', () => {
+    const source = serializeArticleSource({ frontmatter: draftFrontmatter, body: '' });
+    expect(parseArticleSource(source, sourcePath)).toEqual({
+      frontmatter: draftFrontmatter,
+      body: '',
+    });
+  });
+
+  it('round-trips serialize -> parse -> serialize with byte equality', () => {
+    const fullSource = serializeArticleSource({ frontmatter: fullFrontmatter, body: fullBody });
+    const draftSource = serializeArticleSource({ frontmatter: draftFrontmatter, body: '' });
+    const fullRound = serializeArticleSource(
+      parseArticleSource(fullSource, 'content/articles/tristan-da-cunha.md'),
+    );
+    const draftRound = serializeArticleSource(parseArticleSource(draftSource, sourcePath));
+    expect(fullRound).toBe(fullSource);
+    expect(fullRound).toBe(serializeArticleSource(parseArticleSource(fullSource, 'content/articles/tristan-da-cunha.md')));
+    expect(draftRound).toBe(draftSource);
+  });
+
+  it('preserves the body verbatim, including trailing newlines and leading dividers', () => {
+    const trailing = serializeArticleSource({ frontmatter: draftFrontmatter, body: 'Body.\n' });
+    expect(parseArticleSource(trailing, sourcePath).body).toBe('Body.\n');
+
+    // A body starting with a thematic break must not be confused with a delimiter.
+    const leadingDivider = serializeArticleSource({
+      frontmatter: draftFrontmatter,
+      body: '---\nNot frontmatter\n',
+    });
+    expect(parseArticleSource(leadingDivider, sourcePath).body).toBe('---\nNot frontmatter\n');
+
+    // CRLF bodies are LF-normalized by the serializer and parsed back as LF bytes.
+    const crlf = serializeArticleSource({
+      frontmatter: draftFrontmatter,
+      body: 'Line one\r\nLine two\r\n',
+    });
+    expect(parseArticleSource(crlf, sourcePath).body).toBe('Line one\nLine two\n');
+    expect(serializeArticleSource(parseArticleSource(crlf, sourcePath))).toBe(crlf);
+  });
+
+  it('rejects body-only Markdown and missing closing delimiters', () => {
+    for (const [markdown, sourcePathForCase] of [
+      ['Just some text without frontmatter.\n', sourcePath],
+      [serializeArticleSource({ frontmatter: draftFrontmatter, body: '' }).replace(/\n---\n$/, ''), sourcePath],
+    ] as const) {
+      let captured: unknown;
+      try {
+        parseArticleSource(markdown, sourcePathForCase);
+      } catch (error: unknown) {
+        captured = error;
+      }
+      expect(captured).toBeInstanceOf(ContentCompileError);
+      expect((captured as ContentCompileError).issues[0]).toMatchObject({
+        code: 'INVALID_FRONTMATTER',
+        sourcePath: sourcePathForCase,
+      });
+      expect((captured as ContentCompileError).issues[0]?.line).toBeTypeOf('number');
+      expect((captured as ContentCompileError).issues[0]?.column).toBeTypeOf('number');
+    }
+  });
+
+  it('rejects malformed YAML and duplicate frontmatter keys with source locations', () => {
+    const malformed = yamlSource('Body', 'title: [unclosed\n');
+    const duplicated = yamlSource('Body', 'title: Duplicate\n');
+    for (const markdown of [malformed, duplicated]) {
+      let captured: unknown;
+      try {
+        parseArticleSource(markdown, sourcePath);
+      } catch (error: unknown) {
+        captured = error;
+      }
+      expect(captured).toBeInstanceOf(ContentCompileError);
+      expect((captured as ContentCompileError).issues[0]).toMatchObject({
+        code: 'INVALID_FRONTMATTER',
+        sourcePath,
+      });
+      expect((captured as ContentCompileError).issues[0]?.line).toBeTypeOf('number');
+    }
+  });
+
+  it('rejects unknown frontmatter, cover, audio, and reference keys', () => {
+    const cases = [
+      yamlSource('Body', 'bogus: true\n'),
+      serializeArticleSource({ frontmatter: draftFrontmatter, body: 'Body' }).replace(
+        'alt: Draft cover',
+        'alt: Draft cover\n  caption: Extra',
+      ),
+      serializeArticleSource({ frontmatter: fullFrontmatter, body: 'Body' }).replace(
+        'durationSeconds: 1842',
+        'durationSeconds: 1842\n  bitrate: 128',
+      ),
+      serializeArticleSource({ frontmatter: draftFrontmatter, body: 'Body' }).replace(
+        'url: https://example.org/draft',
+        'url: https://example.org/draft\n  language: en',
+      ),
+    ];
+    for (const markdown of cases) {
+      let captured: unknown;
+      try {
+        parseArticleSource(markdown, sourcePath);
+      } catch (error: unknown) {
+        captured = error;
+      }
+      expect(captured).toBeInstanceOf(ContentCompileError);
+      expect((captured as ContentCompileError).issues[0]).toMatchObject({
+        code: 'INVALID_FRONTMATTER',
+        sourcePath,
+      });
+    }
+  });
+
+  it('rejects invalid field shapes instead of silently normalizing them', () => {
+    const draftSource = serializeArticleSource({ frontmatter: draftFrontmatter, body: 'Body' });
+    const fullSource = serializeArticleSource({ frontmatter: fullFrontmatter, body: 'Body' });
+    const cases = [
+      draftSource.replace('title: Draft Notes\n', ''),
+      draftSource.replace('tags:\n  - draft', 'tags: not-an-array'),
+      draftSource.replace('  src: articles/draft-notes/cover-v1.webp\n', ''),
+      draftSource.replace('status: draft', 'status: scheduled'),
+      fullSource.replace('publishedAt: 2026-07-26\n', ''),
+      fullSource.replace('durationSeconds: 1842', 'durationSeconds: 0'),
+      draftSource.replace('url: https://example.org/draft\n', ''),
+    ];
+    for (const markdown of cases) {
+      let captured: unknown;
+      try {
+        parseArticleSource(markdown, sourcePath);
+      } catch (error: unknown) {
+        captured = error;
+      }
+      expect(captured).toBeInstanceOf(ContentCompileError);
+      expect((captured as ContentCompileError).issues[0]).toMatchObject({
+        code: 'INVALID_FRONTMATTER',
+        sourcePath,
+      });
+    }
+  });
+
+  it('rejects a slug that does not match the source filename', () => {
+    let captured: unknown;
+    try {
+      parseArticleSource(
+        serializeArticleSource({ frontmatter: draftFrontmatter, body: 'Body' }),
+        'content/articles/other-name.md',
+      );
+    } catch (error: unknown) {
+      captured = error;
+    }
+    expect(captured).toBeInstanceOf(ContentCompileError);
+    expect((captured as ContentCompileError).issues[0]).toMatchObject({
+      code: 'INVALID_FRONTMATTER',
+      sourcePath: 'content/articles/other-name.md',
+    });
+  });
+
+  it('keeps compileArticle the owner of body validation after parsing', () => {
+    const parsed = parseArticleSource(
+      serializeArticleSource({ frontmatter: draftFrontmatter, body: '# Not allowed' }),
+      sourcePath,
+    );
+    expect(parsed.body).toBe('# Not allowed');
+
+    let captured: unknown;
+    try {
+      compileArticle({
+        markdown: serializeArticleSource(parsed),
+        sourcePath,
+        mediaBaseUrl: 'https://media.example.org/',
+      });
+    } catch (error: unknown) {
+      captured = error;
+    }
+    expect(captured).toBeInstanceOf(ContentCompileError);
+    expect((captured as ContentCompileError).issues[0]).toMatchObject({
+      code: 'UNSUPPORTED_NODE',
+      sourcePath,
+    });
+  });
+});
+
+function yamlSource(body: string, extraLines: string): string {
+  const base = serializeArticleSource({ frontmatter: draftFrontmatter, body });
+  const closeIndex = base.lastIndexOf('\n---\n');
+  if (closeIndex < 0) throw new Error('closing delimiter missing from fixture');
+  return `${base.slice(0, closeIndex)}\n${extraLines}${base.slice(closeIndex)}`;
+}
