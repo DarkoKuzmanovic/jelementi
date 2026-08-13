@@ -31,7 +31,7 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
   "budgets": {
     "dispatch": {
       "limit": 14,
-      "used": 4
+      "used": 6
     },
     "replan": {
       "limit": 2,
@@ -407,12 +407,25 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
       "contractHash": "sha256:a4960a80cbedf9305a7b0152669ca9920dba5677b9d728784490fb5485b2b9b1",
       "id": "M3-T5",
       "state": {
-        "attempts": 0,
+        "attempts": 1,
         "baseRevision": "6eb8c87",
         "ceiling": 2,
         "effort": "normal",
-        "receipt": null,
-        "status": "ready",
+        "receipt": {
+          "artifactPath": null,
+          "basisDagHash": "sha256:d3c41a97549540f0bf7a53bf04d7221664b1c1f9edddb5839199feb04cae4aa3",
+          "capabilityHash": "sha256:c1a6168094ea9b0a3215a04925670987a0650660361216e3e81014a60cbbd05a",
+          "outputState": null,
+          "receiptClass": null,
+          "requestedRoute": {
+            "role": "worker"
+          },
+          "runId": null,
+          "source": null,
+          "success": null,
+          "waveId": "sha256:94b96e236e3735942597ce57836414e31d4105340963ec0baea5e2db303daa32"
+        },
+        "status": "in_flight",
         "supersedes": null
       }
     },
@@ -485,12 +498,25 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
       "contractHash": "sha256:c6bb377ae428aa65bc7cf84fa887bbdf83f4295cb51f2eb17a249e0ba72d5ddd",
       "id": "M3-T6",
       "state": {
-        "attempts": 0,
+        "attempts": 1,
         "baseRevision": "6eb8c87",
         "ceiling": 2,
         "effort": "hard",
-        "receipt": null,
-        "status": "ready",
+        "receipt": {
+          "artifactPath": null,
+          "basisDagHash": "sha256:d3c41a97549540f0bf7a53bf04d7221664b1c1f9edddb5839199feb04cae4aa3",
+          "capabilityHash": "sha256:c1a6168094ea9b0a3215a04925670987a0650660361216e3e81014a60cbbd05a",
+          "outputState": null,
+          "receiptClass": null,
+          "requestedRoute": {
+            "role": "worker"
+          },
+          "runId": null,
+          "source": null,
+          "success": null,
+          "waveId": "sha256:94b96e236e3735942597ce57836414e31d4105340963ec0baea5e2db303daa32"
+        },
+        "status": "in_flight",
         "supersedes": null
       }
     },
