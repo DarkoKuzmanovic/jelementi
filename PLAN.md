@@ -14,7 +14,7 @@
 
 ## M3 — Access-Protected Publishing Studio
 
-**Counters:** worker-dispatches: 4/14 · replans: 0/2 · burned: 0 · review-dispatches: 2/2 default · oracle: 0 · worker-retries: 0 · direct-edits: 0
+**Counters:** worker-dispatches: 8/14 · replans: 0/2 · burned: 2 · review-dispatches: 2/2 default · oracle: 0 · worker-retries: 0 · direct-edits: 0
 
 - [x] **M3.1 — Lock pure authoring, Studio envelope, and production content-evidence contracts** (`6eb8c87`)
 - [ ] **M3.2 — Deliver the Access-protected Studio read, edit, and immediate-preview surface**
