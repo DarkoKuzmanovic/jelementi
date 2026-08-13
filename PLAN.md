@@ -27,7 +27,7 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 
 ```json
 {
-  "baseRevision": "e9c7a72",
+  "baseRevision": "9336946",
   "budgets": {
     "dispatch": {
       "limit": 14,
@@ -286,6 +286,74 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
         "status": "accepted",
         "supersedes": null
       }
+    },
+    {
+      "contract": {
+        "acceptance": [
+          "Add failing focused tests for all three review findings before production edits and record exact RED evidence.",
+          "A Live envelope carries both expected and observed complete index evidence, including excerpt, and decoding rejects any mismatch across slug, title, excerpt, publishedAt, updatedAt, category, categorySlug, tags, author, cover, or readingTimeMinutes.",
+          "decodeStudioPreview validates the complete document through ArticleDocumentSchema and rejects the prior minimal-object false positive.",
+          "An SSR-level test renders the article route/component boundary and proves exactly one meta element named jelementi-content-version whose content equals the computed 64-hex digest.",
+          "Run pnpm exec vitest run apps/web/src/lib/studio/contracts.test.ts apps/web/src/routes/generated-routes.test.ts.",
+          "Run pnpm typecheck.",
+          "Run pnpm lint."
+        ],
+        "dependsOn": [
+          "M3-T2",
+          "M3-T3"
+        ],
+        "invariant": "Studio runtime decoding and rendered article evidence cannot admit a false Live state or malformed preview document, and the prerendered page contract proves exactly one content-version meta element with the computed digest.",
+        "kind": "implementation",
+        "milestone": "M3",
+        "outcome": "M3.1",
+        "ownershipLocks": [
+          "reader.article-content-version",
+          "studio.client-contracts",
+          "studio.live-evidence"
+        ],
+        "readSet": [
+          "apps/web/package.json",
+          "apps/web/src/lib/studio/contracts.test.ts",
+          "apps/web/src/lib/studio/contracts.ts",
+          "apps/web/src/routes/articles/[slug]/+page.server.ts",
+          "apps/web/src/routes/articles/[slug]/+page.svelte",
+          "apps/web/src/routes/generated-routes.test.ts",
+          "packages/article-model/src/index.ts",
+          "packages/article-model/src/schema.ts"
+        ],
+        "replanTriggers": [
+          "Complete Live comparison requires a public article/index schema change.",
+          "SSR rendering cannot be exercised within the existing test infrastructure without adding a dependency or editing outside the writeSet.",
+          "ArticleDocumentSchema cannot be imported at the Studio boundary without client-bundle or dependency leakage.",
+          "Any required write path falls outside the frozen writeSet."
+        ],
+        "reviewProperties": [
+          "No well-shaped but mismatched production index evidence can decode as Live.",
+          "Preview validation uses the owning public ArticleDocument runtime schema rather than a cast or duplicate schema.",
+          "Rendered-meta proof exercises SSR output rather than source-text inspection.",
+          "The correction does not add credentials, raw upstream types, client hydration, public schema fields, or external I/O."
+        ],
+        "risk": "critical",
+        "route": {
+          "role": "worker"
+        },
+        "writeSet": [
+          "apps/web/src/lib/studio/contracts.test.ts",
+          "apps/web/src/lib/studio/contracts.ts",
+          "apps/web/src/routes/generated-routes.test.ts"
+        ]
+      },
+      "contractHash": "sha256:d14b2a24a32e47fd6e1fad8178d55df7e44d08a164fa19c85dbfd73601b67c90",
+      "id": "M3-T4",
+      "state": {
+        "attempts": 0,
+        "baseRevision": "9336946",
+        "ceiling": 1,
+        "effort": "hard",
+        "receipt": null,
+        "status": "ready",
+        "supersedes": null
+      }
     }
   ],
   "version": 3
@@ -323,13 +391,15 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 
 ## Documentation evidence
 
-- **M3.1:** pending. Reconcile `README.md` for user-facing behavior and `AGENTS.md` for architecture/invariants before the outcome gate; “no delta” requires explicit evidence.
+- **M3.1:** README — no user-operable Studio surface, configuration, or command exists yet; no update required. AGENTS — no ownership boundary changed: serializer remains compiler-owned and pure, fingerprint remains article-model-owned/framework-neutral, and reader remains prerendered/non-hydrated; no update required.
 
 ## Gate log
 
 - **2026-08-13 — design gate:** approved spec committed as `3204451` plus invariant-tightening commit `e3924ff`; high-risk critique resolved; fresh reviewer blocker resolved; delta follow-up PASS.
 - **2026-08-13 — Crew front gate:** Darko skipped a duplicate additional grill, confirmed Standard + critical protected, and selected Delivery `local`.
 - **2026-08-13 — planner:** fresh-context planner proposed four sequential outcomes and the M3.1 task surface; parent normalized IDs, schema-v3 fields, hashes, budgets, and exact ownership.
+- **2026-08-13 — M3.1 deterministic gate:** serializer tests 34/34; combined Studio/fingerprint tests 60/60; focused fingerprint tests 26/26; Prettier, ESLint, root/workspace typecheck, Svelte diagnostics (0 errors/0 warnings), and read-only content validation passed. Generated artifacts absent. M3-T3 child acceptance-report JSON was malformed, but the child patch existed and parent independently reran every named check before acceptance.
+- **2026-08-13 — M3.1 critical review:** HOLD. Blockers: Live accepted incomplete/mismatched index evidence; preview decoder cast incomplete objects to ArticleDocument. Should-fix: rendered meta lacked SSR-level proof. Corrective task M3-T4 added; review follow-up is delta-only.
 
 ## Run metrics
 
@@ -346,9 +416,9 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 
 ## Confidence gaps
 
-- Current files show no existing deterministic article-source serializer and no content fingerprint helper.
-- M3-T1 must confirm serializer absence across the compiler before editing; discovery of an equivalent helper triggers replan.
-- M3-T3 must prove one Web Crypto implementation works in Node 20+ and Cloudflare runtime without a client-bundle regression.
+- M3-T1 confirmed no equivalent serializer existed before adding the compiler-owned helper.
+- M3-T2 could not resolve Zod from `apps/web` under the current strict pnpm layout, so it used bounded zero-dependency validators; semantic article validation remains compiler/model-owned.
+- M3-T3 proved Web Crypto and TextEncoder work under Node 20+ and Cloudflare-compatible runtime types without `node:crypto`; later build/bundle verification must continue guarding client leakage.
 
 ## Rejected alternatives
 
