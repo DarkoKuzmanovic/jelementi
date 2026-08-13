@@ -31,7 +31,7 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
   "budgets": {
     "dispatch": {
       "limit": 14,
-      "used": 3
+      "used": 4
     },
     "replan": {
       "limit": 2,
@@ -346,14 +346,27 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
       "contractHash": "sha256:d14b2a24a32e47fd6e1fad8178d55df7e44d08a164fa19c85dbfd73601b67c90",
       "id": "M3-T4",
       "state": {
-        "attempts": 0,
+        "attempts": 1,
         "baseRevision": "9336946",
         "ceiling": 1,
         "effort": "hard",
-        "receipt": null,
-        "status": "ready",
+        "receipt": {
+          "artifactPath": null,
+          "basisDagHash": "sha256:6fb1602384cd4d849a8a21bfbff21c09a197ceffb326d3b3ddec2390dbfdba52",
+          "capabilityHash": "sha256:ce3b879c7678f904bec795a0781d7d3024dc1d18f557ec78098f11332171d0bc",
+          "outputState": null,
+          "receiptClass": null,
+          "requestedRoute": {
+            "role": "worker"
+          },
+          "runId": null,
+          "source": null,
+          "success": null,
+          "waveId": "sha256:faea73fb0b19d7441d91bb90756de754f265bb32454538b6b55553594a209dd7"
+        },
+        "status": "in_flight",
         "supersedes": null
-      }
+    }
     }
   ],
   "version": 3
