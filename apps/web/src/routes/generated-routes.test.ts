@@ -1,8 +1,23 @@
-import { describe, expect, it } from 'vitest';
+import { render } from 'svelte/server';
+import { describe, expect, it, vi } from 'vitest';
 import { articleContentFingerprint } from '@jelementi/article-model';
 import type { ArticleDocument, ArticleIndexEntry } from '@jelementi/article-model';
 import { resolveArticle, resolveCategory } from '../lib/routes';
 import type { GeneratedContent } from '../lib/generated-content';
+
+// The article page imports its body renderer through the `$lib` alias, which the
+// vitest environment cannot resolve. The meta-element contract under test lives
+// in the real page component's svelte:head, so only the body subcomponent is
+// shimmed; the rendered head output is entirely produced by the page itself.
+vi.mock('$lib/article/ArticleRenderer.svelte', () => ({
+  default: (): { body: string; head: string; css: { code: string } } => ({
+    body: '',
+    head: '',
+    css: { code: '' },
+  }),
+}));
+
+import ArticlePage from './articles/[slug]/+page.svelte';
 
 const empty: GeneratedContent = { index: [], articles: {} };
 
@@ -73,5 +88,19 @@ describe('generated reader routes', () => {
 
     const reordered = Object.fromEntries(Object.entries(article).reverse()) as ArticleDocument;
     expect(await articleContentFingerprint(reordered)).toBe(first);
+  });
+
+  it('SSR-renders exactly one jelementi-content-version meta equal to the computed digest', async () => {
+    const article = resolveArticle(content, 'known');
+    const contentVersion = await articleContentFingerprint(article);
+    expect(contentVersion).toMatch(/^[0-9a-f]{64}$/);
+
+    const { head } = render(ArticlePage, { props: { data: { article, contentVersion } } });
+    const metas = head.match(/<meta\b[^>]*\bname="jelementi-content-version"[^>]*>/g) ?? [];
+    expect(metas).toHaveLength(1);
+    const meta = metas[0];
+    if (meta === undefined) throw new Error('content-version meta missing from rendered head.');
+    expect(meta).toContain(`content="${contentVersion}"`);
+    expect(meta).not.toContain('content="' + '0'.repeat(64) + '"');
   });
 });

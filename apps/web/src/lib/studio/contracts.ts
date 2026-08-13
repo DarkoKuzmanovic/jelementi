@@ -1,17 +1,20 @@
-import type { ArticleDocument } from '@jelementi/article-model';
+import { ArticleDocumentSchema, type ArticleDocument } from '@jelementi/article-model';
 
 /**
  * Studio request/result boundary contracts.
  *
  * Every decoder in this module is a zero-dependency, never-throwing runtime
- * validator: untrusted Studio requests and server results decode into a
+ * validator except one deliberate delegation: the `preview_ok` document is
+ * validated through the owning `ArticleDocumentSchema` from
+ * `@jelementi/article-model` so a malformed document can never decode as a
+ * successful preview. Untrusted Studio requests and server results decode into a
  * bounded internal value or an explicit sanitized rejection. Rejections carry
  * only stable reason codes — never input content, credentials, upstream
  * bodies, or stack traces. No decoder descends into unknown keys, so cyclic
  * input is rejected without recursing.
  *
  * Semantic article validation remains owned by `@jelementi/content-compiler`
- * and `@jelementi/article-model` on the server; this module bounds the wire
+ * and `@jelementi/article-model`; this module bounds the wire
  * envelope so no future repository or production side effect can run on
  * malformed input.
  */
@@ -113,6 +116,7 @@ export interface StudioFailedCheck {
 export interface StudioIndexEvidence {
   slug: string;
   title: string;
+  excerpt: string;
   publishedAt: string;
   updatedAt: string;
   category: string;
@@ -174,7 +178,8 @@ export type StudioLifecycle =
       article: StudioArticleRef;
       mainSha: string;
       contentVersion: string;
-      indexEvidence: StudioIndexEvidence;
+      expected: StudioIndexEvidence;
+      observed: StudioIndexEvidence;
     }
   | { kind: 'unpublish_pending'; article: StudioArticleRef; mainSha: string }
   | { kind: 'archived'; article: StudioArticleRef; mainSha: string }
@@ -576,6 +581,7 @@ function indexEvidenceValue(
     [
       'slug',
       'title',
+      'excerpt',
       'publishedAt',
       'updatedAt',
       'category',
@@ -591,6 +597,7 @@ function indexEvidenceValue(
   if (issues.length > 0) return undefined;
   const slug = slugValue(input.slug, `${path}.slug`, issues);
   stringIssue(input.title, `${path}.title`, issues, { max: 500 });
+  stringIssue(input.excerpt, `${path}.excerpt`, issues, { max: 2_000 });
   const publishedAt = isoDateValue(input.publishedAt, `${path}.publishedAt`, issues);
   const updatedAt = isoDateValue(input.updatedAt, `${path}.updatedAt`, issues);
   stringIssue(input.category, `${path}.category`, issues, { max: 200 });
@@ -601,7 +608,7 @@ function indexEvidenceValue(
     `${path}.readingTimeMinutes`,
     issues,
   );
-  if (!Array.isArray(input.tags) || input.tags.length === 0 || input.tags.length > MAX_LIST) {
+  if (!Array.isArray(input.tags) || input.tags.length > MAX_LIST) {
     collectIssues(path, issues, 'tags');
   } else {
     for (const [index, tag] of input.tags.entries()) {
@@ -630,6 +637,7 @@ function indexEvidenceValue(
   return {
     slug,
     title: input.title as string,
+    excerpt: input.excerpt as string,
     publishedAt,
     updatedAt,
     category: input.category as string,
@@ -639,6 +647,25 @@ function indexEvidenceValue(
     cover: { src: cover.src as string, alt: cover.alt as string },
     readingTimeMinutes,
   };
+}
+
+/** Exact comparison across every public index field; tags compare in order. */
+function indexEvidenceEquals(left: StudioIndexEvidence, right: StudioIndexEvidence): boolean {
+  return (
+    left.slug === right.slug &&
+    left.title === right.title &&
+    left.excerpt === right.excerpt &&
+    left.publishedAt === right.publishedAt &&
+    left.updatedAt === right.updatedAt &&
+    left.category === right.category &&
+    left.categorySlug === right.categorySlug &&
+    left.tags.length === right.tags.length &&
+    left.tags.every((tag, index) => tag === right.tags[index]) &&
+    left.author === right.author &&
+    left.cover.src === right.cover.src &&
+    left.cover.alt === right.cover.alt &&
+    left.readingTimeMinutes === right.readingTimeMinutes
+  );
 }
 
 function metadataValue(input: unknown, path: string, issues: string[]): StudioMetadata | undefined {
@@ -805,7 +832,7 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
     check_failed: ['kind', 'article', 'pullRequest', 'failedCheck'],
     merged: ['kind', 'article', 'mainSha'],
     pending_deployment: ['kind', 'article', 'mainSha'],
-    live: ['kind', 'article', 'mainSha', 'contentVersion', 'indexEvidence'],
+    live: ['kind', 'article', 'mainSha', 'contentVersion', 'expected', 'observed'],
     unpublish_pending: ['kind', 'article', 'mainSha'],
     archived: ['kind', 'article', 'mainSha'],
     conflict: ['kind', 'article', 'loaded', 'current'],
@@ -862,26 +889,29 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
       if (contentVersion !== undefined && !SHA64.test(contentVersion)) {
         collectIssues('lifecycle.contentVersion', issues, 'contentVersion');
       }
-      const indexEvidence = indexEvidenceValue(
-        input.indexEvidence,
-        'lifecycle.indexEvidence',
-        issues,
-      );
+      const expected = indexEvidenceValue(input.expected, 'lifecycle.expected', issues);
+      const observed = indexEvidenceValue(input.observed, 'lifecycle.observed', issues);
       if (article.status !== 'published') {
         collectIssues('lifecycle.article', issues, 'status');
       }
-      if (indexEvidence !== undefined && indexEvidence.slug !== article.slug) {
-        collectIssues('lifecycle.indexEvidence', issues, 'slugMismatch');
+      if (expected !== undefined && observed !== undefined) {
+        if (!indexEvidenceEquals(expected, observed)) {
+          collectIssues('lifecycle', issues, 'evidenceMismatch');
+        }
+        if (expected.slug !== article.slug) {
+          collectIssues('lifecycle.expected', issues, 'slugMismatch');
+        }
       }
       if (
         issues.length > 0 ||
         mainSha === undefined ||
         contentVersion === undefined ||
-        indexEvidence === undefined
+        expected === undefined ||
+        observed === undefined
       ) {
         return errResult(issues);
       }
-      return okResult({ kind: 'live', article, mainSha, contentVersion, indexEvidence });
+      return okResult({ kind: 'live', article, mainSha, contentVersion, expected, observed });
     }
     case 'conflict': {
       const loaded = concurrencyEvidenceValue(input.loaded, 'lifecycle.loaded', issues);
@@ -915,8 +945,16 @@ export function decodeStudioPreview(input: unknown): DecodeResult<StudioPreviewR
   if (kind === 'preview_ok') {
     rejectUnknownKeys(input, ['kind', 'document', 'compileIssues'], 'preview', issues);
     if (issues.length > 0) return errResult(issues);
-    if (!isRecord(input.document)) {
-      collectIssues('preview.document', issues, 'object');
+    let document: ArticleDocument;
+    try {
+      const parsed = ArticleDocumentSchema.safeParse(input.document);
+      if (!parsed.success) {
+        collectIssues('preview.document', issues, 'invalidDocument');
+        return errResult(issues);
+      }
+      document = parsed.data;
+    } catch {
+      collectIssues('preview.document', issues, 'invalidDocument');
       return errResult(issues);
     }
     const compileIssues = compileIssuesValue(
@@ -933,7 +971,7 @@ export function decodeStudioPreview(input: unknown): DecodeResult<StudioPreviewR
     }
     return okResult({
       kind: 'preview_ok',
-      document: input.document as ArticleDocument,
+      document,
       compileIssues: [],
     });
   }

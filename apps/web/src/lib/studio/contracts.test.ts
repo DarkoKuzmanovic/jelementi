@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ArticleStatusSchema } from '@jelementi/article-model';
+import { ArticleStatusSchema, type ArticleDocument } from '@jelementi/article-model';
 import {
   compileArticle,
   serializeArticleSource,
@@ -50,6 +50,7 @@ const concurrencyEvidence: StudioConcurrencyEvidence = {
 const indexEvidence = {
   slug: 'tristan-da-cunha',
   title: 'The 250 People at the End of the World',
+  excerpt: "The story of the world's most remote permanent settlement.",
   publishedAt: '2026-07-26',
   updatedAt: '2026-07-26',
   category: 'History',
@@ -166,7 +167,8 @@ const lifecycleFixtures: ReadonlyArray<{ kind: StudioStatusKind; value: Record<s
         article: articleRef(),
         mainSha: SHA_A,
         contentVersion: SHA64,
-        indexEvidence,
+        expected: indexEvidence,
+        observed: indexEvidence,
       },
     },
     {
@@ -401,15 +403,53 @@ describe('decodeStudioLifecycle', () => {
     expect(decodeStudioLifecycle(withoutKind).ok).toBe(false);
   });
 
-  it('live cannot decode without content-version or production-index evidence', () => {
+  it('live cannot decode without content-version or expected/observed production-index evidence', () => {
     const base = lifecycleFixtures.find((f) => f.kind === 'live')?.value;
     if (!base) throw new Error('live fixture missing');
     expect(decodeStudioLifecycle({ ...base, contentVersion: undefined }).ok).toBe(false);
-    expect(decodeStudioLifecycle({ ...base, indexEvidence: undefined }).ok).toBe(false);
+    expect(decodeStudioLifecycle({ ...base, expected: undefined }).ok).toBe(false);
+    expect(decodeStudioLifecycle({ ...base, observed: undefined }).ok).toBe(false);
     expect(decodeStudioLifecycle({ ...base, contentVersion: SHA_A }).ok).toBe(false);
     expect(
-      decodeStudioLifecycle({ ...base, indexEvidence: { ...indexEvidence, slug: 'other' } }).ok,
+      decodeStudioLifecycle({ ...base, observed: { ...indexEvidence, slug: 'other' } }).ok,
     ).toBe(false);
+  });
+
+  it('live accepts complete identical index evidence with no tags', () => {
+    const base = lifecycleFixtures.find((f) => f.kind === 'live')?.value;
+    if (!base) throw new Error('live fixture missing');
+    const taglessEvidence = { ...indexEvidence, tags: [] };
+    expect(
+      decodeStudioLifecycle({ ...base, expected: taglessEvidence, observed: taglessEvidence }).ok,
+    ).toBe(true);
+  });
+
+  it('live rejects any mismatch between expected and observed index evidence', () => {
+    const base = lifecycleFixtures.find((f) => f.kind === 'live')?.value;
+    if (!base) throw new Error('live fixture missing');
+    const mutations: Array<Record<string, unknown>> = [
+      { slug: 'other' },
+      { title: 'Other title' },
+      { excerpt: 'Other excerpt' },
+      { publishedAt: '2026-07-27' },
+      { updatedAt: '2026-07-27' },
+      { category: 'Science' },
+      { categorySlug: 'science' },
+      { tags: ['islands', 'remote places'] },
+      { author: 'Other author' },
+      {
+        cover: {
+          src: 'https://media.jelementi.quz.ma/articles/other/cover-v1.webp',
+          alt: 'Other cover',
+        },
+      },
+      { readingTimeMinutes: 5 },
+    ];
+    for (const mutation of mutations) {
+      expect(
+        decodeStudioLifecycle({ ...base, observed: { ...indexEvidence, ...mutation } }).ok,
+      ).toBe(false);
+    }
   });
 
   it('live rejects a non-published article status', () => {
@@ -499,11 +539,42 @@ describe('decodeStudioLifecycle', () => {
 });
 
 describe('decodeStudioPreview', () => {
-  const document = { schemaVersion: 1, slug: 'tristan-da-cunha', blocks: [] };
+  const document: ArticleDocument = {
+    schemaVersion: 1,
+    slug: 'tristan-da-cunha',
+    title: 'The 250 People at the End of the World',
+    excerpt: 'A remote settlement.',
+    status: 'published',
+    publishedAt: '2026-07-26',
+    updatedAt: '2026-07-26',
+    category: 'History',
+    tags: ['islands'],
+    author: 'Jelementi',
+    cover: {
+      src: 'https://media.jelementi.quz.ma/articles/tristan-da-cunha/cover-v1.webp',
+      alt: 'Island',
+    },
+    readingTimeMinutes: 1,
+    blocks: [{ type: 'paragraph', children: [{ type: 'text', value: 'Body.' }] }],
+    footnotes: [],
+    references: [],
+  };
 
-  it('accepts preview_ok with an empty compileIssues list', () => {
+  it('accepts preview_ok with a complete valid ArticleDocument and empty compileIssues', () => {
     const result = decodeStudioPreview({ kind: 'preview_ok', document, compileIssues: [] });
-    expect(result.ok).toBe(true);
+    if (result.ok && result.value.kind === 'preview_ok') {
+      expect(result.value.document.slug).toBe('tristan-da-cunha');
+    }
+  });
+
+  it('rejects an incomplete document object instead of casting it to ArticleDocument', () => {
+    expect(
+      decodeStudioPreview({
+        kind: 'preview_ok',
+        document: { schemaVersion: 1, slug: 'tristan-da-cunha', blocks: [] },
+        compileIssues: [],
+      }).ok,
+    ).toBe(false);
   });
 
   it('accepts preview_issues with non-empty structured issues', () => {

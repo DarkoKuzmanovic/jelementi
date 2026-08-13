@@ -351,20 +351,21 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
         "ceiling": 1,
         "effort": "hard",
         "receipt": {
-          "artifactPath": null,
+          "artifactPath": "/home/quzma/code/jelementi/.pi/subagents/artifacts/handoffs/8c6dee64.json",
           "basisDagHash": "sha256:6fb1602384cd4d849a8a21bfbff21c09a197ceffb326d3b3ddec2390dbfdba52",
           "capabilityHash": "sha256:ce3b879c7678f904bec795a0781d7d3024dc1d18f557ec78098f11332171d0bc",
-          "outputState": null,
-          "receiptClass": null,
+          "model": "deepseek/deepseek-v4-flash:max",
+          "outputState": "present",
+          "receiptClass": "child_result",
           "requestedRoute": {
             "role": "worker"
           },
-          "runId": null,
-          "source": null,
-          "success": null,
+          "runId": "8c6dee64",
+          "source": "foreground",
+          "success": true,
           "waveId": "sha256:faea73fb0b19d7441d91bb90756de754f265bb32454538b6b55553594a209dd7"
         },
-        "status": "in_flight",
+        "status": "accepted",
         "supersedes": null
     }
     }
@@ -413,19 +414,20 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 - **2026-08-13 — planner:** fresh-context planner proposed four sequential outcomes and the M3.1 task surface; parent normalized IDs, schema-v3 fields, hashes, budgets, and exact ownership.
 - **2026-08-13 — M3.1 deterministic gate:** serializer tests 34/34; combined Studio/fingerprint tests 60/60; focused fingerprint tests 26/26; Prettier, ESLint, root/workspace typecheck, Svelte diagnostics (0 errors/0 warnings), and read-only content validation passed. Generated artifacts absent. M3-T3 child acceptance-report JSON was malformed, but the child patch existed and parent independently reran every named check before acceptance.
 - **2026-08-13 — M3.1 critical review:** HOLD. Blockers: Live accepted incomplete/mismatched index evidence; preview decoder cast incomplete objects to ArticleDocument. Should-fix: rendered meta lacked SSR-level proof. Corrective task M3-T4 added; review follow-up is delta-only.
+- **2026-08-13 — M3.1 corrective gate:** M3-T4 integrated complete expected/observed Live evidence, owning-schema preview validation, and real SSR meta proof. Parent RED reproduced tagless Live rejection, then fixed the local validator; focused regression 1/1, affected tests 41/41, ESLint, root/workspace typecheck, Svelte diagnostics (0 errors/0 warnings), and `git diff --check` passed. Delta-only critical reviewer follow-up PASS (`0339a42b` → `5c74bacf`); no residual risk.
 
 ## Run metrics
 
 - **Started-at:** 2026-08-13T14:14:49+02:00
 - **First-worker-at:** 2026-08-13T14:20:20+02:00
 - **Completed-at:** pending
-- **Dispatches:** 3
+- **Dispatches:** 4
 - **Burned:** 0
-- **Review-dispatches:** 0
+- **Review-dispatches:** 2
 - **Worker-retries:** 0
 - **Replans:** 0
 - **Oracle consults:** 0
-- **Child-runtime-minutes:** planner 4.2; M3-T1 worker 5.8; M3-T2 worker 9.3; M3-T3 worker 16.0; design reviewer 3.4; design sidecar not counted as Crew dispatch
+- **Child-runtime-minutes:** planner 4.2; M3-T1 worker 5.8; M3-T2 worker 9.3; M3-T3 worker 16.0; M3-T4 worker 7.0; M3.1 critical review and delta follow-up 3.9; design reviewer 3.4; design sidecar not counted as Crew dispatch
 
 ## Confidence gaps
 
