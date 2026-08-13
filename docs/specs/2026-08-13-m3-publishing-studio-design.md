@@ -199,7 +199,7 @@ Publish operates only on a saved commit and never silently includes unsaved edit
 3. compile the exact Markdown blob at the current Studio branch head on the server;
 4. require a valid article with `status: published` and the existing published metadata invariants;
 5. mark the draft pull request ready for review;
-6. enable GitHub auto-merge for the expected head SHA using the repository's accepted merge method;
+6. enable GitHub auto-merge for the expected head SHA using the squash merge method;
 7. return a checking/ready status while the required `verify` check runs.
 
 The GitHub App receives no branch-protection bypass. A failing required check yields `check_failed`, leaves the pull request open, and exposes the failed check. The repository currently requires strict up-to-date `verify` checks. If unrelated content reaches `main` first, Studio may update the draft branch only when the target article blob on `main` is unchanged, the draft head still matches, and GitHub reports a clean update. A changed target article or merge conflict yields `conflict` and requires operator resolution.
@@ -208,16 +208,16 @@ The GitHub App receives no branch-protection bypass. A failing required check yi
 
 After merge, Studio reports `pending_deployment`. Cloudflare build information may be shown as diagnostic evidence, but it is not required or trusted for the final state because Workers Builds does not provide the content proof M3 needs.
 
-M3 locks one production fingerprint contract. During content generation, each published article receives a deterministic SHA-256 fingerprint of the canonical serialized, validated `ArticleDocument`. The prerendered public article HTML exposes that value in a dedicated `jelementi-content-version` meta element. This public, non-secret fingerprint does not change `ArticleDocument` or index schema version. Studio computes the same fingerprint from the exact draft document before Publish.
+M3 locks one production fingerprint contract. During content generation, each published article is serialized as UTF-8 JSON with recursively lexicographically sorted object keys, array order preserved, and no insignificant whitespace. Its lowercase 64-character SHA-256 hex digest is the content fingerprint. The prerendered public article HTML exposes it exactly as `<meta name="jelementi-content-version" content="<digest>">`. This public, non-secret fingerprint does not change `ArticleDocument` or index schema version. Studio computes the same fingerprint from the exact draft document before Publish.
 
-Status refresh is asynchronous and reconstructable: it re-reads GitHub, then performs bounded, cache-busted production probes. No in-memory timer or background operation is required for correctness. The operator may revisit or refresh Studio after a later deployment.
+Status refresh is asynchronous and reconstructable: it lists pull requests for the deterministic article branch, including closed and merged results, then selects the unique newest pull request whose recorded head SHA or resulting article blob matches the current operation. Ambiguous matching history yields `conflict`; missing or unavailable evidence yields `unknown`. It then performs bounded, cache-busted production probes. No in-memory timer or background operation is required for correctness. The operator may revisit or refresh Studio after a later deployment.
 
 `Live` requires all of:
 
-- the expected Studio head is present in the pull request's merge history on `main`;
+- the pull request reports that the expected Studio head was squash-merged and identifies the resulting `main` commit;
 - the public article URL succeeds;
 - the returned article HTML carries the expected `jelementi-content-version` fingerprint;
-- the production published index contains the expected slug and matching stable public metadata.
+- the production published index entry for the slug matches the draft document's title, excerpt, `publishedAt`, `updatedAt`, category, tags, author, cover, and reading time.
 
 Timeout, unavailable evidence, or fingerprint mismatch yields `unknown` or `failed`, never `live`.
 
@@ -298,6 +298,7 @@ GitHub checks, merge, Cloudflare build, and production probe are separate phases
 - Unpublish requires typing the exact slug.
 - Discard requires confirmation and shows the pull request and branch that will be closed/deleted.
 - No destructive action is triggered by a GET request.
+- Every state-changing request requires POST, a same-origin `Origin` header matching the configured production origin, and SvelteKit's CSRF protection. Missing, cross-origin, or malformed origins are rejected before authentication side effects or GitHub writes.
 
 ## 9. Authentication and authorization
 
@@ -322,7 +323,7 @@ Cloudflare's current Access guidance requires validating the application token r
 
 ## 10. GitHub App boundary
 
-The GitHub App is installed only on `DarkoKuzmanovic/jelementi`. At design time, the live repository has auto-merge disabled, allows merge/squash/rebase, and protects `main` with pull requests plus a strict up-to-date required `verify` check and no bypass actors. Checkpoint A must explicitly approve enabling repository auto-merge and must abort if that ruleset has drifted. The implementation runbook derives final App permissions from the exact endpoints used and records them before creation. Expected categories are:
+The GitHub App is installed only on `DarkoKuzmanovic/jelementi`. At design time, the live repository has auto-merge disabled, allows merge/squash/rebase, and protects `main` with pull requests plus a strict up-to-date required `verify` check and no bypass actors. M3 uses squash merge so one article PR becomes one resulting `main` commit while GitHub retains the PR's head and merge identities. Checkpoint A must explicitly approve enabling repository auto-merge and must abort if that ruleset has drifted. The implementation runbook derives final App permissions from the exact endpoints used and records them before creation. Expected categories are:
 
 - repository contents: write, for refs and article commits;
 - pull requests: write, for draft PR lifecycle and readiness;
@@ -410,6 +411,7 @@ Implementation follows RED → GREEN at each owned boundary.
 - exact configured email accepted;
 - missing configuration fails closed;
 - reads and writes use the same guard.
+- state-changing requests with missing, malformed, or cross-origin `Origin` headers are rejected before GitHub access;
 
 ### Serialization and preview tests
 
@@ -492,11 +494,12 @@ M3 is implemented in bounded slices:
 6. implement Publish, required-check/auto-merge status, deployment tracking, and Live verification;
 7. implement typed-slug Unpublish and confirmed Discard draft;
 8. add full lifecycle, bundle-boundary, reader-regression, and deployment tests;
-9. write the operator runbook and stop at Checkpoint A;
-10. provision and verify the GitHub App and secrets after explicit approval;
-11. provision and verify the Studio Access application after explicit approval;
-12. run the protected production canary after separate explicit approval;
-13. obtain fresh-context review and record accepted outcomes in `DECISIONS.md` and `ROADMAP.md`.
+9. write the operator runbook and complete fresh-context code review;
+10. stop at Checkpoint A to provision the GitHub App, enable repository auto-merge, and set secrets;
+11. stop at Checkpoint B to create and verify the Studio Access application before any Studio code reaches production;
+12. stop at Checkpoint C to push the implementation branch, merge through protected `main`, deploy, and verify authenticated Studio read-only loading; if Access is absent or failing, no deployment is allowed;
+13. stop at Checkpoint D to run the state-changing protected production canary;
+14. record accepted outcomes in `DECISIONS.md` and `ROADMAP.md`.
 
 The Crew implementation plan may split these slices further, but it must not merge remote checkpoints into ordinary code tasks.
 
@@ -520,9 +523,9 @@ After approval:
 1. create or register the App;
 2. install it only on `DarkoKuzmanovic/jelementi`;
 3. enable repository auto-merge without changing the `main` ruleset;
-3. set server-side secrets and non-secret identifiers;
-4. verify read access and a non-destructive permission probe;
-5. prove credentials are absent from Git, browser bundles, logs, and responses.
+4. set server-side secrets and non-secret identifiers;
+5. verify read access and a non-destructive permission probe;
+6. prove credentials are absent from Git, browser bundles, logs, and responses.
 
 ### Checkpoint B — Cloudflare Access Studio policy
 
@@ -542,7 +545,23 @@ After approval:
 4. verify Darko succeeds;
 5. verify the application itself rejects missing, malformed, wrong-audience, and wrong-email assertions.
 
-### Checkpoint C — Protected production canary
+### Checkpoint C — Protected Studio deployment
+
+Before mutation, present the implementation branch and commit, the exact push/PR/merge/deploy actions, Access evidence, smoke probes, and rollback steps.
+
+After approval:
+
+1. re-verify anonymous denial, wrong-identity denial, and Darko's Access success before deployment;
+2. push the named implementation branch and open its pull request;
+3. merge only through the protected `main` ruleset after `verify` succeeds;
+4. allow Workers Builds to deploy production;
+5. verify the public reader regression probes;
+6. verify Darko can load Studio and perform read-only draft discovery;
+7. stop before any Studio write operation.
+
+If the Access application is absent, does not cover every Studio route/endpoint, or fails any identity probe, no Studio code is merged or deployed.
+
+### Checkpoint D — State-changing production canary
 
 Before mutation, present the canary slug/content, expected branch/PR, cleanup, and rollback steps.
 
