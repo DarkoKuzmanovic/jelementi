@@ -14,7 +14,7 @@
 
 ## M3 — Access-Protected Publishing Studio
 
-**Counters:** worker-dispatches: 1/14 · replans: 0/2 · burned: 0 · review-dispatches: 0/2 default · oracle: 0 · worker-retries: 0 · direct-edits: 0
+**Counters:** worker-dispatches: 3/14 · replans: 0/2 · burned: 0 · review-dispatches: 0/2 default · oracle: 0 · worker-retries: 0 · direct-edits: 0
 
 - [ ] **M3.1 — Lock pure authoring, Studio envelope, and production content-evidence contracts**
 - [ ] **M3.2 — Deliver the Access-protected Studio read, edit, and immediate-preview surface**
@@ -179,20 +179,21 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
         "ceiling": 2,
         "effort": "normal",
         "receipt": {
-          "artifactPath": null,
+          "artifactPath": "/home/quzma/code/jelementi/.pi/subagents/artifacts/handoffs/55316670.json",
           "basisDagHash": "sha256:34ebded9465f8d60950485717df2e30988ff64a5f1174fc928ad4c133e540aa2",
           "capabilityHash": "sha256:ce3b879c7678f904bec795a0781d7d3024dc1d18f557ec78098f11332171d0bc",
-          "outputState": null,
-          "receiptClass": null,
+          "model": "deepseek/deepseek-v4-flash:max",
+          "outputState": "present",
+          "receiptClass": "child_result",
           "requestedRoute": {
             "role": "worker"
           },
-          "runId": null,
-          "source": null,
-          "success": null,
+          "runId": "55316670",
+          "source": "foreground",
+          "success": true,
           "waveId": "sha256:af5801432399ee7ec250c8594e917e26d93cebe9d605fe85bba0d64bf14eff34"
         },
-        "status": "in_flight",
+        "status": "checking",
         "supersedes": null
       }
     },
@@ -268,23 +269,24 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
         "ceiling": 2,
         "effort": "hard",
         "receipt": {
-          "artifactPath": null,
+          "artifactPath": "/home/quzma/code/jelementi/.pi/subagents/artifacts/handoffs/6e5c0130.json",
           "basisDagHash": "sha256:34ebded9465f8d60950485717df2e30988ff64a5f1174fc928ad4c133e540aa2",
           "capabilityHash": "sha256:ce3b879c7678f904bec795a0781d7d3024dc1d18f557ec78098f11332171d0bc",
-          "outputState": null,
-          "receiptClass": null,
+          "model": "deepseek/deepseek-v4-flash:max",
+          "outputState": "present",
+          "receiptClass": "child_result",
           "requestedRoute": {
             "role": "worker"
           },
-          "runId": null,
-          "source": null,
-          "success": null,
+          "runId": "6e5c0130",
+          "source": "foreground",
+          "success": false,
           "waveId": "sha256:af5801432399ee7ec250c8594e917e26d93cebe9d605fe85bba0d64bf14eff34"
         },
-        "status": "in_flight",
+        "status": "checking",
         "supersedes": null
-    }
       }
+    }
   ],
   "version": 3
 }
@@ -334,13 +336,13 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 - **Started-at:** 2026-08-13T14:14:49+02:00
 - **First-worker-at:** 2026-08-13T14:20:20+02:00
 - **Completed-at:** pending
-- **Dispatches:** 1
+- **Dispatches:** 3
 - **Burned:** 0
 - **Review-dispatches:** 0
 - **Worker-retries:** 0
 - **Replans:** 0
 - **Oracle consults:** 0
-- **Child-runtime-minutes:** planner 4.2; M3-T1 worker 5.8; design reviewer 3.4; design sidecar not counted as Crew dispatch
+- **Child-runtime-minutes:** planner 4.2; M3-T1 worker 5.8; M3-T2 worker 9.3; M3-T3 worker 16.0; design reviewer 3.4; design sidecar not counted as Crew dispatch
 
 ## Confidence gaps
 
