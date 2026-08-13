@@ -586,17 +586,17 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
           "artifactPath": null,
           "basisDagHash": "sha256:59103cf4d7bb44e3aaea2a1e1cadee28143bd3a433afc714fca53c055f7f133c",
           "capabilityHash": "sha256:c1a6168094ea9b0a3215a04925670987a0650660361216e3e81014a60cbbd05a",
-          "outputState": null,
-          "receiptClass": null,
+          "outputState": "absent",
+          "receiptClass": "no_child_result",
           "requestedRoute": {
             "role": "worker"
           },
           "runId": null,
-          "source": null,
+          "source": "foreground",
           "success": null,
           "waveId": "sha256:203c7627db1cd9f2ed0d919299abd745a5bd74fdb7f62af6c33ca21e40463490"
         },
-        "status": "in_flight",
+        "status": "dispatch_failed",
         "supersedes": null
       }
     },
@@ -662,17 +662,17 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
           "artifactPath": null,
           "basisDagHash": "sha256:59103cf4d7bb44e3aaea2a1e1cadee28143bd3a433afc714fca53c055f7f133c",
           "capabilityHash": "sha256:c1a6168094ea9b0a3215a04925670987a0650660361216e3e81014a60cbbd05a",
-          "outputState": null,
-          "receiptClass": null,
+          "outputState": "absent",
+          "receiptClass": "no_child_result",
           "requestedRoute": {
             "role": "worker"
           },
           "runId": null,
-          "source": null,
+          "source": "foreground",
           "success": null,
           "waveId": "sha256:203c7627db1cd9f2ed0d919299abd745a5bd74fdb7f62af6c33ca21e40463490"
         },
-        "status": "in_flight",
+        "status": "dispatch_failed",
         "supersedes": null
       }
     },
@@ -807,6 +807,7 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 - **2026-08-13 — M3.1 corrective gate:** M3-T4 integrated complete expected/observed Live evidence, owning-schema preview validation, and real SSR meta proof. Parent RED reproduced tagless Live rejection, then fixed the local validator; focused regression 1/1, affected tests 41/41, ESLint, root/workspace typecheck, Svelte diagnostics (0 errors/0 warnings), and `git diff --check` passed. Delta-only critical reviewer follow-up PASS (`0339a42b` → `5c74bacf`); no residual risk.
 - **2026-08-13 — M3.2 runway:** fresh scout mapped missing Access/config/route/GitHub-read seams and existing compiler/contracts/renderer seams (`4e233a20`). Current Cloudflare, SvelteKit, Wrangler, and GitHub App documentation was rechecked. High-risk architecture critique selected a read-only GitHub adapter in M3.2 because article list/resume cannot exist without canonical GitHub reads; all mutations remain M3.3. Five contracts M3-T5..T9 locked with two independent ready tasks.
 - **2026-08-13 — M3.2 foundation wave:** M3-T5 added the compiler-owned pure article-source parser with 44/44 compiler tests and root typecheck green. M3-T6 added generated Wrangler binding types, exact-pinned `jose` 6.2.8, fail-closed runtime config, and complete Access JWT/email verification. Parent completed the worker's two stale normalization assertions, regenerated types, and independently passed 72/72 focused tests, ESLint, root/workspace typecheck, Svelte diagnostics (0 errors/0 warnings), Wrangler types check, and `git diff --check`. `pnpm audit --prod` remains red only for pre-existing transitive Expo/SvelteKit findings unrelated to jose; jose adds no audit finding.
+- **2026-08-13 — M3.2 service-wave launch failure:** M3-T7 and M3-T8 were accounted and committed, but the session reached the mandatory Crew wrap ceiling before the workflow could launch. No child result or source change exists; both dispatches remain spent and are recorded `dispatch_failed`. Resume must refresh capability and use each contract's one remaining bounded transport retry.
 
 ## Run metrics
 
@@ -814,12 +815,12 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 - **First-worker-at:** 2026-08-13T14:20:20+02:00
 - **Completed-at:** pending
 - **Dispatches:** 6
-- **Burned:** 0
+- **Burned:** 2 (M3-T7/M3-T8 pre-launch session-wrap failure)
 - **Review-dispatches:** 2
-- **Worker-retries:** 0
+- **Worker-retries:** 0 (one bounded transport retry remains for each M3-T7/M3-T8)
 - **Replans:** 0
 - **Oracle consults:** 0
-- **Child-runtime-minutes:** planner 4.2; M3-T1 worker 5.8; M3-T2 worker 9.3; M3-T3 worker 16.0; M3-T4 worker 7.0; M3-T5 worker 6.1; M3-T6 worker 9.8; M3.1 critical review and delta follow-up 3.9; design reviewer 3.4; design sidecar not counted as Crew dispatch
+- **Child-runtime-minutes:** planner 4.2; M3-T1 worker 5.8; M3-T2 worker 9.3; M3-T3 worker 16.0; M3-T4 worker 7.0; M3-T5 worker 6.1; M3-T6 worker 9.8; M3.1 critical review and delta follow-up 3.9; design reviewer 3.4; M3-T7/M3-T8 launch failure 0.0; design sidecar not counted as Crew dispatch
 
 ## Confidence gaps
 
