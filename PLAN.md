@@ -27,7 +27,7 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 
 ```json
 {
-  "baseRevision": "6eb8c87",
+  "baseRevision": "2e5aeaa",
   "budgets": {
     "dispatch": {
       "limit": 14,
@@ -579,11 +579,11 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
       "id": "M3-T7",
       "state": {
         "attempts": 0,
-        "baseRevision": "6eb8c87",
+        "baseRevision": "2e5aeaa",
         "ceiling": 2,
         "effort": "hard",
         "receipt": null,
-        "status": "blocked",
+        "status": "ready",
         "supersedes": null
       }
     },
@@ -642,11 +642,11 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
       "id": "M3-T8",
       "state": {
         "attempts": 0,
-        "baseRevision": "6eb8c87",
+        "baseRevision": "2e5aeaa",
         "ceiling": 2,
         "effort": "normal",
         "receipt": null,
-        "status": "blocked",
+        "status": "ready",
         "supersedes": null
       }
     },
@@ -723,7 +723,7 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
       "id": "M3-T9",
       "state": {
         "attempts": 0,
-        "baseRevision": "6eb8c87",
+        "baseRevision": "2e5aeaa",
         "ceiling": 2,
         "effort": "hard",
         "receipt": null,
