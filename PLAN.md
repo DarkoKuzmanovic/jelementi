@@ -27,48 +27,29 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 
 ```json
 {
-  "version": 3,
   "baseRevision": "e3924ff",
-  "scheduler": {
-    "mode": "hard",
-    "ordering": "outcome-task-id-v1",
-    "ceilings": {
-      "writers": 2,
-      "readers": 1,
-      "hard": 1
-    }
-  },
   "budgets": {
     "dispatch": {
-      "used": 0,
-      "limit": 14
+      "limit": 14,
+      "used": 1
     },
     "replan": {
-      "used": 0,
-      "limit": 2
+      "limit": 2,
+      "used": 0
     }
+  },
+  "scheduler": {
+    "ceilings": {
+      "hard": 1,
+      "readers": 1,
+      "writers": 2
+    },
+    "mode": "hard",
+    "ordering": "outcome-task-id-v1"
   },
   "tasks": [
     {
-      "id": "M3-T1",
-      "contractHash": "sha256:114b291308a6c1a3cdb65ca64f0c859786c884ca42d7896765e24bcc9e09b8fc",
       "contract": {
-        "milestone": "M3",
-        "outcome": "M3.1",
-        "invariant": "Every supported Studio metadata field and Markdown body serializes to one deterministic canonical article source without weakening compileArticle validation or introducing filesystem, environment, SvelteKit, GitHub, or Cloudflare ownership into the compiler.",
-        "dependsOn": [],
-        "readSet": [
-          "content/articles/tristan-da-cunha.md",
-          "packages/article-model/src/schema.ts",
-          "packages/content-compiler/package.json",
-          "packages/content-compiler/src/index.ts",
-          "packages/content-compiler/test/compiler.test.ts"
-        ],
-        "writeSet": [
-          "packages/content-compiler/src/article-source.ts",
-          "packages/content-compiler/src/index.ts",
-          "packages/content-compiler/test/article-source.test.ts"
-        ],
         "acceptance": [
           "Add failing tests before production code and record the RED command/output in the child result.",
           "Round-trip every current frontmatter field, including optional publishedAt, audio duration, reference publisher, and reference accessedAt.",
@@ -77,11 +58,21 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
           "Run pnpm exec vitest run packages/content-compiler/test/article-source.test.ts packages/content-compiler/test/compiler.test.ts.",
           "Run pnpm typecheck."
         ],
-        "reviewProperties": [
-          "Compiler ownership remains pure and framework-neutral.",
-          "No metadata field is silently dropped, normalized differently, or made editable when compiler-owned.",
-          "The public serializer API is the smallest discoverable surface needed by Studio.",
-          "Unsupported Markdown and schemaVersion invariants remain unchanged."
+        "dependsOn": [],
+        "invariant": "Every supported Studio metadata field and Markdown body serializes to one deterministic canonical article source without weakening compileArticle validation or introducing filesystem, environment, SvelteKit, GitHub, or Cloudflare ownership into the compiler.",
+        "kind": "implementation",
+        "milestone": "M3",
+        "outcome": "M3.1",
+        "ownershipLocks": [
+          "compiler.article-source-serialization",
+          "compiler.public-api"
+        ],
+        "readSet": [
+          "content/articles/tristan-da-cunha.md",
+          "packages/article-model/src/schema.ts",
+          "packages/content-compiler/package.json",
+          "packages/content-compiler/src/index.ts",
+          "packages/content-compiler/test/compiler.test.ts"
         ],
         "replanTriggers": [
           "An equivalent deterministic public serializer already exists.",
@@ -89,47 +80,49 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
           "Implementation needs any write path outside the frozen writeSet.",
           "Round-trip behavior cannot preserve the current compiler contract."
         ],
-        "kind": "implementation",
+        "reviewProperties": [
+          "Compiler ownership remains pure and framework-neutral.",
+          "No metadata field is silently dropped, normalized differently, or made editable when compiler-owned.",
+          "The public serializer API is the smallest discoverable surface needed by Studio.",
+          "Unsupported Markdown and schemaVersion invariants remain unchanged."
+        ],
         "risk": "protected",
         "route": {
           "role": "worker"
         },
-        "ownershipLocks": [
-          "compiler.article-source-serialization",
-          "compiler.public-api"
+        "writeSet": [
+          "packages/content-compiler/src/article-source.ts",
+          "packages/content-compiler/src/index.ts",
+          "packages/content-compiler/test/article-source.test.ts"
         ]
       },
+      "contractHash": "sha256:114b291308a6c1a3cdb65ca64f0c859786c884ca42d7896765e24bcc9e09b8fc",
+      "id": "M3-T1",
       "state": {
-        "status": "ready",
-        "effort": "hard",
-        "attempts": 0,
-        "ceiling": 2,
+        "attempts": 1,
         "baseRevision": "e3924ff",
-        "supersedes": null,
-        "receipt": null
+        "ceiling": 2,
+        "effort": "hard",
+        "receipt": {
+          "artifactPath": null,
+          "basisDagHash": "sha256:c0ec2ec11628b8109061cd23d12949ed17ce5dad5dd29219b6e1e32c28ece285",
+          "capabilityHash": "sha256:ce3b879c7678f904bec795a0781d7d3024dc1d18f557ec78098f11332171d0bc",
+          "outputState": null,
+          "receiptClass": null,
+          "requestedRoute": {
+            "role": "worker"
+          },
+          "runId": null,
+          "source": null,
+          "success": null,
+          "waveId": "sha256:f632b793c7220579f47e74f16ddbfa870d9b156dccd598ff0c8531fee10620f4"
+        },
+        "status": "in_flight",
+        "supersedes": null
       }
     },
     {
-      "id": "M3-T2",
-      "contractHash": "sha256:a34fabd878a930ae8ed9c3edbd28cb77c7b4c2a9659624f38131f40019975404",
       "contract": {
-        "milestone": "M3",
-        "outcome": "M3.1",
-        "invariant": "Every untrusted Studio request or result decodes to a bounded internal value or an explicit sanitized rejection before any future repository or production side effect.",
-        "dependsOn": [
-          "M3-T1"
-        ],
-        "readSet": [
-          "apps/web/package.json",
-          "packages/article-model/src/index.ts",
-          "packages/article-model/src/schema.ts",
-          "packages/content-compiler/src/article-source.ts",
-          "packages/content-compiler/src/index.ts"
-        ],
-        "writeSet": [
-          "apps/web/src/lib/studio/contracts.test.ts",
-          "apps/web/src/lib/studio/contracts.ts"
-        ],
         "acceptance": [
           "Add failing tests before contract implementation and record the RED command/output in the child result.",
           "Runtime-validate editor metadata/body input, base/head/blob concurrency evidence, preview results, conflicts, sanitized failures, lifecycle evidence, and every approved presentation status.",
@@ -139,11 +132,22 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
           "Run pnpm exec vitest run apps/web/src/lib/studio/contracts.test.ts.",
           "Run pnpm typecheck."
         ],
-        "reviewProperties": [
-          "ArticleStatusSchema remains draft, published, or archived.",
-          "Client contracts cannot carry GitHub tokens, Access assertions, private keys, or raw upstream response types.",
-          "Conflict results expose only bounded loaded/current identities.",
-          "Lifecycle discriminants prevent generic success from representing live."
+        "dependsOn": [
+          "M3-T1"
+        ],
+        "invariant": "Every untrusted Studio request or result decodes to a bounded internal value or an explicit sanitized rejection before any future repository or production side effect.",
+        "kind": "implementation",
+        "milestone": "M3",
+        "outcome": "M3.1",
+        "ownershipLocks": [
+          "studio.client-contracts"
+        ],
+        "readSet": [
+          "apps/web/package.json",
+          "packages/article-model/src/index.ts",
+          "packages/article-model/src/schema.ts",
+          "packages/content-compiler/src/article-source.ts",
+          "packages/content-compiler/src/index.ts"
         ],
         "replanTriggers": [
           "A safe discriminated contract cannot represent an approved spec state.",
@@ -151,34 +155,57 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
           "GitHub upstream response types must leak into the client contract.",
           "Implementation needs Studio routes, external I/O, or any write path outside the frozen writeSet."
         ],
-        "kind": "implementation",
+        "reviewProperties": [
+          "ArticleStatusSchema remains draft, published, or archived.",
+          "Client contracts cannot carry GitHub tokens, Access assertions, private keys, or raw upstream response types.",
+          "Conflict results expose only bounded loaded/current identities.",
+          "Lifecycle discriminants prevent generic success from representing live."
+        ],
         "risk": "critical",
         "route": {
           "role": "worker"
         },
-        "ownershipLocks": [
-          "studio.client-contracts"
+        "writeSet": [
+          "apps/web/src/lib/studio/contracts.test.ts",
+          "apps/web/src/lib/studio/contracts.ts"
         ]
       },
+      "contractHash": "sha256:a34fabd878a930ae8ed9c3edbd28cb77c7b4c2a9659624f38131f40019975404",
+      "id": "M3-T2",
       "state": {
-        "status": "blocked",
-        "effort": "normal",
         "attempts": 0,
-        "ceiling": 2,
         "baseRevision": "e3924ff",
-        "supersedes": null,
-        "receipt": null
+        "ceiling": 2,
+        "effort": "normal",
+        "receipt": null,
+        "status": "blocked",
+        "supersedes": null
       }
     },
     {
-      "id": "M3-T3",
-      "contractHash": "sha256:f921f5d83c80aae8837f82ba9ee6a6a1a976d6a652b8be63f80a314f8489a474",
       "contract": {
-        "milestone": "M3",
-        "outcome": "M3.1",
-        "invariant": "A validated ArticleDocument has one cross-runtime lowercase SHA-256 fingerprint derived from the approved canonical UTF-8 JSON bytes, and prerendered article HTML exposes exactly that digest without changing public article or index schemas.",
+        "acceptance": [
+          "Add failing canonicalization, digest, and rendered-meta tests before production code and record the RED command/output in the child result.",
+          "Recursively sort object keys, preserve array order, serialize without insignificant whitespace, encode UTF-8, and emit lowercase 64-character SHA-256 hex.",
+          "Prove insertion-order independence, Unicode byte determinism, array-order sensitivity, and meaningful-document-change sensitivity.",
+          "Use one framework-neutral helper compatible with Node and Cloudflare runtime; do not import node:crypto into browser-reachable article-model code.",
+          "Render exactly one meta element named jelementi-content-version with the computed digest.",
+          "Do not add the digest to ArticleDocumentSchema, ArticleIndexEntrySchema, generated article JSON, or generated index JSON.",
+          "Run pnpm exec vitest run packages/article-model/test/article-model.test.ts scripts/content-canonical.test.ts apps/web/src/routes/generated-routes.test.ts.",
+          "Run pnpm typecheck.",
+          "Run pnpm content:validate."
+        ],
         "dependsOn": [
           "M3-T1"
+        ],
+        "invariant": "A validated ArticleDocument has one cross-runtime lowercase SHA-256 fingerprint derived from the approved canonical UTF-8 JSON bytes, and prerendered article HTML exposes exactly that digest without changing public article or index schemas.",
+        "kind": "implementation",
+        "milestone": "M3",
+        "outcome": "M3.1",
+        "ownershipLocks": [
+          "article-model.content-fingerprint",
+          "content-generation.article-json",
+          "reader.article-content-version"
         ],
         "readSet": [
           "apps/web/src/lib/generated-content.server.ts",
@@ -192,6 +219,22 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
           "scripts/content.test.ts",
           "scripts/content.ts"
         ],
+        "replanTriggers": [
+          "No framework-neutral SHA-256 path works in both Node and Cloudflare runtime.",
+          "The only viable implementation imports node:crypto into browser-reachable code.",
+          "Fingerprint persistence requires a new generated schema field or sidecar.",
+          "Implementation needs any write path outside the frozen writeSet."
+        ],
+        "reviewProperties": [
+          "Canonical bytes exactly match the approved recursive sort and array-preservation contract.",
+          "Fingerprint code is cross-runtime and does not contaminate public client bundles with Node-only APIs.",
+          "No public article/index schema, reader hydration, noindex, generated-data validation, or route behavior drifts.",
+          "No generated artifact is committed and no merge/build signal can substitute for this content proof."
+        ],
+        "risk": "critical",
+        "route": {
+          "role": "worker"
+        },
         "writeSet": [
           "apps/web/src/routes/articles/[slug]/+page.server.ts",
           "apps/web/src/routes/articles/[slug]/+page.svelte",
@@ -201,52 +244,22 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
           "packages/article-model/test/article-model.test.ts",
           "scripts/content-canonical.test.ts",
           "scripts/content.ts"
-        ],
-        "acceptance": [
-          "Add failing canonicalization, digest, and rendered-meta tests before production code and record the RED command/output in the child result.",
-          "Recursively sort object keys, preserve array order, serialize without insignificant whitespace, encode UTF-8, and emit lowercase 64-character SHA-256 hex.",
-          "Prove insertion-order independence, Unicode byte determinism, array-order sensitivity, and meaningful-document-change sensitivity.",
-          "Use one framework-neutral helper compatible with Node and Cloudflare runtime; do not import node:crypto into browser-reachable article-model code.",
-          "Render exactly one meta element named jelementi-content-version with the computed digest.",
-          "Do not add the digest to ArticleDocumentSchema, ArticleIndexEntrySchema, generated article JSON, or generated index JSON.",
-          "Run pnpm exec vitest run packages/article-model/test/article-model.test.ts scripts/content-canonical.test.ts apps/web/src/routes/generated-routes.test.ts.",
-          "Run pnpm typecheck.",
-          "Run pnpm content:validate."
-        ],
-        "reviewProperties": [
-          "Canonical bytes exactly match the approved recursive sort and array-preservation contract.",
-          "Fingerprint code is cross-runtime and does not contaminate public client bundles with Node-only APIs.",
-          "No public article/index schema, reader hydration, noindex, generated-data validation, or route behavior drifts.",
-          "No generated artifact is committed and no merge/build signal can substitute for this content proof."
-        ],
-        "replanTriggers": [
-          "No framework-neutral SHA-256 path works in both Node and Cloudflare runtime.",
-          "The only viable implementation imports node:crypto into browser-reachable code.",
-          "Fingerprint persistence requires a new generated schema field or sidecar.",
-          "Implementation needs any write path outside the frozen writeSet."
-        ],
-        "kind": "implementation",
-        "risk": "critical",
-        "route": {
-          "role": "worker"
-        },
-        "ownershipLocks": [
-          "article-model.content-fingerprint",
-          "content-generation.article-json",
-          "reader.article-content-version"
         ]
       },
+      "contractHash": "sha256:f921f5d83c80aae8837f82ba9ee6a6a1a976d6a652b8be63f80a314f8489a474",
+      "id": "M3-T3",
       "state": {
-        "status": "blocked",
-        "effort": "hard",
         "attempts": 0,
-        "ceiling": 2,
         "baseRevision": "e3924ff",
-        "supersedes": null,
-        "receipt": null
+        "ceiling": 2,
+        "effort": "hard",
+        "receipt": null,
+        "status": "blocked",
+        "supersedes": null
       }
     }
-  ]
+  ],
+  "version": 3
 }
 ```
 
