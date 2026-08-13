@@ -12,6 +12,7 @@ import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import { parseDocument } from 'yaml';
+import type { ArticleSourceFrontmatter } from './article-source';
 
 export interface CompileArticleInput {
   markdown: string;
@@ -42,6 +43,13 @@ export class ContentCompileError extends Error {
   }
 }
 
+export { serializeArticleSource } from './article-source';
+export type {
+  ArticleReferenceSource,
+  ArticleSourceFrontmatter,
+  ArticleSourceInput,
+} from './article-source';
+
 interface AstNode {
   type: string;
   value?: string;
@@ -60,20 +68,7 @@ interface AstNode {
   position?: { start?: { line?: number; column?: number } };
 }
 
-interface Frontmatter {
-  title: string;
-  slug: string;
-  excerpt: string;
-  publishedAt?: string;
-  updatedAt: string;
-  status: 'draft' | 'published' | 'archived';
-  category: string;
-  tags: string[];
-  author: string;
-  cover: { src: string; alt: string };
-  audio?: { src: string; durationSeconds?: number };
-  references: Array<{ title: string; url: string; publisher?: string; accessedAt?: string }>;
-}
+type Frontmatter = ArticleSourceFrontmatter;
 
 function issue(
   input: CompileArticleInput,

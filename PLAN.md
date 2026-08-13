@@ -14,7 +14,7 @@
 
 ## M3 — Access-Protected Publishing Studio
 
-**Counters:** worker-dispatches: 0/14 · replans: 0/2 · burned: 0 · review-dispatches: 0/2 default · oracle: 0 · worker-retries: 0 · direct-edits: 0
+**Counters:** worker-dispatches: 1/14 · replans: 0/2 · burned: 0 · review-dispatches: 0/2 default · oracle: 0 · worker-retries: 0 · direct-edits: 0
 
 - [ ] **M3.1 — Lock pure authoring, Studio envelope, and production content-evidence contracts**
 - [ ] **M3.2 — Deliver the Access-protected Studio read, edit, and immediate-preview surface**
@@ -104,20 +104,21 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
         "ceiling": 2,
         "effort": "hard",
         "receipt": {
-          "artifactPath": null,
+          "artifactPath": "/home/quzma/code/jelementi/.pi/subagents/artifacts/handoffs/b8a82bb1.json",
           "basisDagHash": "sha256:c0ec2ec11628b8109061cd23d12949ed17ce5dad5dd29219b6e1e32c28ece285",
           "capabilityHash": "sha256:ce3b879c7678f904bec795a0781d7d3024dc1d18f557ec78098f11332171d0bc",
-          "outputState": null,
-          "receiptClass": null,
+          "model": "deepseek/deepseek-v4-flash:max",
+          "outputState": "present",
+          "receiptClass": "child_result",
           "requestedRoute": {
             "role": "worker"
           },
-          "runId": null,
-          "source": null,
-          "success": null,
+          "runId": "b8a82bb1",
+          "source": "foreground",
+          "success": true,
           "waveId": "sha256:f632b793c7220579f47e74f16ddbfa870d9b156dccd598ff0c8531fee10620f4"
         },
-        "status": "in_flight",
+        "status": "accepted",
         "supersedes": null
       }
     },
@@ -178,7 +179,7 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
         "ceiling": 2,
         "effort": "normal",
         "receipt": null,
-        "status": "blocked",
+        "status": "ready",
         "supersedes": null
       }
     },
@@ -254,7 +255,7 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
         "ceiling": 2,
         "effort": "hard",
         "receipt": null,
-        "status": "blocked",
+        "status": "ready",
         "supersedes": null
       }
     }
@@ -305,15 +306,15 @@ The dependency chain is `M3.1 → M3.2 → M3.3 → M3.4`. Checkpoints A–D fro
 ## Run metrics
 
 - **Started-at:** 2026-08-13T14:14:49+02:00
-- **First-worker-at:** pending
+- **First-worker-at:** 2026-08-13T14:20:20+02:00
 - **Completed-at:** pending
-- **Dispatches:** 0
+- **Dispatches:** 1
 - **Burned:** 0
 - **Review-dispatches:** 0
 - **Worker-retries:** 0
 - **Replans:** 0
 - **Oracle consults:** 0
-- **Child-runtime-minutes:** planner 4.2; design reviewer 3.4; design sidecar not counted as Crew dispatch
+- **Child-runtime-minutes:** planner 4.2; M3-T1 worker 5.8; design reviewer 3.4; design sidecar not counted as Crew dispatch
 
 ## Confidence gaps
 
