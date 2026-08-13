@@ -36,3 +36,4 @@ export type {
 export { validateArticleDocument, safeValidateArticleDocument } from './validate';
 export { normalizeSearchText } from './search';
 export { categorySlug } from './category-slug';
+export { articleContentFingerprint, canonicalizeJson } from './content-fingerprint';
