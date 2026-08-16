@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { verifyRenderedPages } from './verify-web';
+import { verifyPublicClientBundles, verifyRenderedPages } from './verify-web';
 
 const bootstrap = '<script>kit.start()</script>';
 const noindex = '<meta name="robots" content="noindex">';
@@ -47,6 +47,27 @@ describe('web smoke assertions', () => {
         '/articles/second-article': `${reader}${bootstrap}`,
       }),
     ).toThrow('hydration');
+  });
+
+  it.each([
+    ['GitHub client', 'const endpoint = "api.github.com"'],
+    ['private key', 'const secret = "GITHUB_APP_PRIVATE_KEY"'],
+    ['Access secret', 'const assertion = "Cf-Access-Jwt-Assertion"'],
+    ['content compiler dependency', 'const compiler = "@jelementi/content-compiler"'],
+    ['Studio server module', 'import("../server/studio/lifecycle.server.js")'],
+  ])('rejects %s from public reader client bundles', (capability, source) => {
+    expect(() =>
+      verifyPublicClientBundles([{ path: '_app/immutable/chunks/search.js', source }]),
+    ).toThrow(capability);
+  });
+
+  it('accepts reader-only client bundles', () => {
+    expect(() =>
+      verifyPublicClientBundles([
+        { path: '_app/immutable/entry/start.js', source: 'kit.start()' },
+        { path: '_app/immutable/chunks/search.js', source: 'const search = true' },
+      ]),
+    ).not.toThrow();
   });
 
   it('derives article and category coverage from generated expectations', () => {

@@ -74,7 +74,9 @@ export class FakeGithubAdapter implements GithubAdapter {
       sha: main,
       url: `${this.repositoryUrl}/branch/main`,
     });
-    this.files.set('main', new Map());
+    const mainFiles = new Map<string, StudioFileContent>();
+    this.files.set('main', mainFiles);
+    this.files.set(main, mainFiles);
   }
 
   private failure<T>(
@@ -168,6 +170,7 @@ export class FakeGithubAdapter implements GithubAdapter {
     const files = this.files.get(input.branch) ?? new Map();
     files.set(input.path, { path: input.path, content: input.content, blobSha });
     this.files.set(input.branch, files);
+    this.files.set(sha, new Map(files));
     for (const pull of this.pulls.get(input.branch) ?? []) {
       if (pull.state === 'open') pull.headSha = sha;
     }
@@ -325,6 +328,56 @@ export class FakeGithubAdapter implements GithubAdapter {
   }
 
   /** Test helpers (not part of the seam). */
+  advanceMain(change?: { path: string; content: string; blobSha: string }): string {
+    const main = this.branches.get('main');
+    const ref = this.refs.get('refs/heads/main');
+    if (main === undefined || ref === undefined) throw new Error('main missing');
+    const nextFiles = new Map(this.files.get('main') ?? []);
+    if (change !== undefined) {
+      if (!ARTICLE_PATH_PATTERN.test(change.path) || !SHA_PATTERN.test(change.blobSha)) {
+        throw new Error('invalid-main-change');
+      }
+      nextFiles.set(change.path, {
+        path: change.path,
+        content: change.content,
+        blobSha: change.blobSha,
+      });
+    }
+    const sha = this.nextCommitSha.toString(16).padStart(40, '0');
+    this.nextCommitSha += 1;
+    main.sha = sha;
+    ref.sha = sha;
+    this.files.set('main', nextFiles);
+    this.files.set(sha, nextFiles);
+    return sha;
+  }
+
+  mergePullRequest(number: number): string {
+    const pull = this.findPull(number);
+    if (pull === undefined || pull.state !== 'open' || pull.draft) {
+      throw new Error('pull-not-ready');
+    }
+    const branch = this.branches.get(pull.headRef);
+    if (branch === undefined || branch.sha !== pull.headSha) throw new Error('branch missing');
+    const verifyRuns = (this.checks.get(pull.headSha) ?? []).filter(
+      (check) => check.name === 'verify',
+    );
+    const verify = verifyRuns[verifyRuns.length - 1];
+    if (verify?.status !== 'completed' || verify.conclusion !== 'success') {
+      throw new Error('verify-check-not-successful');
+    }
+    const slug = pull.headRef.slice('studio/article/'.length);
+    const path = `content/articles/${slug}.md`;
+    const file = this.files.get(branch.name)?.get(path);
+    if (file === undefined) throw new Error('article missing');
+    const mergeCommitSha = this.advanceMain(file);
+    pull.state = 'merged';
+    pull.mergeCommitSha = mergeCommitSha;
+    this.branches.delete(branch.name);
+    this.files.delete(branch.name);
+    return mergeCommitSha;
+  }
+
   seedBranch(name: string, sha: string): void {
     this.branches.set(name, { name, sha, url: `${this.repositoryUrl}/branch/${name}` });
     this.files.set(name, new Map());
@@ -341,6 +394,8 @@ export class FakeGithubAdapter implements GithubAdapter {
     const files = this.files.get(branch) ?? new Map();
     files.set(path, { path, content, blobSha });
     this.files.set(branch, files);
+    const currentSha = this.branches.get(branch)?.sha;
+    if (currentSha !== undefined) this.files.set(currentSha, files);
   }
 
   /**
