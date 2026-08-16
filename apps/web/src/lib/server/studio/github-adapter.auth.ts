@@ -33,6 +33,16 @@ export interface GithubAppAuthOptions {
 }
 
 const DEFAULT_JWT_LIFETIME_SECONDS = 600;
+
+/**
+ * GitHub's REST/GraphQL APIs reject any request without a `User-Agent`
+ * header (HTTP 403 "Request forbidden by administrative rules"). Node's
+ * `fetch` (undici) adds one implicitly, which masked its absence in local
+ * runtime calls (unit tests mock fetch and did not assert it); Cloudflare's
+ * workerd adds none, so omitting it broke every GitHub call in production.
+ * Sent on all Studio GitHub requests.
+ */
+export const GITHUB_USER_AGENT = 'jelementi-studio';
 const JWT_LEEWAY_SECONDS = 60;
 const MAX_AUTH_RESPONSE_BYTES = 16_384;
 const MAX_INSTALLATION_TOKEN_LENGTH = 4_096;
@@ -248,6 +258,7 @@ export async function exchangeInstallationToken(
           Authorization: `Bearer ${appJwt}`,
           Accept: 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': GITHUB_USER_AGENT,
         },
         body: JSON.stringify({
           repositories: options?.repositories ?? [config.repo],

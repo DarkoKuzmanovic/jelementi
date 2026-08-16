@@ -70,6 +70,7 @@ describe('exchangeInstallationToken', () => {
       Authorization: 'Bearer app-jwt',
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'jelementi-studio',
     });
     expect(JSON.parse(String(requestInit?.body))).toEqual({
       repositories: ['jelementi'],
