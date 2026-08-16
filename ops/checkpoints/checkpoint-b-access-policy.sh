@@ -185,13 +185,20 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 TOTAL_STAGES=5
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." > /dev/null && pwd)"
 WRANGLER_JSONC="$REPO_ROOT/wrangler.jsonc"
 WRANGLER_M2_JSONC="$REPO_ROOT/wrangler.m2.jsonc"
 
 # write_var is shared with checkpoint-a-github-app.sh — see _lib.sh.
 # shellcheck source=ops/checkpoints/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+# ENV_FILE is the vendored library's resume cache (ask() offers its values
+# as defaults on re-run — "[Enter keeps current]"). Matches .gitignore's
+# .dev.vars* pattern; holds non-secret IDs only (same trust level as the
+# committed wrangler.jsonc placeholders they mirror). Safe to delete once
+# Checkpoint B is done.
+ENV_FILE="$REPO_ROOT/.dev.vars.checkpoint-b"
 
 banner "Checkpoint B — Cloudflare Access Studio policy"
 say "Creates the Access application protecting /studio* in production,"
@@ -210,21 +217,40 @@ say "M2 already created the 'Cloudflare Workers Preview URLs' Access policy"
 say "under one Zero Trust team. Reuse that same team — do not create a new one."
 open_url "https://one.dash.cloudflare.com"
 step "Confirm the team name in the top-left (M2 recorded 'quzma')."
-ask ACCESS_TEAM_DOMAIN "Team domain (https://<team>.cloudflareaccess.com):"
+ask ACCESS_TEAM_NAME "Team name only, no https:// and no domain suffix (e.g. 'quzma'):"
+write_env ACCESS_TEAM_NAME "$ACCESS_TEAM_NAME"
+ACCESS_TEAM_DOMAIN="https://${ACCESS_TEAM_NAME}.cloudflareaccess.com"
+write_env ACCESS_TEAM_DOMAIN "$ACCESS_TEAM_DOMAIN"
+printf '  %s✓%s ACCESS_TEAM_DOMAIN will be %s\n' "$GREEN" "$RESET" "$ACCESS_TEAM_DOMAIN"
 
 # ── Stage 2: create the Studio Access application ──────────────────────────
 stage "Create the Studio Access application"
-open_url "${ACCESS_TEAM_DOMAIN}/access/apps"
-step "Add an application → Self-hosted."
-step "Application name: 'Jelementi Studio'."
-step "Session duration: pick a short-to-medium duration (e.g. 24h) — this"
-step "  is a single-operator publishing surface, not a public app."
-step "Application domain: jelementi.quz.ma — Path: /studio*"
+# NOTE: <team>.cloudflareaccess.com is the Access *authentication* domain
+# (login challenges, JWKS) — it is never the admin dashboard UI, so it
+# cannot be used to build a dashboard deep link. Cloudflare's dashboard nav
+# has also moved since the M2 runbook was written (rebranded "Cloudflare
+# One", apps now live under Access controls → Applications), so this opens
+# the dashboard root and gives manual navigation instead of a guessed URL.
+open_url "https://one.dash.cloudflare.com"
+step "Left nav → Access controls → Applications (was 'Access → Applications'"
+step "  before the Cloudflare One rebrand — same page, different label)."
+step "Add an application → 'Self-hosted and private'."
+step "Destination type: 'Public DNS' (jelementi.quz.ma is a custom-domain"
+step "  Worker route, not a *.workers.dev address)."
+step "Destinations → Public hostnames → Subdomain: 'jelementi', Domain:"
+step "  'quz.ma' (pick it from the zone dropdown — jelementi.quz.ma is a"
+step "  subdomain of the quz.ma zone, it will not appear as its own entry),"
+step "  Path: 'studio*' (no leading slash — Cloudflare adds it)."
 note "  Every Studio server module lives under apps/web/src/routes/studio/;"
 note "  there is no separate /api/studio surface as of this ticket. Re-run"
 note "  'find apps/web/src/routes -path \"*studio*\"' before trusting that if"
 note "  routes have changed since, and widen the path rule if so."
-step "Save the application (policy comes next, in Stage 3)."
+step "Application name: 'Jelementi Studio'."
+step "Session duration: pick a short-to-medium duration (e.g. 24h) — this"
+step "  is a single-operator publishing surface, not a public app."
+step "You can add the Allow policy inline here, or in Stage 3 below — either"
+step "  works; Stage 3 assumes you save the app first, then add the policy."
+step "Save the application."
 
 # ── Stage 3: the Allow policy ──────────────────────────────────────────────
 stage "Add the operator-only Allow policy"
@@ -234,6 +260,7 @@ step "Include → Emails → enter the exact operator email (one address only)."
 step "Do NOT add an Email domain, IP, or 'Everyone' rule — exact email only"
 step "  (CONTEXT.md: 'Studio operator' is identified by one configured email)."
 ask ALLOWED_OPERATOR_EMAIL "Operator email (this becomes a committed, non-secret wrangler var — same trust level as the existing placeholder):"
+write_env ALLOWED_OPERATOR_EMAIL "$ALLOWED_OPERATOR_EMAIL"
 step "Save the policy."
 
 # ── Stage 4: capture the AUD tag and write vars ───────────────────────────
@@ -241,11 +268,13 @@ stage "Capture the AUD tag"
 step "Open the application's Overview tab."
 step "Copy the 'Application Audience (AUD) Tag' value."
 ask ACCESS_AUD "Paste the AUD tag:"
+write_env ACCESS_AUD "$ACCESS_AUD"
 write_var ACCESS_TEAM_DOMAIN "$ACCESS_TEAM_DOMAIN"
 write_var ACCESS_AUD "$ACCESS_AUD"
 write_var ALLOWED_OPERATOR_EMAIL "$ALLOWED_OPERATOR_EMAIL"
-note "(Non-secret — written straight into wrangler.jsonc/wrangler.m2.jsonc,"
-note " this repo's actual runtime source; not into $ENV_FILE.)"
+note "(Non-secret — the real values live in wrangler.jsonc/wrangler.m2.jsonc;"
+note " also cached in $ENV_FILE so a re-run offers them as defaults instead"
+note " of asking you to retype them.)"
 
 # ── Stage 5: verify the edge actually enforces this ─────────────────────────
 stage "Verify enforcement"
@@ -294,7 +323,7 @@ say "access-auth.server.ts's existing test suite (pnpm test) — re-run it now"
 say "as evidence that the app-level check still fails closed:"
 note "  pnpm --filter @jelementi/web test -- access-auth"
 if command -v pnpm >/dev/null 2>&1; then
-  if ! (cd "$REPO_ROOT" && pnpm --filter @jelementi/web test -- access-auth); then
+  if ! (cd "$REPO_ROOT" > /dev/null && pnpm --filter @jelementi/web test -- access-auth); then
     warn "access-auth test suite failed — STOP, do not proceed to Checkpoint C"
     exit 1
   fi
