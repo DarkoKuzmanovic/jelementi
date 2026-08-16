@@ -1,8 +1,9 @@
 # Decisions
 
-Append-only record of durable product and delivery decisions.
-Execution state lives in `PLAN.md` only while a Crew build is in flight;
-strategic milestones live in `ROADMAP.md`.
+Append-only record of durable **product and delivery** decisions.
+Technical and architectural decisions are ADRs in `docs/adr/`.
+Strategic milestones live in `ROADMAP.md`; execution state lives in
+GitHub issues (see `docs/agents/issue-tracker.md`).
 
 ## 2026-07 — Product baseline (from handoff)
 
