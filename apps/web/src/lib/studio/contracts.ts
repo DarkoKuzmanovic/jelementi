@@ -698,8 +698,17 @@ function indexEvidenceValue(
   };
 }
 
-/** Exact comparison across every public index field; tags compare in order. */
-function indexEvidenceEquals(left: StudioIndexEvidence, right: StudioIndexEvidence): boolean {
+/**
+ * Exact comparison across every public index field; tags compare in order.
+ *
+ * Exported for reuse by the Studio status derivation (deriveStudioArticleStatus,
+ * #17): the same expected-vs-observed reconciliation the `live` decoder
+ * enforces on untrusted input applies to server-derived probe evidence.
+ */
+export function indexEvidenceEquals(
+  left: StudioIndexEvidence,
+  right: StudioIndexEvidence,
+): boolean {
   return (
     left.slug === right.slug &&
     left.title === right.title &&

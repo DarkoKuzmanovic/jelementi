@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { probeAll, probeUrl } from './probe.server';
+import { probeAll, probeIndexJson, probeUrl } from './probe.server';
+import type { StudioIndexEvidence } from '../../studio/contracts';
+
+const indexEntry: StudioIndexEvidence = {
+  slug: 'hello-world',
+  title: 'Hello world',
+  excerpt: 'An excerpt.',
+  publishedAt: '2026-01-01',
+  updatedAt: '2026-01-02',
+  category: 'Nature',
+  categorySlug: 'nature',
+  tags: ['tag-one'],
+  author: 'Jelementi',
+  cover: { src: 'articles/hello-world/cover.svg', alt: '' },
+  readingTimeMinutes: 4,
+};
 
 const now = () => 1_700_000_000_000;
 const sleep = async () => undefined;
@@ -184,5 +199,125 @@ describe('probeAll', () => {
     expect(outcomes[0]).not.toHaveProperty('body');
     expect(canceled).toBe(true);
     expect(outcomes[1]).toMatchObject({ ok: false, reason: 'non-2xx' });
+  });
+});
+
+describe('probeIndexJson', () => {
+  it('decodes a bounded StudioIndexEvidence array with no-cache headers and a cache-bust query', async () => {
+    const calls: Array<{ url: string; options: RequestInit | undefined }> = [];
+    const fetch = fetchWith(
+      calls,
+      () => new Response(JSON.stringify([indexEntry]), { status: 200 }),
+    );
+    const result = await probeIndexJson(
+      { name: 'index', target: { url: 'https://jelementi.quz.ma/index.json' } },
+      { fetch, now, sleep, cacheBust: () => 'test-cache-bust' },
+    );
+    expect(result).toMatchObject({ ok: true, status: 200, entries: [indexEntry] });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toContain('?probe=test-cache-bust');
+    expect(calls[0]?.options?.headers).toMatchObject({
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    });
+  });
+
+  it('retries bounded attempts with backoff on a non-2xx response', async () => {
+    const calls: Array<{ url: string; options: RequestInit | undefined }> = [];
+    const fetch = fetchWith(calls, () => new Response('unavailable', { status: 503 }));
+    const result = await probeIndexJson(
+      { name: 'index', target: { url: 'https://jelementi.quz.ma/index.json' } },
+      { fetch, now, sleep, maxAttempts: 3, baseDelayMs: 100 },
+    );
+    expect(result).toMatchObject({ ok: false, reason: 'non-2xx', entries: [] });
+    expect(calls).toHaveLength(3);
+  });
+
+  it('never fabricates an entry from a 2xx response with an undecodable body', async () => {
+    const calls: Array<{ url: string; options: RequestInit | undefined }> = [];
+    const fetch = fetchWith(calls, () => new Response('not json', { status: 200 }));
+    const result = await probeIndexJson(
+      { name: 'index', target: { url: 'https://jelementi.quz.ma/index.json' } },
+      { fetch, now, sleep, maxAttempts: 2, baseDelayMs: 0 },
+    );
+    expect(result).toEqual({
+      ok: false,
+      url: expect.stringContaining('https://jelementi.quz.ma/index.json'),
+      status: 200,
+      entries: [],
+      elapsedMs: expect.any(Number),
+      attempts: 2,
+      reason: 'invalid-body',
+    });
+  });
+
+  it('rejects a malformed entry (missing required field) rather than passing it through', async () => {
+    const calls: Array<{ url: string; options: RequestInit | undefined }> = [];
+    const malformed = { ...indexEntry, readingTimeMinutes: undefined };
+    const fetch = fetchWith(
+      calls,
+      () => new Response(JSON.stringify([malformed]), { status: 200 }),
+    );
+    const result = await probeIndexJson(
+      { name: 'index', target: { url: 'https://jelementi.quz.ma/index.json' } },
+      { fetch, now, sleep, maxAttempts: 1 },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('invalid-body');
+    expect(result.entries).toEqual([]);
+  });
+
+  it('rejects non-https URLs without fetching', async () => {
+    const calls: Array<{ url: string; options: RequestInit | undefined }> = [];
+    const fetch = fetchWith(calls, () => new Response('[]'));
+    const result = await probeIndexJson(
+      { name: 'index', target: { url: 'http://jelementi.quz.ma/index.json' } },
+      { fetch, now, sleep },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('non-http');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('yields timeout (never a fabricated entry) when the deadline is exhausted', async () => {
+    const calls: Array<{ url: string; options: RequestInit | undefined }> = [];
+    let current = now();
+    const advancingNow = () => current;
+    const fetch = fetchWith(calls, () => {
+      current += 1_000;
+      throw new Error('network down');
+    });
+    const result = await probeIndexJson(
+      { name: 'index', target: { url: 'https://jelementi.quz.ma/index.json' } },
+      { fetch, now: advancingNow, sleep, timeoutMs: 100, maxAttempts: 5, baseDelayMs: 0 },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('timeout');
+    expect(result.entries).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('bounds oversized upstream bodies internally and cancels the stream', async () => {
+    const calls: Array<{ url: string; options: RequestInit | undefined }> = [];
+    let canceled = false;
+    const hugeArray = `[${Array.from({ length: 20_000 }, () => JSON.stringify(indexEntry)).join(',')}]`;
+    const fetch = fetchWith(calls, () => {
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(hugeArray));
+        },
+        cancel() {
+          canceled = true;
+        },
+      });
+      return new Response(stream, { status: 200 });
+    });
+    const result = await probeIndexJson(
+      { name: 'index', target: { url: 'https://jelementi.quz.ma/index.json' } },
+      { fetch, now, sleep, maxAttempts: 1 },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('invalid-body');
+    expect(canceled).toBe(true);
   });
 });

@@ -11,8 +11,14 @@
  * Tests inject `fetch`/`now`/`sleep` exactly like `verifyRemote` in scripts/.
  */
 
+import type { StudioIndexEvidence } from '../../studio/contracts';
+
 export type ProbeFailureReason =
   'config' | 'invalid-url' | 'non-http' | 'timeout' | 'network' | 'non-2xx';
+
+/** `probeIndexJson`-only failure: a reachable 2xx response with a body that
+ * does not decode into a bounded `StudioIndexEvidence[]`. */
+export type ProbeIndexFailureReason = ProbeFailureReason | 'invalid-body';
 
 export interface ProbeOptions {
   fetch?: typeof globalThis.fetch;
@@ -291,4 +297,238 @@ export async function probeAll(
     fingerprint: result.fingerprint,
     ...(result.ok ? {} : { reason: result.reason }),
   }));
+}
+
+export interface ProbeIndexResult {
+  ok: boolean;
+  url: string;
+  status: number;
+  entries: StudioIndexEvidence[];
+  elapsedMs: number;
+  attempts: number;
+  reason?: ProbeIndexFailureReason;
+}
+
+const MAX_INDEX_BODY_BYTES = 200_000;
+const MAX_INDEX_ENTRIES = 1_000;
+const MAX_INDEX_STRING = 2_000;
+const MAX_INDEX_TAGS = 50;
+
+/**
+ * Probes the public `/index.json` evidence surface: the same bounded,
+ * cache-busted, retried-with-backoff HTTPS fetch as `probeUrl`, but reading
+ * a much larger body (the whole index, not a `<head>`-adjacent meta tag)
+ * and JSON-decoding it into bounded `StudioIndexEvidence` entries instead
+ * of extracting a fingerprint. A 2xx response whose body does not decode
+ * never fabricates an entry — it is a failed probe, same as absence.
+ */
+export async function probeIndexJson(
+  spec: ProbeSpec,
+  options: ProbeOptions = {},
+): Promise<ProbeIndexResult> {
+  const startedAt = nowMs(options.now);
+  const timeoutMs = boundedInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
+  const maxAttempts = boundedInteger(
+    options.maxAttempts,
+    DEFAULT_MAX_ATTEMPTS,
+    DEFAULT_MAX_ATTEMPTS,
+  );
+  const baseDelayMs = Math.max(
+    0,
+    Math.min(
+      DEFAULT_BASE_DELAY_MS,
+      Number.isFinite(options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS)
+        ? Math.floor(options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS)
+        : DEFAULT_BASE_DELAY_MS,
+    ),
+  );
+  const fetchImpl = options.fetch ?? globalThis.fetch;
+  const cacheBust = options.cacheBust ?? (() => crypto.randomUUID());
+
+  let parsed: URL;
+  try {
+    parsed = new URL(spec.target.url);
+  } catch {
+    return {
+      ok: false,
+      url: spec.target.url,
+      status: 0,
+      entries: [],
+      elapsedMs: 0,
+      attempts: 0,
+      reason: 'invalid-url',
+    };
+  }
+  if (parsed.protocol !== 'https:') {
+    return {
+      ok: false,
+      url: spec.target.url,
+      status: 0,
+      entries: [],
+      elapsedMs: 0,
+      attempts: 0,
+      reason: 'non-http',
+    };
+  }
+
+  let lastUrl = parsed.toString();
+  let lastStatus = 0;
+  let lastEntries: StudioIndexEvidence[] | undefined;
+  let attempts = 0;
+  let deadlineExceeded = false;
+  let bodyInvalid = false;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    attempts += 1;
+    const attemptStart = nowMs(options.now);
+    const remaining = timeoutMs - (attemptStart - startedAt);
+    if (remaining <= 0) break;
+
+    const requestUrl = new URL(parsed);
+    requestUrl.searchParams.set(CACHE_BUST_KEY, cacheBust());
+    lastUrl = requestUrl.toString();
+    let attemptTimedOut = false;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => {
+          attemptTimedOut = true;
+          controller.abort();
+          reject(new Error('probe-timeout'));
+        },
+        Math.max(1, remaining),
+      );
+    });
+    try {
+      const result = await Promise.race([
+        fetchImpl(lastUrl, {
+          method: 'GET',
+          headers: probeHeaders(options.headers),
+          signal: controller.signal,
+        }).then(async (response) => ({
+          response,
+          body: await readBoundedBody(response, MAX_INDEX_BODY_BYTES),
+        })),
+        timeout,
+      ]);
+      lastStatus = result.response.status;
+      if (result.response.ok) {
+        const entries = parseIndexEntries(result.body);
+        if (entries === undefined) {
+          bodyInvalid = true;
+        } else {
+          lastEntries = entries;
+          bodyInvalid = false;
+          break;
+        }
+      }
+    } catch {
+      if (attemptTimedOut) deadlineExceeded = true;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+
+    const elapsed = nowMs(options.now) - startedAt;
+    const backoff = baseDelayMs * 2 ** attempt;
+    const remainingAfterAttempt = timeoutMs - elapsed;
+    const bounded = Math.max(0, Math.min(backoff, remainingAfterAttempt - 1));
+    if (attempt < maxAttempts - 1 && bounded > 0) await sleepFor(options.sleep, bounded);
+  }
+
+  const elapsedMs = nowMs(options.now) - startedAt;
+  if (lastEntries !== undefined) {
+    return {
+      ok: true,
+      url: lastUrl,
+      status: lastStatus,
+      entries: lastEntries,
+      elapsedMs,
+      attempts,
+    };
+  }
+  return {
+    ok: false,
+    url: lastUrl,
+    status: lastStatus,
+    entries: [],
+    elapsedMs,
+    attempts,
+    reason: bodyInvalid
+      ? 'invalid-body'
+      : lastStatus === 0 && (deadlineExceeded || nowMs(options.now) - startedAt >= timeoutMs)
+        ? 'timeout'
+        : lastStatus === 0
+          ? 'network'
+          : 'non-2xx',
+  };
+}
+
+function parseIndexEntries(body: string): StudioIndexEvidence[] | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(body);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(value) || value.length > MAX_INDEX_ENTRIES) return undefined;
+  const entries: StudioIndexEvidence[] = [];
+  for (const item of value) {
+    const entry = parseIndexEntry(item);
+    if (entry === undefined) return undefined;
+    entries.push(entry);
+  }
+  return entries;
+}
+
+function parseIndexEntry(value: unknown): StudioIndexEvidence | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const cover = record.cover;
+  if (typeof cover !== 'object' || cover === null || Array.isArray(cover)) return undefined;
+  const coverRecord = cover as Record<string, unknown>;
+  const tags = record.tags;
+  if (
+    typeof record.slug !== 'string' ||
+    record.slug.length === 0 ||
+    record.slug.length > MAX_INDEX_STRING ||
+    typeof record.title !== 'string' ||
+    record.title.length > MAX_INDEX_STRING ||
+    typeof record.excerpt !== 'string' ||
+    record.excerpt.length > MAX_INDEX_STRING ||
+    typeof record.publishedAt !== 'string' ||
+    record.publishedAt.length > MAX_INDEX_STRING ||
+    typeof record.updatedAt !== 'string' ||
+    record.updatedAt.length > MAX_INDEX_STRING ||
+    typeof record.category !== 'string' ||
+    record.category.length > MAX_INDEX_STRING ||
+    typeof record.categorySlug !== 'string' ||
+    record.categorySlug.length > MAX_INDEX_STRING ||
+    !Array.isArray(tags) ||
+    tags.length > MAX_INDEX_TAGS ||
+    tags.some((tag) => typeof tag !== 'string') ||
+    typeof record.author !== 'string' ||
+    record.author.length > MAX_INDEX_STRING ||
+    typeof coverRecord.src !== 'string' ||
+    coverRecord.src.length > MAX_INDEX_STRING ||
+    typeof coverRecord.alt !== 'string' ||
+    coverRecord.alt.length > MAX_INDEX_STRING ||
+    typeof record.readingTimeMinutes !== 'number' ||
+    !Number.isFinite(record.readingTimeMinutes)
+  ) {
+    return undefined;
+  }
+  return {
+    slug: record.slug,
+    title: record.title,
+    excerpt: record.excerpt,
+    publishedAt: record.publishedAt,
+    updatedAt: record.updatedAt,
+    category: record.category,
+    categorySlug: record.categorySlug,
+    tags: tags as string[],
+    author: record.author,
+    cover: { src: coverRecord.src, alt: coverRecord.alt },
+    readingTimeMinutes: record.readingTimeMinutes,
+  };
 }
