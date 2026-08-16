@@ -152,7 +152,7 @@ async function createLocalWorkerConfig(rootDir: string): Promise<LocalWorkerConf
         name: 'jelementi-web-local-smoke',
         main: join(rootDir, '.svelte-kit/cloudflare/_worker.js'),
         compatibility_date: '2026-07-26',
-        compatibility_flags: ['nodejs_als'],
+        compatibility_flags: ['nodejs_compat'],
         assets: {
           binding: 'ASSETS',
           directory: join(rootDir, '.svelte-kit/cloudflare'),
