@@ -1,0 +1,301 @@
+import { describe, expect, it, vi } from 'vitest';
+import { serializeArticleSource } from '@jelementi/content-compiler';
+import { FakeGithubAdapter } from './github-adapter.fake';
+import type { StudioGithubConfig } from './config.server';
+import {
+  loadStudioEditorPage,
+  previewStudioEditorAction,
+  saveStudioEditorAction,
+} from './editor-route.server';
+
+const { requireStudioAccess, requireStudioMutation } = vi.hoisted(() => ({
+  requireStudioAccess: vi.fn(async () => ({ ok: true as const, email: 'darko@example.com' })),
+  requireStudioMutation: vi.fn(async () => ({ ok: true as const, email: 'darko@example.com' })),
+}));
+
+vi.mock('./request-guard.server', () => ({ requireStudioAccess, requireStudioMutation }));
+
+const config: StudioGithubConfig = {
+  appId: '12345',
+  clientId: 'Iv1.client',
+  installationId: '67890',
+  owner: 'DarkoKuzmanovic',
+  repo: 'jelementi',
+  privateKey: 'test-private-key',
+};
+
+const env: WorkerEnv = {
+  ACCESS_TEAM_DOMAIN: 'https://jelementi.cloudflareaccess.com',
+  ACCESS_AUD: 'studio-audience',
+  ALLOWED_OPERATOR_EMAIL: 'darko@example.com',
+  GITHUB_APP_ID: '123456',
+  GITHUB_APP_CLIENT_ID: 'Iv1.client',
+  GITHUB_INSTALLATION_ID: '654321',
+  GITHUB_REPO_OWNER: 'DarkoKuzmanovic',
+  GITHUB_REPO_NAME: 'jelementi',
+  PRODUCTION_ORIGIN: 'https://jelementi.quz.ma',
+  PUBLIC_MEDIA_BASE_URL: 'https://media.jelementi.quz.ma/',
+  GITHUB_APP_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----',
+  R2_MEDIA: undefined,
+};
+
+const adapter = new FakeGithubAdapter(config);
+adapter.seedFile(
+  'main',
+  'content/articles/tristan-da-cunha.md',
+  serializeArticleSource({
+    frontmatter: {
+      title: 'The 250 People at the End of the World',
+      slug: 'tristan-da-cunha',
+      excerpt: 'A remote settlement.',
+      publishedAt: '2026-07-26',
+      updatedAt: '2026-07-26',
+      status: 'published',
+      category: 'History',
+      tags: ['islands'],
+      author: 'Jelementi',
+      cover: { src: 'articles/tristan-da-cunha/cover.svg', alt: 'Island' },
+      references: [],
+    },
+    body: 'Body.',
+  }),
+  'b'.repeat(64),
+);
+
+function event(request: Request = new Request('https://jelementi.quz.ma/studio')) {
+  return { request, platform: { env }, locals: { studioGithubAdapter: adapter } };
+}
+
+function validForm(): FormData {
+  const form = new FormData();
+  form.set('title', 'A draft');
+  form.set('slug', 'a-draft');
+  form.set('excerpt', 'An excerpt.');
+  form.set('publishedAt', '');
+  form.set('updatedAt', '2026-08-20');
+  form.set('status', 'draft');
+  form.set('category', 'Ideas');
+  form.set('tags', 'studio, writing');
+  form.set('author', 'Jelementi');
+  form.set('coverSrc', 'articles/a-draft/cover.svg');
+  form.set('coverAlt', 'Cover');
+  form.set('audioSrc', '');
+  form.set('audioDurationSeconds', '');
+  form.append('referenceTitle', '');
+  form.append('referenceUrl', '');
+  form.append('referencePublisher', '');
+  form.append('referenceAccessedAt', '');
+  form.set('body', 'The **body**.');
+  form.set('baseMainSha', 'a'.repeat(40));
+  return form;
+}
+
+describe('Studio editor route boundary', () => {
+  it('loads an existing editor only after authorization', async () => {
+    const result = await loadStudioEditorPage(event(), 'tristan-da-cunha');
+
+    expect(requireStudioAccess).toHaveBeenCalled();
+    expect(result.editor.metadata.slug).toBe('tristan-da-cunha');
+    expect(result.editor.body).toBe('Body.');
+  });
+
+  it('previews the submitted body through the server compiler without a GitHub write', async () => {
+    const form = validForm();
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/a-draft?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(requireStudioMutation).toHaveBeenCalled();
+    expect(result.preview.kind).toBe('preview_ok');
+    expect(result.editor?.body).toBe('The **body**.');
+    const branches = await adapter.listStudioBranches();
+    expect(branches).toEqual({ ok: true, value: [] });
+  });
+
+  it('returns a safe source location based on a valid submitted slug for invalid forms', async () => {
+    const form = validForm();
+    form.set('slug', 'draft-notes');
+    form.set('baseMainSha', 'not-a-sha');
+
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/draft-notes?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.preview).toMatchObject({
+      kind: 'preview_issues',
+      compileIssues: [
+        { code: 'INVALID_EDITOR_INPUT', sourcePath: 'content/articles/draft-notes.md' },
+      ],
+    });
+    expect(result.editor?.metadata.title).toBe('A draft');
+    expect(result.editor?.body).toBe('The **body**.');
+  });
+
+  it('does not reflect over-limit body input beyond the display bound', async () => {
+    const form = validForm();
+    form.set('body', 'x'.repeat(2_000_001));
+
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.preview.kind).toBe('preview_issues');
+    expect(result.editor?.body).toHaveLength(2_000_000);
+  });
+
+  it('rejects a tampered slug on an established article at the server boundary', async () => {
+    const form = validForm();
+    form.set('slug', 'different-slug');
+
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/tristan-da-cunha?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+      'tristan-da-cunha',
+    );
+
+    expect(result.preview).toMatchObject({
+      kind: 'preview_issues',
+      compileIssues: [
+        {
+          code: 'SLUG_IMMUTABLE',
+          sourcePath: 'content/articles/tristan-da-cunha.md',
+        },
+      ],
+    });
+    expect(result.editor?.metadata.slug).toBe('tristan-da-cunha');
+  });
+});
+
+describe('Studio save route boundary', () => {
+  it('commits a new draft branch and opens a Draft PR after authorization', async () => {
+    const form = validForm();
+    form.set('slug', 'a-fresh-save');
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(requireStudioMutation).toHaveBeenCalled();
+    expect(result.save.kind).toBe('saved');
+    if (result.save.kind !== 'saved') throw new Error('expected saved');
+    expect(result.save.pullRequest.number).toBeGreaterThan(0);
+    expect(result.save.concurrency.draftHeadSha).toBeDefined();
+    expect(result.editor?.metadata.slug).toBe('a-fresh-save');
+
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).toContain(
+      'studio/article/a-fresh-save',
+    );
+  });
+
+  it('rejects an invalid form without touching GitHub', async () => {
+    const form = validForm();
+    form.set('slug', 'bad-save');
+    form.set('baseMainSha', 'not-a-sha');
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save).toMatchObject({
+      kind: 'save_rejected',
+      compileIssues: [{ code: 'INVALID_EDITOR_INPUT', sourcePath: 'content/articles/bad-save.md' }],
+    });
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/bad-save',
+    );
+  });
+
+  it('rejects a tampered slug on an established article before any GitHub write', async () => {
+    const form = validForm();
+    form.set('slug', 'different-slug');
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/tristan-da-cunha?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+      'tristan-da-cunha',
+    );
+
+    expect(result.save).toMatchObject({
+      kind: 'save_rejected',
+      compileIssues: [
+        { code: 'SLUG_IMMUTABLE', sourcePath: 'content/articles/tristan-da-cunha.md' },
+      ],
+    });
+    expect(result.editor?.metadata.slug).toBe('tristan-da-cunha');
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/different-slug',
+    );
+  });
+
+  it('fails closed as a save conflict when the loaded main SHA is stale', async () => {
+    const form = validForm();
+    form.set('slug', 'stale-main-save');
+    form.set('baseMainSha', 'c'.repeat(40));
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save.kind).toBe('save_conflict');
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/stale-main-save',
+    );
+  });
+
+  it('reports 503 when no GitHub adapter is wired', async () => {
+    const form = validForm();
+    const request = new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+      method: 'POST',
+      body: form,
+    });
+
+    await expect(
+      saveStudioEditorAction({ request, platform: { env }, locals: {} }),
+    ).rejects.toMatchObject({ status: 503 });
+  });
+});

@@ -3,6 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { compileArticle } from '@jelementi/content-compiler';
+import { articleContentFingerprint, canonicalizeJson } from '@jelementi/article-model';
+import { createHash } from 'node:crypto';
 
 const rootDir = dirname(fileURLToPath(new URL('../package.json', import.meta.url)));
 const localMediaBaseUrl = 'http://localhost:5173/media/';
@@ -55,5 +57,20 @@ describe('canonical Tristan da Cunha article', () => {
     await Promise.all(
       localMediaUrls.map((url) => access(join(rootDir, 'apps/web/static', new URL(url).pathname))),
     );
+  });
+
+  it('fingerprints the canonical article as stable SHA-256 over canonical JSON bytes', async () => {
+    const sourcePath = 'content/articles/tristan-da-cunha.md';
+    const markdown = await readFile(join(rootDir, sourcePath), 'utf8');
+    const document = compileArticle({
+      markdown,
+      sourcePath,
+      mediaBaseUrl: cloudMediaBaseUrl,
+    }).document;
+
+    const canonicalJson = canonicalizeJson(document);
+    const expected = createHash('sha256').update(canonicalJson).digest('hex');
+    expect(await articleContentFingerprint(document)).toBe(expected);
+    expect(await articleContentFingerprint(document)).toBe(expected);
   });
 });

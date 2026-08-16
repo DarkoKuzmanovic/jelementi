@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   ArticleDocumentSchema,
   ArticleIndexSchema,
+  articleContentFingerprint,
+  canonicalizeJson,
   categorySlug,
   normalizeSearchText,
   validateArticleDocument,
@@ -115,6 +117,48 @@ describe('ArticleDocument validation', () => {
         footnotes: [{ id: 'unused', children: [] }],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('Article content fingerprint', () => {
+  const document = validateArticleDocument(validDocument);
+
+  it('canonicalizes nested objects with recursively sorted keys and compact JSON', () => {
+    expect(canonicalizeJson({ b: 1, a: { d: 2, c: 3 } })).toBe('{"a":{"c":3,"d":2},"b":1}');
+    expect(canonicalizeJson([{ b: 1 }, { a: 2 }])).toBe('[{"b":1},{"a":2}]');
+    expect(canonicalizeJson({ a: [1, 2] })).toBe('{"a":[1,2]}');
+  });
+
+  it('is independent of object key insertion order but sensitive to array order', () => {
+    const left = { b: 1, a: { d: 2, c: 3 } };
+    const right = { a: { c: 3, d: 2 }, b: 1 };
+    expect(canonicalizeJson(left)).toBe(canonicalizeJson(right));
+    expect(canonicalizeJson([1, 2])).not.toBe(canonicalizeJson([2, 1]));
+  });
+
+  it('produces a stable lowercase 64-character SHA-256 hex digest', async () => {
+    const first = await articleContentFingerprint(document);
+    const second = await articleContentFingerprint(document);
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    expect(second).toBe(first);
+  });
+
+  it('changes when the document meaningfully changes', async () => {
+    const changed = { ...document, title: `${document.title} (revised)` };
+    expect(await articleContentFingerprint(changed)).not.toBe(
+      await articleContentFingerprint(document),
+    );
+  });
+
+  it('hashes non-ASCII UTF-8 text deterministically', async () => {
+    const unicode = validateArticleDocument({
+      ...validDocument,
+      title: 'Čačak — 250 people 🏝️',
+    });
+    const first = await articleContentFingerprint(unicode);
+    const second = await articleContentFingerprint(unicode);
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    expect(second).toBe(first);
   });
 });
 

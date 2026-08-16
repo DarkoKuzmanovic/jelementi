@@ -111,9 +111,15 @@ importers:
       '@jelementi/article-model':
         specifier: workspace:*
         version: link:../../packages/article-model
+      '@jelementi/content-compiler':
+        specifier: workspace:*
+        version: link:../../packages/content-compiler
       '@sveltejs/kit':
         specifier: 2.70.1
         version: 2.70.1(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.8(@typescript-eslint/types@8.65.0))(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.8(@typescript-eslint/types@8.65.0))(typescript@6.0.3)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
+      jose:
+        specifier: 6.2.8
+        version: 6.2.8
       svelte:
         specifier: 5.56.8
         version: 5.56.8(@typescript-eslint/types@8.65.0)
@@ -1866,10 +1872,12 @@ packages:
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xmldom/xmldom@0.9.10':
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -2839,6 +2847,9 @@ packages:
 
   jimp-compact@0.16.1:
     resolution: {integrity: sha512-dZ6Ra7u1G8c4Letq/B5EzAxj4tLFHL+cGtdpR+PVm4yzPDj+lCk+AbivWt1eOM+ikzkowtyV7qSqX6qr3t71Ww==}
+
+  jose@6.2.8:
+    resolution: {integrity: sha512-Bsdjwm3Qsd/P0jR+BHDe3LytDfY7WBq2HmCCLIwuVRHMuEC9ae7/R474GIUdF1NgCyZjzVo/A9DOiOBtXq8ZoQ==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -5916,7 +5927,9 @@ snapshots:
       metro-runtime: 0.84.4
     transitivePeerDependencies:
       - '@babel/core'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.86.0': {}
 
@@ -7264,6 +7277,8 @@ snapshots:
       supports-color: 8.1.1
 
   jimp-compact@0.16.1: {}
+
+  jose@6.2.8: {}
 
   js-tokens@4.0.0: {}
 

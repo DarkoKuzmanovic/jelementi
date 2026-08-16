@@ -4,5 +4,8 @@
   let { data }: { data: PageData } = $props();
 </script>
 
-<svelte:head><title>{data.article.title} — Jelementi</title></svelte:head>
+<svelte:head>
+  <title>{data.article.title} — Jelementi</title>
+  <meta name="jelementi-content-version" content={data.contentVersion} />
+</svelte:head>
 <ArticleRenderer document={data.article} />
