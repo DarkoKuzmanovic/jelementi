@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GithubApiAdapter } from './github-adapter.production';
 import type { StudioGithubConfig } from './config.server';
 
@@ -35,6 +35,45 @@ function adapterFor(fetch: typeof globalThis.fetch): GithubApiAdapter {
 }
 
 describe('GithubApiAdapter', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('calls the default global fetch without a foreign receiver (workerd rejects those)', async () => {
+    // Cloudflare's workerd (like browsers) throws "Illegal invocation" when a
+    // native web API is invoked with a receiver other than the global scope —
+    // e.g. via an unbound `this.fetchImpl(...)` method call. Node's undici
+    // ignores the receiver, which masked exactly that in production. This stub
+    // reproduces workerd's semantics.
+    function receiverSensitiveFetch(this: unknown): Promise<Response> {
+      if (this !== undefined && this !== globalThis) {
+        throw new TypeError('Illegal invocation');
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ref: 'refs/heads/main',
+            object: { sha: mainSha },
+            url: `https://github.com/DarkoKuzmanovic/jelementi/tree/main`,
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    }
+    vi.stubGlobal('fetch', receiverSensitiveFetch);
+
+    const adapter = new GithubApiAdapter(config, {
+      authenticate: async () => ({
+        ok: true as const,
+        value: { token: 'ghs_test', expiresAt: '2099-01-01T00:00:00Z' },
+      }),
+      now: () => Date.parse('2026-08-13T11:00:00Z'),
+    });
+
+    const result = await adapter.getMainRef();
+    expect(result.ok).toBe(true);
+  });
+
   it('reads the main ref and maps GitHub failures without exposing upstream bodies', async () => {
     let requestInit: RequestInit | undefined;
     const adapter = adapterFor(async (_url, init) => {
@@ -52,6 +91,7 @@ describe('GithubApiAdapter', () => {
     expect(headers.get('Authorization')).toBe('Bearer ghs_test');
     expect(headers.get('Accept')).toBe('application/vnd.github+json');
     expect(headers.get('X-GitHub-Api-Version')).toBe('2022-11-28');
+    expect(headers.get('User-Agent')).toBe('jelementi-studio');
     expect(JSON.stringify(result)).not.toContain('private upstream detail');
   });
 
@@ -785,12 +825,14 @@ describe('GithubApiAdapter write methods', () => {
     it('flips a Draft PR ready via GraphQL, then confirms the result with an authoritative REST re-read', async () => {
       const calls: string[] = [];
       let graphqlBody: unknown;
+      let graphqlHeaders: Headers | undefined;
       let readCount = 0;
       const adapter = adapterFor(async (url, init) => {
         const { path, method } = request(url, init);
         calls.push(`${method} ${path}`);
         if (path === '/graphql' && method === 'POST') {
           graphqlBody = JSON.parse(String(init?.body));
+          graphqlHeaders = new Headers(init?.headers);
           return json({ data: { markPullRequestReadyForReview: { pullRequest: { id: nodeId } } } });
         }
         if (path.endsWith('/pulls/42') && method === 'GET') {
@@ -826,6 +868,7 @@ describe('GithubApiAdapter write methods', () => {
         query: expect.stringContaining('markPullRequestReadyForReview'),
         variables: { id: nodeId },
       });
+      expect(graphqlHeaders?.get('User-Agent')).toBe('jelementi-studio');
     });
 
     it('converts a ready PR back to draft via convertPullRequestToDraft', async () => {

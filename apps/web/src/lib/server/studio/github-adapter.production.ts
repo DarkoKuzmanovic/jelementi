@@ -1,6 +1,7 @@
 import {
   createAppJwt,
   exchangeInstallationToken,
+  GITHUB_USER_AGENT,
   type GithubAppAuthResult,
 } from './github-adapter.auth';
 import type { StudioGithubConfig } from './config.server';
@@ -94,7 +95,11 @@ export class GithubApiAdapter implements GithubPublishAdapter {
     private readonly config: StudioGithubConfig,
     options: GithubApiAdapterOptions = {},
   ) {
-    this.fetchImpl = options.fetch ?? globalThis.fetch;
+    // Bound explicitly: this field is invoked as `this.fetchImpl(...)`, and
+    // workerd (like browsers) throws "Illegal invocation" when native fetch
+    // is called with a foreign receiver such as this adapter instance.
+    // Node's undici ignores the receiver, so only production surfaced it.
+    this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.now = options.now ?? Date.now;
     this.apiBaseUrl = (options.apiBaseUrl ?? DEFAULT_API_BASE_URL).replace(/\/$/, '');
     this.requestTimeoutMs =
@@ -660,6 +665,7 @@ export class GithubApiAdapter implements GithubPublishAdapter {
     headers.set('Authorization', `Bearer ${token.value}`);
     headers.set('Accept', 'application/vnd.github+json');
     headers.set('X-GitHub-Api-Version', API_VERSION);
+    headers.set('User-Agent', GITHUB_USER_AGENT);
     headers.set('Content-Type', 'application/json');
 
     const controller = new AbortController();
@@ -712,6 +718,7 @@ export class GithubApiAdapter implements GithubPublishAdapter {
     headers.set('Authorization', `Bearer ${token.value}`);
     headers.set('Accept', 'application/vnd.github+json');
     headers.set('X-GitHub-Api-Version', API_VERSION);
+    headers.set('User-Agent', GITHUB_USER_AGENT);
     if (init.body !== undefined) headers.set('Content-Type', 'application/json');
 
     const controller = new AbortController();
