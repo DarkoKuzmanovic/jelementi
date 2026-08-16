@@ -1,7 +1,7 @@
 import type { Actions } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import {
-  loadStudioEditorPage,
+  loadNewStudioEditorPage,
   previewStudioEditorAction,
   type StudioEditorRouteEvent,
 } from '../../../../lib/server/studio/editor-route.server';
@@ -11,10 +11,10 @@ export const prerender = false;
 export const csr = false;
 
 export const load: PageServerLoad<{ editor: StudioEditorData }> = async (event) =>
-  loadStudioEditorPage(eventForEditorRoute(event), event.params.slug);
+  loadNewStudioEditorPage(eventForEditorRoute(event));
 
 export const actions: Actions = {
-  preview: (event) => previewStudioEditorAction(eventForEditorRoute(event), event.params.slug),
+  preview: (event) => previewStudioEditorAction(eventForEditorRoute(event)),
 };
 
 function eventForEditorRoute(event: {

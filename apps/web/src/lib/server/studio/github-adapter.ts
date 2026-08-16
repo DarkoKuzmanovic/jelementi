@@ -25,6 +25,7 @@ export type StudioGithubOperation =
   | 'create-branch'
   | 'commit-file'
   | 'get-file-content'
+  | 'list-article-files'
   | 'list-pull-requests'
   | 'create-pull-request'
   | 'update-pull-request'
@@ -85,9 +86,13 @@ export interface StudioPullRequest {
   baseRef: string;
   draft: boolean;
   state: 'open' | 'closed' | 'merged';
+  /** Present for merged PRs; used to correlate historical evidence. */
+  mergeCommitSha?: string;
 }
 
 export interface StudioCheckRun {
+  /** GitHub run identity when supplied by the production adapter. */
+  id?: number;
   name: string;
   status: 'queued' | 'in_progress' | 'completed';
   conclusion:
@@ -146,8 +151,11 @@ export interface GithubAdapter {
    */
   commitFile(input: CommitFileInput): Promise<GithubAdapterResult<StudioCommitFileResult>>;
 
-  /** Reads one file from a branch head. Content is bounded. */
-  getFileContent(branch: string, path: string): Promise<GithubAdapterResult<StudioFileContent>>;
+  /** Reads one file from a branch name or immutable commit SHA. Content is bounded. */
+  getFileContent(ref: string, path: string): Promise<GithubAdapterResult<StudioFileContent>>;
+
+  /** Lists canonical article source files at a branch name or immutable commit SHA. */
+  listArticleFiles(ref: string): Promise<GithubAdapterResult<StudioFileContent[]>>;
 
   /**
    * Lists pull requests whose head ref matches (any state, so a discarded
@@ -175,7 +183,11 @@ export interface GithubAdapter {
   enableAutoMerge(number: number, expectedHeadSha: string): Promise<GithubAdapterResult<void>>;
 
   /** Returns the latest check run with `name` on the PR head, or null. */
-  getCheckRun(number: number, name: string): Promise<GithubAdapterResult<StudioCheckRun | null>>;
+  getCheckRun(
+    number: number,
+    name: string,
+    expectedHeadSha?: string,
+  ): Promise<GithubAdapterResult<StudioCheckRun | null>>;
 
   /** Closes an open PR (Discard). */
   closePullRequest(number: number): Promise<GithubAdapterResult<void>>;
@@ -186,6 +198,18 @@ export interface GithubAdapter {
    */
   deleteBranch(name: string, expectedHeadSha: string): Promise<GithubAdapterResult<void>>;
 }
+
+/** Read-only capability used by lifecycle and preview loads before Save exists. */
+export type GithubReadAdapter = Pick<
+  GithubAdapter,
+  | 'getBranch'
+  | 'listStudioBranches'
+  | 'getMainRef'
+  | 'getFileContent'
+  | 'listArticleFiles'
+  | 'listPullRequests'
+  | 'getCheckRun'
+>;
 
 /** The repository context every adapter needs; production wires StudioGithubConfig. */
 export type { StudioGithubConfig };

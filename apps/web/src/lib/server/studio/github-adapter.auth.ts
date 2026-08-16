@@ -28,6 +28,8 @@ export interface GithubAppAuthOptions {
   permissions?: Readonly<Record<string, 'read' | 'write'>>;
   repositories?: readonly string[];
   now?: () => number;
+  /** Maximum time for token exchange, including bounded response reading. */
+  timeoutMs?: number;
 }
 
 const DEFAULT_JWT_LIFETIME_SECONDS = 600;
@@ -35,7 +37,9 @@ const JWT_LEEWAY_SECONDS = 60;
 const MAX_AUTH_RESPONSE_BYTES = 16_384;
 const MAX_INSTALLATION_TOKEN_LENGTH = 4_096;
 const MAX_INSTALLATION_TOKEN_LIFETIME_MS = 3_660_000;
+const DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS = 10_000;
 const DEFAULT_INSTALLATION_PERMISSIONS = {
+  checks: 'read',
   contents: 'read',
   metadata: 'read',
   pull_requests: 'read',
@@ -224,6 +228,16 @@ export async function exchangeInstallationToken(
     return { ok: false, reason: 'invalid-config' };
   }
   const fetchImpl = options?.fetch ?? globalThis.fetch;
+  const timeoutMs =
+    options?.timeoutMs !== undefined && Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
+      ? options.timeoutMs
+      : DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS;
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   let response: Response;
   try {
     response = await fetchImpl(
@@ -239,45 +253,48 @@ export async function exchangeInstallationToken(
           repositories: options?.repositories ?? [config.repo],
           permissions: options?.permissions ?? DEFAULT_INSTALLATION_PERMISSIONS,
         }),
+        signal: controller.signal,
       },
     );
   } catch {
+    clearTimeout(timer);
     return { ok: false, reason: 'token-exchange-failed' };
   }
-  if (!response.ok) return { ok: false, reason: 'token-exchange-failed' };
-  let payload: unknown;
   try {
+    if (!response.ok) return { ok: false, reason: 'token-exchange-failed' };
     const body = await readBoundedText(response, MAX_AUTH_RESPONSE_BYTES);
     if (body === undefined) return { ok: false, reason: 'unexpected-response' };
-    payload = JSON.parse(body) as unknown;
+    const payload = JSON.parse(body) as unknown;
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+      return { ok: false, reason: 'unexpected-response' };
+    }
+    const record = payload as Record<string, unknown>;
+    const token =
+      typeof record.token === 'string' &&
+      record.token.length > 0 &&
+      record.token.length <= MAX_INSTALLATION_TOKEN_LENGTH
+        ? record.token
+        : undefined;
+    const expiresAt =
+      typeof record.expires_at === 'string' &&
+      record.expires_at.length <= 40 &&
+      Number.isFinite(Date.parse(record.expires_at))
+        ? record.expires_at
+        : undefined;
+    const lifetimeMs =
+      expiresAt === undefined ? 0 : Date.parse(expiresAt) - (options?.now?.() ?? Date.now());
+    if (
+      token === undefined ||
+      expiresAt === undefined ||
+      lifetimeMs <= 0 ||
+      lifetimeMs > MAX_INSTALLATION_TOKEN_LIFETIME_MS
+    ) {
+      return { ok: false, reason: 'unexpected-response' };
+    }
+    return { ok: true, value: { token, expiresAt } };
   } catch {
-    return { ok: false, reason: 'unexpected-response' };
+    return { ok: false, reason: timedOut ? 'token-exchange-failed' : 'unexpected-response' };
+  } finally {
+    clearTimeout(timer);
   }
-  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
-    return { ok: false, reason: 'unexpected-response' };
-  }
-  const record = payload as Record<string, unknown>;
-  const token =
-    typeof record.token === 'string' &&
-    record.token.length > 0 &&
-    record.token.length <= MAX_INSTALLATION_TOKEN_LENGTH
-      ? record.token
-      : undefined;
-  const expiresAt =
-    typeof record.expires_at === 'string' &&
-    record.expires_at.length <= 40 &&
-    Number.isFinite(Date.parse(record.expires_at))
-      ? record.expires_at
-      : undefined;
-  const lifetimeMs =
-    expiresAt === undefined ? 0 : Date.parse(expiresAt) - (options?.now?.() ?? Date.now());
-  if (
-    token === undefined ||
-    expiresAt === undefined ||
-    lifetimeMs <= 0 ||
-    lifetimeMs > MAX_INSTALLATION_TOKEN_LIFETIME_MS
-  ) {
-    return { ok: false, reason: 'unexpected-response' };
-  }
-  return { ok: true, value: { token, expiresAt } };
 }

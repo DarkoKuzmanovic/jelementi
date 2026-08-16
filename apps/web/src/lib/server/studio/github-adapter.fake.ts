@@ -26,8 +26,13 @@ import type { StudioGithubConfig } from './config.server';
 const STUDIO_BRANCH_PATTERN = /^studio\/article\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ARTICLE_PATH_PATTERN = /^content\/articles\/[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
 const SHA_PATTERN = /^[0-9a-f]{40,64}$/i;
+const BRANCH_PATTERN = /^(?:main|studio\/article\/[a-z0-9]+(?:-[a-z0-9]+)*)$/;
 const MAX_ARTICLE_BODY = 2_000_000;
 const MAX_COMMIT_MESSAGE = 500;
+
+function isContentRef(value: string): boolean {
+  return BRANCH_PATTERN.test(value) || SHA_PATTERN.test(value);
+}
 
 export interface FakeGithubAdapterOptions {
   /** When true, every call fails with a transport failure (offline tests). */
@@ -176,20 +181,35 @@ export class FakeGithubAdapter implements GithubAdapter {
     };
   }
 
-  async getFileContent(
-    branch: string,
-    path: string,
-  ): Promise<GithubAdapterResult<StudioFileContent>> {
+  async getFileContent(ref: string, path: string): Promise<GithubAdapterResult<StudioFileContent>> {
     const blocked = this.guard<StudioFileContent>('get-file-content');
     if (blocked !== undefined) return blocked;
-    if (!ARTICLE_PATH_PATTERN.test(path)) return this.failure('get-file-content', 'validation');
-    const files = this.files.get(branch);
+    if (!isContentRef(ref) || !ARTICLE_PATH_PATTERN.test(path)) {
+      return this.failure('get-file-content', 'validation');
+    }
+    const resolvedRef = this.resolveFileRef(ref);
+    const files = resolvedRef === undefined ? undefined : this.files.get(resolvedRef);
     const file = files?.get(path);
     if (file === undefined) return this.failure('get-file-content', 'not-found');
     if (file.content.length > MAX_ARTICLE_BODY) {
       return this.failure('get-file-content', 'validation');
     }
     return { ok: true, value: { ...file } };
+  }
+
+  async listArticleFiles(ref: string): Promise<GithubAdapterResult<StudioFileContent[]>> {
+    const blocked = this.guard<StudioFileContent[]>('list-article-files');
+    if (blocked !== undefined) return blocked;
+    if (!isContentRef(ref)) return this.failure('list-article-files', 'validation');
+    const resolvedRef = this.resolveFileRef(ref);
+    if (resolvedRef === undefined) return this.failure('list-article-files', 'not-found');
+    const files = [...(this.files.get(resolvedRef)?.values() ?? [])]
+      .filter((file) => ARTICLE_PATH_PATTERN.test(file.path))
+      .sort((left, right) => left.path.localeCompare(right.path));
+    return {
+      ok: true,
+      value: files.map((file) => ({ ...file })),
+    };
   }
 
   async listPullRequests(head: string): Promise<GithubAdapterResult<StudioPullRequest[]>> {
@@ -267,11 +287,15 @@ export class FakeGithubAdapter implements GithubAdapter {
   async getCheckRun(
     number: number,
     name: string,
+    expectedHeadSha?: string,
   ): Promise<GithubAdapterResult<StudioCheckRun | null>> {
     const blocked = this.guard<StudioCheckRun | null>('get-check-run');
     if (blocked !== undefined) return blocked;
     const pull = this.findPull(number);
     if (pull === undefined) return this.failure('get-check-run', 'not-found');
+    if (expectedHeadSha !== undefined && pull.headSha !== expectedHeadSha) {
+      return this.failure('get-check-run', 'conflict');
+    }
     const runs = this.checks.get(pull.headSha) ?? [];
     const matchingRuns = runs.filter((check) => check.name === name);
     const run = matchingRuns[matchingRuns.length - 1];
@@ -325,6 +349,11 @@ export class FakeGithubAdapter implements GithubAdapter {
     const runs = this.checks.get(pull.headSha) ?? [];
     runs.push(run);
     this.checks.set(pull.headSha, runs);
+  }
+
+  private resolveFileRef(ref: string): string | undefined {
+    if (this.files.has(ref)) return ref;
+    return [...this.branches.values()].find((branch) => branch.sha === ref)?.name;
   }
 
   private findPull(number: number): StudioPullRequest | undefined {

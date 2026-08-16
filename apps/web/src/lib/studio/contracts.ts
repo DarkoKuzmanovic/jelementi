@@ -102,6 +102,55 @@ export interface StudioPullRequestRef {
   headSha: string;
 }
 
+export const STUDIO_PRODUCTION_STATES = [
+  'absent',
+  'live',
+  'pending_deployment',
+  'pending_removal',
+] as const;
+export type StudioProductionState = (typeof STUDIO_PRODUCTION_STATES)[number];
+
+export const STUDIO_CHANGE_STATES = [
+  'none',
+  'draft',
+  'ready',
+  'checking',
+  'check_failed',
+  'merged',
+] as const;
+export type StudioChangeState = (typeof STUDIO_CHANGE_STATES)[number];
+
+export interface StudioCheckEvidence {
+  name: string;
+  status: 'queued' | 'in_progress' | 'completed';
+  conclusion:
+    | 'success'
+    | 'failure'
+    | 'neutral'
+    | 'cancelled'
+    | 'skipped'
+    | 'timed_out'
+    | 'action_required'
+    | null;
+  url?: string;
+}
+
+/** Read-only projection of GitHub-derived state for one canonical article. */
+export interface StudioArticleListEntry {
+  slug: string;
+  title: string;
+  canonicalStatus: StudioArticleStatus;
+  updatedAt: string;
+  production: StudioProductionState;
+  change: StudioChangeState;
+  publicUrl?: string;
+  branch?: StudioBranchRef;
+  pullRequest?: StudioPullRequestRef;
+  check?: StudioCheckEvidence;
+  branchPreviewUrl?: string;
+  buildUrl?: string;
+}
+
 export interface StudioConcurrencyEvidence {
   baseMainSha: string;
   draftHeadSha?: string;

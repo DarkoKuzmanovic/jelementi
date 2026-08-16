@@ -3,6 +3,7 @@ import {
   ContentCompileError,
   compileArticle,
   parseArticleSource,
+  parseArticleSourceDraft,
   serializeArticleSource,
   type ArticleSourceFrontmatter,
 } from '@jelementi/content-compiler';
@@ -239,6 +240,17 @@ describe('serializeArticleSource', () => {
   });
 });
 
+describe('parseArticleSourceDraft', () => {
+  it('preserves parseable frontmatter and body when semantic validation would fail', () => {
+    const source = `---\ntitle: Draft\nslug: draft-notes\nstatus: published\n---\nBody.`;
+
+    expect(parseArticleSourceDraft(source, 'content/articles/draft-notes.md')).toEqual({
+      frontmatter: { title: 'Draft', slug: 'draft-notes', status: 'published' },
+      body: 'Body.',
+    });
+  });
+});
+
 describe('parseArticleSource', () => {
   const sourcePath = 'content/articles/draft-notes.md';
 
@@ -266,7 +278,11 @@ describe('parseArticleSource', () => {
     );
     const draftRound = serializeArticleSource(parseArticleSource(draftSource, sourcePath));
     expect(fullRound).toBe(fullSource);
-    expect(fullRound).toBe(serializeArticleSource(parseArticleSource(fullSource, 'content/articles/tristan-da-cunha.md')));
+    expect(fullRound).toBe(
+      serializeArticleSource(
+        parseArticleSource(fullSource, 'content/articles/tristan-da-cunha.md'),
+      ),
+    );
     expect(draftRound).toBe(draftSource);
   });
 
@@ -293,7 +309,10 @@ describe('parseArticleSource', () => {
   it('rejects body-only Markdown and missing closing delimiters', () => {
     for (const [markdown, sourcePathForCase] of [
       ['Just some text without frontmatter.\n', sourcePath],
-      [serializeArticleSource({ frontmatter: draftFrontmatter, body: '' }).replace(/\n---\n$/, ''), sourcePath],
+      [
+        serializeArticleSource({ frontmatter: draftFrontmatter, body: '' }).replace(/\n---\n$/, ''),
+        sourcePath,
+      ],
     ] as const) {
       let captured: unknown;
       try {

@@ -25,6 +25,11 @@ export interface CompiledArticle {
   searchText: string;
 }
 
+export interface ArticleSourceDraftInput {
+  frontmatter: Record<string, unknown>;
+  body: string;
+}
+
 export interface ContentCompileIssue {
   code: string;
   message: string;
@@ -133,10 +138,7 @@ function parseFrontmatterYaml(raw: string, sourcePath: string): Record<string, u
   return value as Record<string, unknown>;
 }
 
-function frontmatterFromRecord(
-  record: Record<string, unknown>,
-  sourcePath: string,
-): Frontmatter {
+function frontmatterFromRecord(record: Record<string, unknown>, sourcePath: string): Frontmatter {
   const allowed = new Set([
     'title',
     'slug',
@@ -214,11 +216,7 @@ function frontmatterFromRecord(
     const allowedRefKeys = new Set(['title', 'url', 'publisher', 'accessedAt']);
     for (const key of Object.keys(item)) {
       if (!allowedRefKeys.has(key))
-        throw raiseIssue(
-          sourcePath,
-          'INVALID_FRONTMATTER',
-          `Unknown reference field "${key}".`,
-        );
+        throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', `Unknown reference field "${key}".`);
     }
     if (item.publisher !== undefined && !asString(item.publisher)) {
       throw raiseIssue(
@@ -271,11 +269,7 @@ function frontmatterFromRecord(
   if (audioRecord !== undefined) {
     for (const key of Object.keys(audioRecord)) {
       if (key !== 'src' && key !== 'durationSeconds')
-        throw raiseIssue(
-          sourcePath,
-          'INVALID_FRONTMATTER',
-          `Unknown audio field "${key}".`,
-        );
+        throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', `Unknown audio field "${key}".`);
     }
   }
   return {
@@ -318,11 +312,7 @@ function parseFrontmatter(input: CompileArticleInput): Frontmatter {
   const frontmatter = frontmatterFromRecord(record, input.sourcePath);
   const stem = input.sourcePath.split('/').pop()?.replace(/\.md$/, '');
   if (stem !== frontmatter.slug)
-    throw issue(
-      input,
-      'INVALID_FRONTMATTER',
-      'Source filename must match frontmatter slug.',
-    );
+    throw issue(input, 'INVALID_FRONTMATTER', 'Source filename must match frontmatter slug.');
   return frontmatter;
 }
 
@@ -357,6 +347,25 @@ export function parseArticleSource(markdown: string, sourcePath: string): Articl
       'Source filename must match frontmatter slug.',
     );
   return { frontmatter, body: match[2] ?? '' };
+}
+
+/**
+ * Extracts YAML and body without applying semantic article validation. This is
+ * only for resuming an intentionally invalid Studio draft; compilation still
+ * uses `parseArticleSource` and reports the real structured issues.
+ */
+export function parseArticleSourceDraft(
+  markdown: string,
+  sourcePath: string,
+): ArticleSourceDraftInput {
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/);
+  if (!match?.[1])
+    throw raiseIssue(
+      sourcePath,
+      'INVALID_FRONTMATTER',
+      'Expected YAML frontmatter at the start of the file.',
+    );
+  return { frontmatter: parseFrontmatterYaml(match[1], sourcePath), body: match[2] ?? '' };
 }
 
 function resolveMedia(input: CompileArticleInput, key: string, node?: AstNode): string {

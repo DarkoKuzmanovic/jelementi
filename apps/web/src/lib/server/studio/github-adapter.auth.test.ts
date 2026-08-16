@@ -73,8 +73,20 @@ describe('exchangeInstallationToken', () => {
     });
     expect(JSON.parse(String(requestInit?.body))).toEqual({
       repositories: ['jelementi'],
-      permissions: { contents: 'read', metadata: 'read', pull_requests: 'read' },
+      permissions: { checks: 'read', contents: 'read', metadata: 'read', pull_requests: 'read' },
     });
+  });
+
+  it('aborts a stalled token exchange within its configured timeout', async () => {
+    await expect(
+      exchangeInstallationToken(config, 'app-jwt', {
+        timeoutMs: 1,
+        fetch: async (_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          }),
+      }),
+    ).resolves.toEqual({ ok: false, reason: 'token-exchange-failed' });
   });
 
   it('rejects malformed or unbounded responses before returning credentials', async () => {
