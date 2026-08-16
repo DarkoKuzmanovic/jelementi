@@ -353,6 +353,45 @@ function failIndexProbe(reason: ProbeIndexResult['reason']): ProbeIndexResult {
   };
 }
 
+function notFoundArticleProbe(): ProbeResult {
+  return {
+    ok: false,
+    url: 'https://jelementi.quz.ma/articles/tristan-da-cunha?probe=1',
+    status: 404,
+    fingerprint: null,
+    headers: {},
+    elapsedMs: 5,
+    attempts: 3,
+    reason: 'non-2xx',
+  };
+}
+
+const presentIndexEntry: StudioIndexEvidence = {
+  slug: 'tristan-da-cunha',
+  title: frontmatter.title,
+  excerpt: frontmatter.excerpt,
+  publishedAt: '2026-07-26',
+  updatedAt: '2026-07-26',
+  category: frontmatter.category,
+  categorySlug: categorySlug(frontmatter.category),
+  tags: frontmatter.tags,
+  author: frontmatter.author,
+  cover: { src: 'articles/tristan-da-cunha/cover-v1.svg', alt: 'Island' },
+  readingTimeMinutes: 7,
+};
+
+function seedArchivedArticle(adapter: FakeGithubAdapter): void {
+  adapter.seedFile(
+    'main',
+    'content/articles/tristan-da-cunha.md',
+    serializeArticleSource({
+      frontmatter: { ...frontmatter, status: 'archived' },
+      body: 'The sea is the only road home.',
+    }),
+    'd'.repeat(64),
+  );
+}
+
 function expectedIndexEvidenceFor(document: {
   slug: string;
   title: string;
@@ -400,6 +439,100 @@ function seedMergedHistory(adapter: FakeGithubAdapter, mainSha: string): void {
 }
 
 describe('deriveStudioArticleStatus', () => {
+  it('keeps a merged unpublish intermediate on ordinary load: canonical archived, never archived without probes', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    seedMergedHistory(adapter, main.value.sha);
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: false,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: expect.objectContaining({ kind: 'merged', mainSha: main.value.sha }),
+    });
+  });
+
+  it('resolves a merged unpublish to archived on refresh only when both probes prove absence', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    seedMergedHistory(adapter, main.value.sha);
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => notFoundArticleProbe(),
+      probeIndex: async () => okIndexProbe([]),
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'archived',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha', status: 'archived' }),
+        mainSha: main.value.sha,
+      },
+    });
+  });
+
+  it('stays unpublish_pending on refresh when a merged unpublish has only partial absence signals', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    seedMergedHistory(adapter, main.value.sha);
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => notFoundArticleProbe(),
+      probeIndex: async () => okIndexProbe([presentIndexEntry]),
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'unpublish_pending',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha' }),
+        mainSha: main.value.sha,
+      },
+    });
+  });
+
+  it('stays unpublish_pending on refresh when a merged unpublish probe fails outright', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    seedMergedHistory(adapter, main.value.sha);
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => failArticleProbe('timeout'),
+      probeIndex: async () => okIndexProbe([]),
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'unpublish_pending',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha' }),
+        mainSha: main.value.sha,
+      },
+    });
+  });
+
   it('reports merged without probing when includeProbe is false, never live', async () => {
     const adapter = new FakeGithubAdapter(config);
     seedPublishedArticle(adapter);
@@ -722,6 +855,124 @@ describe('deriveStudioArticleStatus', () => {
     if (mismatchedRefresh.ok && mismatchedRefresh.value.kind === 'draft_valid') {
       expect(mismatchedRefresh.value.productionLive).toBeUndefined();
     }
+  });
+
+  it('reports an archived canonical article as unpublish_pending without probing (ordinary load)', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: false,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'unpublish_pending',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha', status: 'archived' }),
+        mainSha: main.value.sha,
+      },
+    });
+  });
+
+  it('reports archived only when refresh proves index absence AND the article route 404s', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => notFoundArticleProbe(),
+      probeIndex: async () => okIndexProbe([]),
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'archived',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha' }),
+        mainSha: main.value.sha,
+      },
+    });
+  });
+
+  it('stays unpublish_pending when only the index lacks the slug but the route still serves content', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => okArticleProbe('0'.repeat(64)),
+      probeIndex: async () => okIndexProbe([]),
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'unpublish_pending',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha' }),
+        mainSha: main.value.sha,
+      },
+    });
+  });
+
+  it('stays unpublish_pending when the index still lists the slug despite the route 404', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => notFoundArticleProbe(),
+      probeIndex: async () => okIndexProbe([presentIndexEntry]),
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'unpublish_pending',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha' }),
+        mainSha: main.value.sha,
+      },
+    });
+  });
+
+  it('stays unpublish_pending when a probe times out, never archived', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedArchivedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => failArticleProbe('timeout'),
+      probeIndex: async () => okIndexProbe([]),
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'unpublish_pending',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha' }),
+        mainSha: main.value.sha,
+      },
+    });
   });
 
   it('reconstructs identical status across repeated reads, with no hidden server-side state', async () => {

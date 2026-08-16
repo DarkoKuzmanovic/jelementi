@@ -13,8 +13,17 @@ import {
   publishStudioDraft,
   type StudioPublishResult,
 } from '../../../../lib/server/studio/publish.server';
+import {
+  unpublishStudioArticle,
+  type StudioUnpublishResult,
+} from '../../../../lib/server/studio/unpublish.server';
+import {
+  discardStudioDraft,
+  type StudioDiscardResult,
+} from '../../../../lib/server/studio/discard.server';
 import { requireStudioMutation } from '../../../../lib/server/studio/request-guard.server';
 import type {
+  GithubAdapter,
   GithubPublishAdapter,
   GithubReadAdapter,
 } from '../../../../lib/server/studio/github-adapter';
@@ -33,6 +42,14 @@ export interface StudioPublishActionData {
 
 export interface StudioRefreshActionData {
   status: StudioLifecycle;
+}
+
+export interface StudioUnpublishActionData {
+  unpublish: StudioUnpublishResult;
+}
+
+export interface StudioDiscardActionData {
+  discard: StudioDiscardResult;
 }
 
 /**
@@ -96,8 +113,8 @@ export const actions: Actions = {
 
   /**
    * Refresh re-reads GitHub AND re-runs the production probes — the only
-   * path to `live`. There is no background polling; this is the sole
-   * trigger for `includeProbe: true` (spec).
+   * path to `live` and to proven `archived` absence. There is no background
+   * polling; this is the sole trigger for `includeProbe: true` (spec).
    */
   refresh: async (event) => {
     await requireStudioMutation({ request: event.request, platform: event.platform });
@@ -115,6 +132,63 @@ export const actions: Actions = {
     });
     if (!status.ok) error(503, 'Studio status unavailable.');
     const result: StudioRefreshActionData = { status: status.value };
+    return result;
+  },
+
+  /**
+   * Unpublish archives the currently published canonical article: an archive
+   * commit changing only the frontmatter `status` to `archived` is carried
+   * through the same one-draft topology as Publish, then the sole Draft PR
+   * is flipped ready and auto-merge is enabled bound to that exact archive
+   * head. The operator must type the exact slug — anything else fails closed
+   * before any GitHub access. Production absence is only ever proven later
+   * by an explicit Refresh.
+   */
+  unpublish: async (event) => {
+    await requireStudioMutation({ request: event.request, platform: event.platform });
+    if (!isStudioSlug(event.params.slug)) error(400, 'Invalid article slug.');
+
+    const form = await event.request.formData();
+    if (form.get('confirmation') !== event.params.slug) {
+      error(400, 'Invalid unpublish request.');
+    }
+
+    const adapter = (event.locals as { studioGithubAdapter?: GithubPublishAdapter })
+      .studioGithubAdapter;
+    if (adapter === undefined) error(503, 'Studio unpublish unavailable.');
+    const config = loadConfig(event.platform, 'Studio unpublish unavailable.');
+
+    const unpublish = await unpublishStudioArticle(adapter, event.params.slug, {
+      mediaBaseUrl: config.mediaBaseUrl,
+    });
+    const result: StudioUnpublishActionData = { unpublish };
+    return result;
+  },
+
+  /**
+   * Discard closes the article's sole Draft PR and deletes only its Studio
+   * branch after the operator types the exact slug and submits the branch
+   * head they last saw. The branch is deleted only while its head still
+   * equals that expected head; `main` is never touched.
+   */
+  discard: async (event) => {
+    await requireStudioMutation({ request: event.request, platform: event.platform });
+    if (!isStudioSlug(event.params.slug)) error(400, 'Invalid article slug.');
+
+    const form = await event.request.formData();
+    if (form.get('confirmation') !== event.params.slug) {
+      error(400, 'Invalid discard request.');
+    }
+    const expectedHeadSha = form.get('expectedHeadSha');
+    if (typeof expectedHeadSha !== 'string' || !SHA_PATTERN.test(expectedHeadSha)) {
+      error(400, 'Invalid discard request.');
+    }
+
+    const adapter = (event.locals as { studioGithubAdapter?: GithubAdapter }).studioGithubAdapter;
+    if (adapter === undefined) error(503, 'Studio discard unavailable.');
+
+    const discard = await discardStudioDraft(adapter, event.params.slug, expectedHeadSha);
+    const result: StudioDiscardActionData = { discard };
     return result;
   },
 };

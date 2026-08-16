@@ -407,6 +407,67 @@ export class GithubApiAdapter implements GithubPublishAdapter {
     return { ok: true, value: undefined };
   }
 
+  /**
+   * Closes an open PR (Discard) via REST `PATCH .../pulls/{number}`. Only an
+   * open PR may be closed; the mutation's own response is validated to show
+   * the closed state before success is reported — a bare 200 is never
+   * trusted on its own.
+   */
+  async closePullRequest(number: number): Promise<ApiResult<void>> {
+    if (!Number.isSafeInteger(number) || number < 1) {
+      return this.failure('close-pull-request', 'validation');
+    }
+    const record = await this.getPullRequestRecord(number, 'close-pull-request');
+    if (!record.ok) return record;
+    if (record.value.pull.state !== 'open') {
+      return this.failure('close-pull-request', 'validation');
+    }
+    const result = await this.requestJson(
+      'close-pull-request',
+      `/repos/${this.repositoryPath()}/pulls/${number}`,
+      { method: 'PATCH', body: JSON.stringify({ state: 'closed' }) },
+    );
+    if (!result.ok) return result;
+    const parsed = parsePullRequest(result.value, 'close-pull-request');
+    if (!parsed.ok) return parsed;
+    if (parsed.value.state !== 'closed') {
+      return this.failure('close-pull-request', 'topology');
+    }
+    return { ok: true, value: undefined };
+  }
+
+  /**
+   * Deletes a Studio branch (Discard) via the Git refs API. The branch head
+   * is read fresh and must still equal `expectedHeadSha` before the DELETE
+   * is issued — a moved head fails closed as a conflict. GitHub's REST
+   * `DELETE /git/refs/{ref}` has no expected-SHA/If-Match parameter, so this
+   * immediate fresh GET → compare → DELETE sequence is the strongest
+   * API-supported boundary (issue #18 requires only expected-head
+   * verification before branch deletion); a 409 or 422 from the DELETE
+   * itself is surfaced as a conflict rather than a generic failure. `main`
+   * can never be deleted.
+   */
+  async deleteBranch(name: string, expectedHeadSha: string): Promise<ApiResult<void>> {
+    if (name === 'main') return this.failure('delete-branch', 'forbidden');
+    if (!STUDIO_BRANCH_PATTERN.test(name) || !SHA_PATTERN.test(expectedHeadSha)) {
+      return this.failure('delete-branch', 'validation');
+    }
+    const ref = await this.requestJson('delete-branch', this.refPath(name));
+    if (!ref.ok) return ref;
+    const parsedRef = parseRef(ref.value, name, 'delete-branch');
+    if (!parsedRef.ok) return parsedRef;
+    if (parsedRef.value.sha !== expectedHeadSha) {
+      return this.failure('delete-branch', 'conflict');
+    }
+    const deleted = await this.requestJson('delete-branch', this.refPath(name), {
+      method: 'DELETE',
+    });
+    if (!deleted.ok) return this.remapUnprocessableToConflict(deleted, 'delete-branch');
+    // GitHub answers 204 No Content; a body on success is unexpected.
+    if (deleted.value !== undefined) return this.failure('delete-branch', 'validation');
+    return { ok: true, value: undefined };
+  }
+
   async getFileContent(ref: string, path: string): Promise<ApiResult<StudioFileContent>> {
     if (!isContentRef(ref) || !ARTICLE_PATH_PATTERN.test(path)) {
       return this.failure('get-file-content', 'validation');

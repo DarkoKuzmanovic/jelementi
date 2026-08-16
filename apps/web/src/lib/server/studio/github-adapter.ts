@@ -222,9 +222,9 @@ export type GithubSaveAdapter = GithubReadAdapter &
 
 /**
  * Save capability plus the two write methods Publish (#17) needs: flipping
- * the Draft PR ready and enabling head-bound auto-merge. Discard (#18) adds
- * the remaining write methods (`closePullRequest`, `deleteBranch`) to a
- * full `GithubAdapter` later.
+ * the Draft PR ready and enabling head-bound auto-merge. The production
+ * adapter additionally implements Discard's remaining write methods
+ * (`closePullRequest`, `deleteBranch`), completing the full `GithubAdapter`.
  */
 export type GithubPublishAdapter = GithubSaveAdapter &
   Pick<GithubAdapter, 'updatePullRequest' | 'enableAutoMerge'>;

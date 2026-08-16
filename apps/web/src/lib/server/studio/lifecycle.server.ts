@@ -354,7 +354,19 @@ export async function deriveStudioArticleStatus(
     case 'none': {
       if (canonical === undefined) return { ok: true, value: { kind: 'unknown', article } };
       if (canonical.frontmatter.status === 'archived') {
-        return { ok: true, value: { kind: 'archived', article, mainSha: main.value.sha } };
+        if (!options.includeProbe) {
+          // A plain load never claims `archived`: absence is a negative public
+          // fact only an explicit Refresh can prove. Until then the article is
+          // conservatively still in flight.
+          return {
+            ok: true,
+            value: { kind: 'unpublish_pending', article, mainSha: main.value.sha },
+          };
+        }
+        return {
+          ok: true,
+          value: await resolveProbedAbsence(article, main.value.sha, slug, options),
+        };
       }
       if (canonical.frontmatter.status === 'draft') {
         return { ok: true, value: { kind: 'unknown', article } };
@@ -461,6 +473,15 @@ export async function deriveStudioArticleStatus(
         return {
           ok: true,
           value: { kind: 'pending_deployment', article, mainSha: main.value.sha },
+        };
+      }
+      if (canonical.frontmatter.status === 'archived') {
+        // A merged Unpublish: absence is a negative public fact, proven only
+        // when BOTH bounded probes agree on an explicit Refresh. Every
+        // partial or failed signal stays `unpublish_pending`.
+        return {
+          ok: true,
+          value: await resolveProbedAbsence(article, main.value.sha, slug, options),
         };
       }
       return {
@@ -649,6 +670,39 @@ async function liveEvidenceIfProven(
 ): Promise<StudioLiveEvidence | undefined> {
   const reconciliation = await reconcileProbes(mainSha, canonical, slug, options);
   return reconciliation.outcome === 'live' ? reconciliation.evidence : undefined;
+}
+
+/**
+ * Resolves whether an `archived` canonical article is actually absent from
+ * production. `archived` is reported only when BOTH bounded probes agree:
+ * the public index no longer lists the slug AND the article route returns
+ * the custom 404. One signal, wrong status, stale content, or a probe
+ * timeout all stay `unpublish_pending` — absence is never inferred from a
+ * single observation.
+ */
+async function resolveProbedAbsence(
+  article: StudioArticleRef,
+  mainSha: string,
+  slug: string,
+  options: StudioArticleStatusOptions,
+): Promise<StudioLifecycle> {
+  const trimmedOrigin = options.productionOrigin.replace(/\/$/, '');
+  const articleUrl = `${trimmedOrigin}/articles/${slug}`;
+  const indexUrl = `${trimmedOrigin}/index.json`;
+  const probeArticleFn = options.probeArticle ?? probeUrl;
+  const probeIndexFn = options.probeIndex ?? probeIndexJson;
+
+  const [articleProbe, indexProbe] = await Promise.all([
+    probeArticleFn({ name: 'article', target: { url: articleUrl } }, options.probeOptions),
+    probeIndexFn({ name: 'index', target: { url: indexUrl } }, options.probeOptions),
+  ]);
+
+  const indexAbsent = indexProbe.ok && !indexProbe.entries.some((entry) => entry.slug === slug);
+  const routeNotFound = !articleProbe.ok && articleProbe.status === 404;
+  if (indexAbsent && routeNotFound) {
+    return { kind: 'archived', article, mainSha };
+  }
+  return { kind: 'unpublish_pending', article, mainSha };
 }
 
 async function resolveProbedStatus(
