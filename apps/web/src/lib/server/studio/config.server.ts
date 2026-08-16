@@ -79,8 +79,8 @@ export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function readString(env: WorkerEnv, key: string): string | undefined {
-  const value = (env as Readonly<Record<string, unknown>>)[key];
+function readString(env: WorkerEnv | undefined, key: string): string | undefined {
+  const value = (env as Readonly<Record<string, unknown>> | undefined)?.[key];
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
   return trimmed.length === 0 ? undefined : trimmed;
@@ -91,7 +91,7 @@ function readString(env: WorkerEnv, key: string): string | undefined {
  * Any missing, empty, or malformed binding fails closed and every offending
  * binding name is reported in sorted order.
  */
-export function getStudioConfig(env: WorkerEnv): StudioConfig {
+export function getStudioConfig(env: WorkerEnv | undefined): StudioConfig {
   const missing: string[] = [];
   const report = (key: string): void => {
     missing.push(key);
