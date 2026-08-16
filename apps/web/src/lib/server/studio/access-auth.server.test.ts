@@ -24,9 +24,7 @@ async function createSigner(): Promise<TestSigner> {
   return {
     jwks,
     sign: (payload) =>
-      new SignJWT(payload)
-        .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
-        .sign(privateKey),
+      new SignJWT(payload).setProtectedHeader({ alg: 'RS256', kid: 'test-key' }).sign(privateKey),
   };
 }
 

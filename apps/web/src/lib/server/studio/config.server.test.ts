@@ -50,8 +50,7 @@ describe('getStudioConfig', () => {
       installationId: '654321',
       owner: 'DarkoKuzmanovic',
       repo: 'jelementi',
-      privateKey:
-        '-----BEGIN RSA PRIVATE KEY-----\nZmFrZQ==\n-----END RSA PRIVATE KEY-----',
+      privateKey: '-----BEGIN RSA PRIVATE KEY-----\nZmFrZQ==\n-----END RSA PRIVATE KEY-----',
     });
     expect(config.productionOrigin).toBe('https://jelementi.quz.ma');
     expect(config.mediaBaseUrl).toBe('https://media.jelementi.quz.ma/');
@@ -59,7 +58,10 @@ describe('getStudioConfig', () => {
 
   it('trims surrounding whitespace from configured values', () => {
     const config = getStudioConfig(
-      envWith({ ALLOWED_OPERATOR_EMAIL: '  Darko@Example.com  ', GITHUB_REPO_OWNER: ' DarkoKuzmanovic ' }),
+      envWith({
+        ALLOWED_OPERATOR_EMAIL: '  Darko@Example.com  ',
+        GITHUB_REPO_OWNER: ' DarkoKuzmanovic ',
+      }),
     );
     expect(config.access.allowedEmail).toBe('darko@example.com');
     expect(config.github.owner).toBe('DarkoKuzmanovic');
@@ -91,18 +93,21 @@ describe('getStudioConfig', () => {
   });
 
   it('rejects an operator email without an @ address', () => {
-    expect(captureConfigError(envWith({ ALLOWED_OPERATOR_EMAIL: 'not-an-email' })).missingBindings)
-      .toEqual(['ALLOWED_OPERATOR_EMAIL']);
+    expect(
+      captureConfigError(envWith({ ALLOWED_OPERATOR_EMAIL: 'not-an-email' })).missingBindings,
+    ).toEqual(['ALLOWED_OPERATOR_EMAIL']);
   });
 
   it('fails closed when the GitHub private key secret is missing', () => {
-    expect(captureConfigError(envWith({ GITHUB_APP_PRIVATE_KEY: undefined })).missingBindings)
-      .toEqual(['GITHUB_APP_PRIVATE_KEY']);
+    expect(
+      captureConfigError(envWith({ GITHUB_APP_PRIVATE_KEY: undefined })).missingBindings,
+    ).toEqual(['GITHUB_APP_PRIVATE_KEY']);
   });
 
   it('rejects a private key that is not a PEM block', () => {
-    expect(captureConfigError(envWith({ GITHUB_APP_PRIVATE_KEY: 'not-a-pem' })).missingBindings)
-      .toEqual(['GITHUB_APP_PRIVATE_KEY']);
+    expect(
+      captureConfigError(envWith({ GITHUB_APP_PRIVATE_KEY: 'not-a-pem' })).missingBindings,
+    ).toEqual(['GITHUB_APP_PRIVATE_KEY']);
   });
 
   it('fails closed when a repository identity is missing', () => {
@@ -125,8 +130,9 @@ describe('getStudioConfig', () => {
   });
 
   it('fails closed when the media base URL is missing', () => {
-    expect(captureConfigError(envWith({ PUBLIC_MEDIA_BASE_URL: undefined })).missingBindings)
-      .toEqual(['PUBLIC_MEDIA_BASE_URL']);
+    expect(
+      captureConfigError(envWith({ PUBLIC_MEDIA_BASE_URL: undefined })).missingBindings,
+    ).toEqual(['PUBLIC_MEDIA_BASE_URL']);
   });
 
   it('reports every missing binding in sorted order', () => {

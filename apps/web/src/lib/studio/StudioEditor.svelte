@@ -32,7 +32,7 @@
   const concurrency = $derived(
     save?.kind === 'saved'
       ? save.concurrency
-      : (save?.kind === 'save_failed' ? save.concurrency : undefined) ?? editor.concurrency,
+      : ((save?.kind === 'save_failed' ? save.concurrency : undefined) ?? editor.concurrency),
   );
   // The slug becomes immutable the moment a draft branch exists. On an
   // established article route the server already enforces this on every
@@ -204,9 +204,8 @@
     <section aria-labelledby="save-conflict-heading">
       <h3 id="save-conflict-heading">Save blocked: this draft moved on GitHub</h3>
       <p>
-        What you loaded no longer matches what is currently on GitHub. Reload the editor to pick
-        up the current state before saving again; your unsaved text above is not lost until you
-        do.
+        What you loaded no longer matches what is currently on GitHub. Reload the editor to pick up
+        the current state before saving again; your unsaved text above is not lost until you do.
       </p>
       <dl>
         <dt>Loaded</dt>
@@ -227,8 +226,7 @@
       <ul>
         {#each save.compileIssues as issue, index (index)}
           <li>
-            {issue.code}: {issue.message} ({issue.sourcePath}:{issue.line ?? 1}:{issue.column ??
-              1})
+            {issue.code}: {issue.message} ({issue.sourcePath}:{issue.line ?? 1}:{issue.column ?? 1})
           </li>
         {/each}
       </ul>
@@ -239,15 +237,13 @@
       {#if save.reason === 'topology'}
         <p>
           This article's Draft PR is not in the state Studio expects (more than one open pull
-          request, or it is no longer a draft). Check <code
-            >studio/article/{metadata.slug}</code
-          > on GitHub directly before retrying.
+          request, or it is no longer a draft). Check <code>studio/article/{metadata.slug}</code> on GitHub
+          directly before retrying.
         </p>
       {:else if save.concurrency}
         <p>
           Your draft was committed to <code>studio/article/{metadata.slug}</code>, but opening the
-          pull request failed. Save again to retry; it will not create a duplicate branch or
-          commit.
+          pull request failed. Save again to retry; it will not create a duplicate branch or commit.
         </p>
       {:else}
         <p>GitHub could not be reached. Nothing was changed; try again.</p>

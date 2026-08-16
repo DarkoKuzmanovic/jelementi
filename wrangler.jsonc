@@ -24,7 +24,7 @@
     },
   ],
   "secrets": {
-    "required": ["GITHUB_APP_PRIVATE_KEY"]
+    "required": ["GITHUB_APP_PRIVATE_KEY"],
   },
   "vars": {
     "ACCESS_AUD": "change-me-at-checkpoint-b",
@@ -36,6 +36,6 @@
     "GITHUB_REPO_NAME": "jelementi",
     "GITHUB_REPO_OWNER": "DarkoKuzmanovic",
     "PRODUCTION_ORIGIN": "https://jelementi.quz.ma",
-    "PUBLIC_MEDIA_BASE_URL": "https://media.jelementi.quz.ma/"
-  }
+    "PUBLIC_MEDIA_BASE_URL": "https://media.jelementi.quz.ma/",
+  },
 }

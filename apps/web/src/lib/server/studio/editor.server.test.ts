@@ -324,7 +324,13 @@ describe('saveStudioDraft', () => {
     const branches = await adapter.listStudioBranches();
     expect(branches).toEqual({
       ok: true,
-      value: [{ name: `studio/article/${slug}`, sha: result.concurrency.draftHeadSha, url: expect.any(String) }],
+      value: [
+        {
+          name: `studio/article/${slug}`,
+          sha: result.concurrency.draftHeadSha,
+          url: expect.any(String),
+        },
+      ],
     });
     const pulls = await adapter.listPullRequests(`studio/article/${slug}`);
     expect(pulls.ok && pulls.value).toEqual([
@@ -668,7 +674,9 @@ describe('saveStudioDraft', () => {
     const committed = await adapter.getFileContent(branchName, `content/articles/${slug}.md`);
     expect(committed.ok).toBe(false);
     const pulls = await adapter.listPullRequests(branchName);
-    expect(pulls.ok && pulls.value).toEqual([expect.objectContaining({ number: readyPull.number })]);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ number: readyPull.number }),
+    ]);
   });
 
   it('retries an unreachable PR-topology discovery without ever committing (no duplicate commit)', async () => {

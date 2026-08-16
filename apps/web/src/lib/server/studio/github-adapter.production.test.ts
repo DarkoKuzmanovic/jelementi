@@ -542,7 +542,10 @@ describe('GithubApiAdapter write methods', () => {
         const { path, method } = request(url, init);
         if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
           onRef?.();
-          return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha, type: 'commit' } });
+          return json({
+            ref: `refs/heads/${branchName}`,
+            object: { sha: draftSha, type: 'commit' },
+          });
         }
         if (path.endsWith(`/git/commits/${draftSha}`) && method === 'GET') {
           return json({ sha: draftSha, tree: { sha: treeSha } });
@@ -628,13 +631,20 @@ describe('GithubApiAdapter write methods', () => {
 
       await expect(
         adapter.commitFile({ ...validInput, path: 'content/articles/not slug.md' }),
-      ).resolves.toEqual({ ok: false, failure: { operation: 'commit-file', reason: 'validation' } });
-      await expect(
-        adapter.commitFile({ ...validInput, message: '' }),
-      ).resolves.toEqual({ ok: false, failure: { operation: 'commit-file', reason: 'validation' } });
+      ).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'commit-file', reason: 'validation' },
+      });
+      await expect(adapter.commitFile({ ...validInput, message: '' })).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'commit-file', reason: 'validation' },
+      });
       await expect(
         adapter.commitFile({ ...validInput, expectedHeadSha: 'not-a-sha' }),
-      ).resolves.toEqual({ ok: false, failure: { operation: 'commit-file', reason: 'validation' } });
+      ).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'commit-file', reason: 'validation' },
+      });
       await expect(adapter.commitFile({ ...validInput, branch: 'main' })).resolves.toEqual({
         ok: false,
         failure: { operation: 'commit-file', reason: 'forbidden' },
@@ -664,7 +674,11 @@ describe('GithubApiAdapter write methods', () => {
             state: 'open',
             draft: true,
             merged_at: null,
-            head: { ref: branchName, sha: draftSha, repo: { full_name: 'DarkoKuzmanovic/jelementi' } },
+            head: {
+              ref: branchName,
+              sha: draftSha,
+              repo: { full_name: 'DarkoKuzmanovic/jelementi' },
+            },
             base: { ref: 'main' },
           });
         }
@@ -734,9 +748,7 @@ describe('GithubApiAdapter write methods', () => {
         ok: false,
         failure: { operation: 'create-pull-request', reason: 'validation' },
       });
-      await expect(
-        adapter.createPullRequest({ ...validInput, title: '   ' }),
-      ).resolves.toEqual({
+      await expect(adapter.createPullRequest({ ...validInput, title: '   ' })).resolves.toEqual({
         ok: false,
         failure: { operation: 'create-pull-request', reason: 'validation' },
       });

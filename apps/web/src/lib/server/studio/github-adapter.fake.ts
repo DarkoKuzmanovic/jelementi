@@ -358,7 +358,9 @@ export class FakeGithubAdapter implements GithubAdapter {
       baseRef: overrides.baseRef ?? 'main',
       draft: overrides.draft ?? true,
       state: overrides.state ?? 'open',
-      ...(overrides.mergeCommitSha === undefined ? {} : { mergeCommitSha: overrides.mergeCommitSha }),
+      ...(overrides.mergeCommitSha === undefined
+        ? {}
+        : { mergeCommitSha: overrides.mergeCommitSha }),
     };
     const existing = this.pulls.get(head) ?? [];
     this.pulls.set(head, [...existing, pull]);

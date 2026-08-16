@@ -258,11 +258,10 @@ export class GithubApiAdapter implements GithubSaveAdapter {
     const commitSha = readSha(readRecord(commit.value)?.sha);
     if (commitSha === undefined) return this.failure('commit-file', 'validation');
 
-    const updatedRef = await this.requestJson(
-      'commit-file',
-      this.refPath(input.branch),
-      { method: 'PATCH', body: JSON.stringify({ sha: commitSha, force: false }) },
-    );
+    const updatedRef = await this.requestJson('commit-file', this.refPath(input.branch), {
+      method: 'PATCH',
+      body: JSON.stringify({ sha: commitSha, force: false }),
+    });
     if (!updatedRef.ok) return this.remapUnprocessableToConflict(updatedRef, 'commit-file');
 
     return {
@@ -281,9 +280,7 @@ export class GithubApiAdapter implements GithubSaveAdapter {
    * topology (an existing open PR) instead of racing GitHub's own duplicate
    * check or creating a second PR.
    */
-  async createPullRequest(
-    input: CreatePullRequestInput,
-  ): Promise<ApiResult<StudioPullRequest>> {
+  async createPullRequest(input: CreatePullRequestInput): Promise<ApiResult<StudioPullRequest>> {
     if (
       !STUDIO_BRANCH_PATTERN.test(input.head) ||
       input.base !== 'main' ||

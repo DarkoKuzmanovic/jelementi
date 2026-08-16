@@ -17,15 +17,10 @@ import type { JSONWebKeySet } from 'jose';
 import type { StudioAccessConfig } from './config.server';
 
 export type StudioAccessFailureReason =
-  | 'missing-config'
-  | 'missing-assertion'
-  | 'invalid-token'
-  | 'missing-email'
-  | 'wrong-email';
+  'missing-config' | 'missing-assertion' | 'invalid-token' | 'missing-email' | 'wrong-email';
 
 export type StudioAccessResult =
-  | { ok: true; email: string }
-  | { ok: false; reason: StudioAccessFailureReason };
+  { ok: true; email: string } | { ok: false; reason: StudioAccessFailureReason };
 
 export interface StudioAccessVerifyOptions {
   /** Local JWKS used by tests; production always resolves the team-domain JWKS. */
