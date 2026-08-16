@@ -8,7 +8,7 @@ import type {
   CommitFileInput,
   CreatePullRequestInput,
   GithubAdapterResult,
-  GithubSaveAdapter,
+  GithubPublishAdapter,
   StudioBranch,
   StudioCheckRun,
   StudioCommitFileResult,
@@ -48,6 +48,13 @@ const CHECK_CONCLUSIONS = new Set([
   'timed_out',
   'action_required',
 ]);
+const GRAPHQL_PATH = '/graphql';
+const MAX_NODE_ID_LENGTH = 200;
+/**
+ * M3 uses squash merge so one article PR becomes one resulting `main`
+ * commit (docs/specs/2026-08-13-m3-publishing-studio-design.md).
+ */
+const AUTO_MERGE_METHOD = 'SQUASH';
 
 type GithubInstallationToken = { token: string; expiresAt: string };
 type Authenticate = () => Promise<GithubAppAuthResult<GithubInstallationToken>>;
@@ -75,7 +82,7 @@ export interface GithubApiAdapterOptions {
  * returns only bounded, validated Studio values. Runtime route activation is
  * deliberately separate: Checkpoint A supplies credentials and wiring.
  */
-export class GithubApiAdapter implements GithubSaveAdapter {
+export class GithubApiAdapter implements GithubPublishAdapter {
   private readonly fetchImpl: typeof globalThis.fetch;
   private readonly now: () => number;
   private readonly apiBaseUrl: string;
@@ -324,6 +331,82 @@ export class GithubApiAdapter implements GithubSaveAdapter {
     return parsed;
   }
 
+  /**
+   * Flips the Draft PR's readiness (Publish's revalidation step). GitHub's
+   * REST `PATCH .../pulls/{number}` silently ignores a `draft` field, so
+   * this is GraphQL-only: `markPullRequestReadyForReview` or
+   * `convertPullRequestToDraft`, then an authoritative REST re-read so the
+   * returned value reflects what GitHub actually recorded rather than the
+   * mutation's own echo.
+   */
+  async updatePullRequest(
+    number: number,
+    patch: { draft: boolean },
+  ): Promise<ApiResult<StudioPullRequest>> {
+    if (!Number.isSafeInteger(number) || number < 1) {
+      return this.failure('update-pull-request', 'validation');
+    }
+    const record = await this.getPullRequestRecord(number, 'update-pull-request');
+    if (!record.ok) return record;
+    if (record.value.pull.state !== 'open') {
+      return this.failure('update-pull-request', 'validation');
+    }
+    if (record.value.pull.draft === patch.draft) return { ok: true, value: record.value.pull };
+    const mutation = patch.draft
+      ? `mutation($id: ID!) { convertPullRequestToDraft(input: { pullRequestId: $id }) { pullRequest { id } } }`
+      : `mutation($id: ID!) { markPullRequestReadyForReview(input: { pullRequestId: $id }) { pullRequest { id } } }`;
+    const mutated = await this.requestGraphQL('update-pull-request', mutation, {
+      id: record.value.nodeId,
+    });
+    if (!mutated.ok) return mutated;
+    const reread = await this.getPullRequest(number, 'update-pull-request');
+    if (!reread.ok) return reread;
+    if (reread.value.state !== 'open' || reread.value.draft !== patch.draft) {
+      return this.failure('update-pull-request', 'topology');
+    }
+    return reread;
+  }
+
+  /**
+   * Enables auto-merge for an open, non-draft PR — but only while its head
+   * still equals `expectedHeadSha`, checked once against a fresh REST read
+   * before the mutation and again by GitHub itself via `expectedHeadOid`
+   * (ADR-0004: no branch mutation after Publish approval). GitHub's
+   * auto-merge toggle is GraphQL-only; there is no REST equivalent.
+   */
+  async enableAutoMerge(number: number, expectedHeadSha: string): Promise<ApiResult<void>> {
+    if (!Number.isSafeInteger(number) || number < 1 || !SHA_PATTERN.test(expectedHeadSha)) {
+      return this.failure('enable-auto-merge', 'validation');
+    }
+    const record = await this.getPullRequestRecord(number, 'enable-auto-merge');
+    if (!record.ok) return record;
+    if (record.value.pull.state !== 'open' || record.value.pull.draft) {
+      return this.failure('enable-auto-merge', 'validation');
+    }
+    if (record.value.pull.headSha !== expectedHeadSha) {
+      return this.failure('enable-auto-merge', 'conflict');
+    }
+    const mutation = `mutation($input: EnablePullRequestAutoMergeInput!) { enablePullRequestAutoMerge(input: $input) { pullRequest { autoMergeRequest { enabledAt } } } }`;
+    const result = await this.requestGraphQL('enable-auto-merge', mutation, {
+      input: {
+        pullRequestId: record.value.nodeId,
+        expectedHeadOid: expectedHeadSha,
+        mergeMethod: AUTO_MERGE_METHOD,
+      },
+    });
+    if (!result.ok) return result;
+    // The GraphQL envelope alone (`ok: true`) only proves the request was
+    // well-formed, not that GitHub actually enabled auto-merge — validate
+    // the mutation's own claimed result rather than trusting a bare 200.
+    const payload = readRecord(result.value.enablePullRequestAutoMerge);
+    const pull = payload === undefined ? undefined : readRecord(payload.pullRequest);
+    const autoMergeRequest = pull === undefined ? undefined : readRecord(pull.autoMergeRequest);
+    if (autoMergeRequest === undefined) {
+      return this.failure('enable-auto-merge', 'validation');
+    }
+    return { ok: true, value: undefined };
+  }
+
   async getFileContent(ref: string, path: string): Promise<ApiResult<StudioFileContent>> {
     if (!isContentRef(ref) || !ARTICLE_PATH_PATTERN.test(path)) {
       return this.failure('get-file-content', 'validation');
@@ -472,6 +555,89 @@ export class GithubApiAdapter implements GithubSaveAdapter {
     );
     if (!result.ok) return result;
     return parsePullRequest(result.value, operation);
+  }
+
+  /**
+   * Reads a pull request and its GraphQL node id in one REST call. The node
+   * id is only ever needed to address the PR through GraphQL mutations
+   * (`updatePullRequest`, `enableAutoMerge`); every other read stays on the
+   * numbered REST endpoint.
+   */
+  private async getPullRequestRecord(
+    number: number,
+    operation: StudioGithubOperation,
+  ): Promise<ApiResult<{ pull: ParsedPullRequest; nodeId: string }>> {
+    const result = await this.requestJson(
+      operation,
+      `/repos/${this.repositoryPath()}/pulls/${number}`,
+    );
+    if (!result.ok) return result;
+    const pull = parsePullRequest(result.value, operation);
+    if (!pull.ok) return pull;
+    const nodeId = readRecord(result.value)?.node_id;
+    if (typeof nodeId !== 'string' || nodeId.length === 0 || nodeId.length > MAX_NODE_ID_LENGTH) {
+      return this.failure(operation, 'validation');
+    }
+    return { ok: true, value: { pull: pull.value, nodeId } };
+  }
+
+  /**
+   * GitHub's GraphQL endpoint always answers 200 for a well-formed request,
+   * reporting logical failures (not found, forbidden, an
+   * `expectedHeadOid` mismatch) through a top-level `errors` array instead
+   * of an HTTP status — so this stays a separate path from `requestJson`'s
+   * REST status mapping rather than a generalization of it.
+   */
+  private async requestGraphQL(
+    operation: StudioGithubOperation,
+    query: string,
+    variables: Record<string, unknown>,
+  ): Promise<ApiResult<Record<string, unknown>>> {
+    const token = await this.getToken();
+    if (!token.ok) return this.failure(operation, 'auth');
+    const headers = new Headers();
+    headers.set('Authorization', `Bearer ${token.value}`);
+    headers.set('Accept', 'application/vnd.github+json');
+    headers.set('X-GitHub-Api-Version', API_VERSION);
+    headers.set('Content-Type', 'application/json');
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+    try {
+      const response = await this.fetchImpl(`${this.apiBaseUrl}${GRAPHQL_PATH}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query, variables }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        return this.failure(
+          operation,
+          failureReasonForStatus(response.status, response.headers),
+          response.status,
+        );
+      }
+      const body = await readBoundedText(response, MAX_RESPONSE_BYTES);
+      if (body === undefined) return this.failure(operation, 'validation');
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        return this.failure(operation, 'validation');
+      }
+      const record = readRecord(parsed);
+      if (record === undefined) return this.failure(operation, 'validation');
+      if (Array.isArray(record.errors) && record.errors.length > 0) {
+        return this.failure(operation, mapGraphQlErrors(record.errors));
+      }
+      const data = readRecord(record.data);
+      if (data === undefined) return this.failure(operation, 'validation');
+      return { ok: true, value: data };
+    } catch {
+      return this.failure(operation, 'transport');
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private async requestJson(
@@ -739,6 +905,28 @@ function failureReasonForStatus(status: number, headers?: Headers): StudioGithub
   if (status === 422) return 'validation';
   if (status === 429) return 'rate-limit';
   if (status >= 500) return 'transport';
+  return 'validation';
+}
+
+/**
+ * GitHub's GraphQL errors carry a non-standard top-level `type` (e.g.
+ * `NOT_FOUND`, `FORBIDDEN`, `RATE_LIMITED`); an `expectedHeadOid` mismatch
+ * instead surfaces only as a message naming the head ref/oid, with no
+ * dedicated type, so that case is matched on message content first.
+ */
+function mapGraphQlErrors(errors: unknown[]): StudioGithubFailureReason {
+  for (const entry of errors) {
+    const record = readRecord(entry);
+    const type = typeof record?.type === 'string' ? record.type.toUpperCase() : undefined;
+    const message = typeof record?.message === 'string' ? record.message.toLowerCase() : '';
+    if (message.includes('head') && (message.includes('oid') || message.includes('ref'))) {
+      return 'conflict';
+    }
+    if (type === 'NOT_FOUND') return 'not-found';
+    if (type === 'FORBIDDEN') return 'forbidden';
+    if (type === 'RATE_LIMITED') return 'rate-limit';
+    if (type === 'UNPROCESSABLE') return 'conflict';
+  }
   return 'validation';
 }
 

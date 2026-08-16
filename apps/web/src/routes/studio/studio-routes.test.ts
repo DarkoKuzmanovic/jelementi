@@ -1,16 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
 import { serializeArticleSource } from '@jelementi/content-compiler';
 import { FakeGithubAdapter } from '../../lib/server/studio/github-adapter.fake';
+import { saveStudioDraft } from '../../lib/server/studio/editor.server';
 import type { StudioGithubConfig } from '../../lib/server/studio/config.server';
+import type { StudioMetadata } from '../../lib/studio/contracts';
 
-const { requireStudioAccess } = vi.hoisted(() => ({
+const { requireStudioAccess, requireStudioMutation } = vi.hoisted(() => ({
   requireStudioAccess: vi.fn(async () => ({ ok: true as const, email: 'darko@example.com' })),
+  requireStudioMutation: vi.fn(async () => ({ ok: true as const, email: 'darko@example.com' })),
 }));
 
-vi.mock('$lib/server/studio/request-guard.server', () => ({ requireStudioAccess }));
-vi.mock('../../lib/server/studio/request-guard.server', () => ({ requireStudioAccess }));
+vi.mock('$lib/server/studio/request-guard.server', () => ({
+  requireStudioAccess,
+  requireStudioMutation,
+}));
+vi.mock('../../lib/server/studio/request-guard.server', () => ({
+  requireStudioAccess,
+  requireStudioMutation,
+}));
 
 import {
+  actions as studioArticleActions,
   load as studioArticleLoad,
   prerender as articlePrerender,
 } from './articles/[slug]/+page.server';
@@ -166,5 +176,122 @@ describe('Studio route shell', () => {
         ),
       ),
     ).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+function actionEventFor(
+  slug: string,
+  locals: Record<string, unknown>,
+  platform: { env?: WorkerEnv } | undefined,
+  formFields?: Record<string, string>,
+) {
+  const actionRequest =
+    formFields === undefined
+      ? new Request('https://jelementi.quz.ma/studio/articles/' + slug, { method: 'POST' })
+      : new Request('https://jelementi.quz.ma/studio/articles/' + slug, {
+          method: 'POST',
+          body: new URLSearchParams(formFields),
+        });
+  return {
+    request: actionRequest,
+    platform,
+    params: { slug },
+    locals,
+  } as unknown as Parameters<NonNullable<typeof studioArticleActions.publish>>[0];
+}
+
+const draftSlug = 'a-draft-article';
+const draftMetadata: StudioMetadata = {
+  title: 'A Draft Article',
+  slug: draftSlug,
+  excerpt: 'An article being written in Studio.',
+  status: 'draft',
+  updatedAt: '2026-08-01',
+  category: 'Ideas',
+  tags: ['studio'],
+  author: 'Jelementi',
+  cover: { src: 'articles/a-draft-article/cover.svg', alt: 'A draft cover' },
+  references: [],
+};
+
+describe('Studio publish & refresh actions', () => {
+  it('rejects malformed article slugs for publish and refresh', async () => {
+    await expect(
+      studioArticleActions.publish?.(actionEventFor('../secrets', {}, undefined, {})),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      studioArticleActions.refresh?.(actionEventFor('../secrets', {}, undefined)),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('rejects a publish request with a missing or malformed expectedHeadSha', async () => {
+    requireStudioMutation.mockClear();
+    const adapter = new FakeGithubAdapter(githubConfig);
+
+    await expect(
+      studioArticleActions.publish?.(
+        actionEventFor(
+          draftSlug,
+          { studioGithubAdapter: adapter },
+          { env: studioEnv },
+          { expectedHeadSha: 'not-a-sha' },
+        ),
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(requireStudioMutation).toHaveBeenCalledTimes(1);
+  });
+
+  it('publishes a saved draft: revalidates, flips ready, and enables auto-merge for the expected head', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      draftSlug,
+      {
+        metadata: draftMetadata,
+        body: 'Saved body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
+    );
+    if (saved.kind !== 'saved') throw new Error(`save failed: ${saved.kind}`);
+
+    const result = await studioArticleActions.publish?.(
+      actionEventFor(
+        draftSlug,
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        { expectedHeadSha: saved.concurrency.draftHeadSha as string },
+      ),
+    );
+
+    expect(result).toMatchObject({
+      publish: { kind: 'published', pullRequest: { number: saved.pullRequest.number } },
+    });
+  });
+
+  it('refreshes status via requireStudioMutation without background polling', async () => {
+    requireStudioMutation.mockClear();
+    const adapter = new FakeGithubAdapter(githubConfig);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    await saveStudioDraft(
+      adapter,
+      draftSlug,
+      {
+        metadata: draftMetadata,
+        body: 'Saved body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
+    );
+
+    const result = await studioArticleActions.refresh?.(
+      actionEventFor(draftSlug, { studioGithubAdapter: adapter }, { env: studioEnv }),
+    );
+
+    expect(requireStudioMutation).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ status: { kind: 'draft_valid' } });
   });
 });

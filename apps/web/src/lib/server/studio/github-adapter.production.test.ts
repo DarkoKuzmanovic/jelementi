@@ -760,4 +760,344 @@ describe('GithubApiAdapter write methods', () => {
       });
     });
   });
+
+  describe('updatePullRequest', () => {
+    const nodeId = 'PR_kwDOhelloworld';
+
+    function pullRecord(overrides: Record<string, unknown> = {}) {
+      return {
+        number: pullNumber,
+        node_id: nodeId,
+        html_url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+        state: 'open',
+        draft: true,
+        merged_at: null,
+        head: {
+          ref: branchName,
+          sha: draftSha,
+          repo: { full_name: 'DarkoKuzmanovic/jelementi' },
+        },
+        base: { ref: 'main' },
+        ...overrides,
+      };
+    }
+
+    it('flips a Draft PR ready via GraphQL, then confirms the result with an authoritative REST re-read', async () => {
+      const calls: string[] = [];
+      let graphqlBody: unknown;
+      let readCount = 0;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        calls.push(`${method} ${path}`);
+        if (path === '/graphql' && method === 'POST') {
+          graphqlBody = JSON.parse(String(init?.body));
+          return json({ data: { markPullRequestReadyForReview: { pullRequest: { id: nodeId } } } });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') {
+          if (readCount === 0) {
+            readCount += 1;
+            return json(pullRecord());
+          }
+          return json(pullRecord({ draft: false }));
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      const result = await adapter.updatePullRequest(pullNumber, { draft: false });
+
+      expect(result).toEqual({
+        ok: true,
+        value: {
+          number: pullNumber,
+          url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+          headRef: branchName,
+          headSha: draftSha,
+          baseRef: 'main',
+          draft: false,
+          state: 'open',
+        },
+      });
+      expect(calls).toEqual([
+        'GET /repos/DarkoKuzmanovic/jelementi/pulls/42',
+        'POST /graphql',
+        'GET /repos/DarkoKuzmanovic/jelementi/pulls/42',
+      ]);
+      expect(graphqlBody).toMatchObject({
+        query: expect.stringContaining('markPullRequestReadyForReview'),
+        variables: { id: nodeId },
+      });
+    });
+
+    it('converts a ready PR back to draft via convertPullRequestToDraft', async () => {
+      let graphqlQuery = '';
+      let readCount = 0;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql' && method === 'POST') {
+          graphqlQuery = JSON.parse(String(init?.body)).query;
+          return json({ data: { convertPullRequestToDraft: { pullRequest: { id: nodeId } } } });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') {
+          if (readCount === 0) {
+            readCount += 1;
+            return json(pullRecord({ draft: false }));
+          }
+          return json(pullRecord({ draft: true }));
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.updatePullRequest(pullNumber, { draft: true })).resolves.toEqual({
+        ok: true,
+        value: {
+          number: pullNumber,
+          url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+          headRef: branchName,
+          headSha: draftSha,
+          baseRef: 'main',
+          draft: true,
+          state: 'open',
+        },
+      });
+      expect(graphqlQuery).toContain('convertPullRequestToDraft');
+    });
+
+    it('is a no-op that skips the GraphQL call when the PR already matches the requested draft flag', async () => {
+      let graphqlCalled = false;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql') graphqlCalled = true;
+        if (path.endsWith('/pulls/42') && method === 'GET')
+          return json(pullRecord({ draft: true }));
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.updatePullRequest(pullNumber, { draft: true })).resolves.toEqual({
+        ok: true,
+        value: {
+          number: pullNumber,
+          url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+          headRef: branchName,
+          headSha: draftSha,
+          baseRef: 'main',
+          draft: true,
+          state: 'open',
+        },
+      });
+      expect(graphqlCalled).toBe(false);
+    });
+
+    it('fails closed on a closed PR without attempting the mutation', async () => {
+      let graphqlCalled = false;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql') graphqlCalled = true;
+        if (path.endsWith('/pulls/42') && method === 'GET') {
+          return json(pullRecord({ state: 'closed', merged_at: '2026-08-13T12:00:00Z' }));
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.updatePullRequest(pullNumber, { draft: false })).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'update-pull-request', reason: 'validation' },
+      });
+      expect(graphqlCalled).toBe(false);
+    });
+
+    it('maps a GraphQL-reported failure through the sanitized reason mapping', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql' && method === 'POST') {
+          return json({ errors: [{ type: 'FORBIDDEN', message: 'Resource not accessible' }] });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(pullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.updatePullRequest(pullNumber, { draft: false })).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'update-pull-request', reason: 'forbidden' },
+      });
+    });
+
+    it('rejects an invalid PR number without a request', async () => {
+      const adapter = adapterFor(async () => {
+        throw new Error('must not call GitHub for invalid input');
+      });
+
+      await expect(adapter.updatePullRequest(0, { draft: false })).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'update-pull-request', reason: 'validation' },
+      });
+    });
+  });
+
+  describe('enableAutoMerge', () => {
+    const nodeId = 'PR_kwDOhelloworld';
+
+    function readyPullRecord(overrides: Record<string, unknown> = {}) {
+      return {
+        number: pullNumber,
+        node_id: nodeId,
+        html_url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+        state: 'open',
+        draft: false,
+        merged_at: null,
+        head: {
+          ref: branchName,
+          sha: draftSha,
+          repo: { full_name: 'DarkoKuzmanovic/jelementi' },
+        },
+        base: { ref: 'main' },
+        ...overrides,
+      };
+    }
+
+    it('enables auto-merge for the expected head using squash, addressed by GraphQL node id', async () => {
+      let graphqlBody: unknown;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql' && method === 'POST') {
+          graphqlBody = JSON.parse(String(init?.body));
+          return json({
+            data: {
+              enablePullRequestAutoMerge: {
+                pullRequest: { autoMergeRequest: { enabledAt: '2026-08-16T00:00:00Z' } },
+              },
+            },
+          });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(readyPullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.enableAutoMerge(pullNumber, draftSha)).resolves.toEqual({
+        ok: true,
+        value: undefined,
+      });
+      expect(graphqlBody).toMatchObject({
+        query: expect.stringContaining('enablePullRequestAutoMerge'),
+        variables: {
+          input: { pullRequestId: nodeId, expectedHeadOid: draftSha, mergeMethod: 'SQUASH' },
+        },
+      });
+    });
+
+    it('does not report success when the GraphQL mutation returns a well-formed 200 without proof auto-merge was enabled', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql' && method === 'POST') {
+          return json({
+            data: {
+              enablePullRequestAutoMerge: { pullRequest: { autoMergeRequest: null } },
+            },
+          });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(readyPullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.enableAutoMerge(pullNumber, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'validation' },
+      });
+    });
+
+    it('does not report success when the GraphQL mutation payload is entirely empty', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql' && method === 'POST') {
+          return json({ data: { enablePullRequestAutoMerge: {} } });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(readyPullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.enableAutoMerge(pullNumber, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'validation' },
+      });
+    });
+
+    it('rejects a changed expected head before ever calling GraphQL (ADR-0004 head-binding)', async () => {
+      let graphqlCalled = false;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql') graphqlCalled = true;
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(readyPullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.enableAutoMerge(pullNumber, mainSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'conflict' },
+      });
+      expect(graphqlCalled).toBe(false);
+    });
+
+    it('fails closed on a still-draft or closed PR without attempting the mutation', async () => {
+      const draftAdapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith('/pulls/42') && method === 'GET') {
+          return json(readyPullRecord({ draft: true }));
+        }
+        throw new Error('must not call GraphQL for a still-draft PR');
+      });
+      await expect(draftAdapter.enableAutoMerge(pullNumber, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'validation' },
+      });
+
+      const closedAdapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith('/pulls/42') && method === 'GET') {
+          return json(readyPullRecord({ state: 'closed', merged_at: '2026-08-13T12:00:00Z' }));
+        }
+        throw new Error('must not call GraphQL for a closed PR');
+      });
+      await expect(closedAdapter.enableAutoMerge(pullNumber, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'validation' },
+      });
+    });
+
+    it('maps a GraphQL expected-head-oid mismatch to a conflict', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql' && method === 'POST') {
+          return json({
+            errors: [
+              {
+                type: 'UNPROCESSABLE',
+                message: 'Head ref must match provided expectedHeadOid',
+              },
+            ],
+          });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(readyPullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.enableAutoMerge(pullNumber, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'conflict' },
+      });
+    });
+
+    it('rejects an invalid PR number or malformed expected head without a request', async () => {
+      const adapter = adapterFor(async () => {
+        throw new Error('must not call GitHub for invalid input');
+      });
+
+      await expect(adapter.enableAutoMerge(0, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'validation' },
+      });
+      await expect(adapter.enableAutoMerge(pullNumber, 'not-a-sha')).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'validation' },
+      });
+    });
+  });
 });

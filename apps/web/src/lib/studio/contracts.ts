@@ -204,14 +204,36 @@ export interface StudioEditorInput {
   concurrency: StudioConcurrencyEvidence;
 }
 
+/**
+ * The production-axis evidence that proves an already-published article is
+ * Live, carried alongside the change-axis `draft_invalid`/`draft_valid`
+ * kinds: per the two-axis lifecycle model, Live persists while an edit
+ * draft exists — a draft in flight must never erase whether the currently
+ * published version is proven live in production. Present only when a
+ * Refresh (`includeProbe: true`) has actually proven Live; its absence
+ * means "not proven live right now", never a claim that it is not live.
+ */
+export interface StudioLiveEvidence {
+  mainSha: string;
+  contentVersion: string;
+  expected: StudioIndexEvidence;
+  observed: StudioIndexEvidence;
+}
+
 export type StudioLifecycle =
   | {
       kind: 'draft_invalid';
       article: StudioArticleRef;
       branch: StudioBranchRef;
       issues: StudioCompileIssue[];
+      productionLive?: StudioLiveEvidence;
     }
-  | { kind: 'draft_valid'; article: StudioArticleRef; branch: StudioBranchRef }
+  | {
+      kind: 'draft_valid';
+      article: StudioArticleRef;
+      branch: StudioBranchRef;
+      productionLive?: StudioLiveEvidence;
+    }
   | { kind: 'ready'; article: StudioArticleRef; pullRequest: StudioPullRequestRef }
   | { kind: 'checking'; article: StudioArticleRef; pullRequest: StudioPullRequestRef }
   | {
@@ -698,8 +720,17 @@ function indexEvidenceValue(
   };
 }
 
-/** Exact comparison across every public index field; tags compare in order. */
-function indexEvidenceEquals(left: StudioIndexEvidence, right: StudioIndexEvidence): boolean {
+/**
+ * Exact comparison across every public index field; tags compare in order.
+ *
+ * Exported for reuse by the Studio status derivation (deriveStudioArticleStatus,
+ * #17): the same expected-vs-observed reconciliation the `live` decoder
+ * enforces on untrusted input applies to server-derived probe evidence.
+ */
+export function indexEvidenceEquals(
+  left: StudioIndexEvidence,
+  right: StudioIndexEvidence,
+): boolean {
   return (
     left.slug === right.slug &&
     left.title === right.title &&
@@ -715,6 +746,50 @@ function indexEvidenceEquals(left: StudioIndexEvidence, right: StudioIndexEviden
     left.cover.alt === right.cover.alt &&
     left.readingTimeMinutes === right.readingTimeMinutes
   );
+}
+
+/**
+ * Decodes the optional `productionLive` evidence attached to `draft_invalid`
+ * / `draft_valid`. Absent input is valid (undefined, "not proven live");
+ * present input must be a fully-formed, internally-consistent live proof,
+ * mirroring the `live` kind's own field validation.
+ */
+function optionalLiveEvidenceValue(
+  input: unknown,
+  path: string,
+  issues: string[],
+): StudioLiveEvidence | undefined {
+  if (input === undefined) return undefined;
+  if (!isRecord(input)) {
+    collectIssues(path, issues, 'object');
+    return undefined;
+  }
+  rejectUnknownKeys(input, ['mainSha', 'contentVersion', 'expected', 'observed'], path, issues);
+  if (issues.length > 0) return undefined;
+  const mainSha = shaValue(input.mainSha, `${path}.mainSha`, issues);
+  const contentVersion = shaValue(input.contentVersion, `${path}.contentVersion`, issues);
+  if (contentVersion !== undefined && !SHA64.test(contentVersion)) {
+    collectIssues(`${path}.contentVersion`, issues, 'contentVersion');
+  }
+  const expected = indexEvidenceValue(input.expected, `${path}.expected`, issues);
+  const observed = indexEvidenceValue(input.observed, `${path}.observed`, issues);
+  if (
+    expected !== undefined &&
+    observed !== undefined &&
+    !indexEvidenceEquals(expected, observed)
+  ) {
+    collectIssues(path, issues, 'evidenceMismatch');
+  }
+  if (
+    issues.length > 0 ||
+    mainSha === undefined ||
+    contentVersion === undefined ||
+    expected === undefined ||
+    observed === undefined
+  ) {
+    return undefined;
+  }
+  return { mainSha, contentVersion, expected, observed };
 }
 
 function metadataValue(input: unknown, path: string, issues: string[]): StudioMetadata | undefined {
@@ -874,8 +949,8 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
     return errResult(['lifecycle.kind']);
   }
   const allowedByKind: Readonly<Record<string, readonly string[]>> = {
-    draft_invalid: ['kind', 'article', 'branch', 'issues'],
-    draft_valid: ['kind', 'article', 'branch'],
+    draft_invalid: ['kind', 'article', 'branch', 'issues', 'productionLive'],
+    draft_valid: ['kind', 'article', 'branch', 'productionLive'],
     ready: ['kind', 'article', 'pullRequest'],
     checking: ['kind', 'article', 'pullRequest'],
     check_failed: ['kind', 'article', 'pullRequest', 'failedCheck'],
@@ -899,14 +974,35 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
     case 'draft_invalid': {
       const branch = branchRefValue(input.branch, 'lifecycle.branch', issues);
       const issuesList = compileIssuesValue(input.issues, 'lifecycle.issues', issues, true);
+      const productionLive = optionalLiveEvidenceValue(
+        input.productionLive,
+        'lifecycle.productionLive',
+        issues,
+      );
       if (issues.length > 0 || branch === undefined || issuesList === undefined)
         return errResult(issues);
-      return okResult({ kind: 'draft_invalid', article, branch, issues: issuesList });
+      return okResult({
+        kind: 'draft_invalid',
+        article,
+        branch,
+        issues: issuesList,
+        ...(productionLive === undefined ? {} : { productionLive }),
+      });
     }
     case 'draft_valid': {
       const branch = branchRefValue(input.branch, 'lifecycle.branch', issues);
+      const productionLive = optionalLiveEvidenceValue(
+        input.productionLive,
+        'lifecycle.productionLive',
+        issues,
+      );
       if (issues.length > 0 || branch === undefined) return errResult(issues);
-      return okResult({ kind: 'draft_valid', article, branch });
+      return okResult({
+        kind: 'draft_valid',
+        article,
+        branch,
+        ...(productionLive === undefined ? {} : { productionLive }),
+      });
     }
     case 'ready':
     case 'checking': {
