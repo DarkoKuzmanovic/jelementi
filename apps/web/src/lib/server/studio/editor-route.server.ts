@@ -8,10 +8,11 @@ import {
   saveStudioDraft,
 } from './editor.server';
 import { getStudioConfig } from './config.server';
-import type { GithubReadAdapter, GithubSaveAdapter } from './github-adapter';
+import { replaceStudioDraft, type StudioDraftReplacementResult } from './draft-replacement.server';
+import type { GithubAdapter, GithubReadAdapter, GithubSaveAdapter } from './github-adapter';
 import { requireStudioAccess, requireStudioMutation } from './request-guard.server';
 import type { StudioEditorData, StudioPreviewInput, StudioSaveResult } from './editor.server';
-import type { StudioPreviewResult } from '../../studio/contracts';
+import type { StudioLifecycle, StudioPreviewResult } from '../../studio/contracts';
 
 const MAX_SLUG_LENGTH = 100;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -30,6 +31,12 @@ export interface StudioPreviewActionData {
 export interface StudioSaveActionData {
   save: StudioSaveResult;
   editor?: StudioPreviewInput;
+}
+
+export interface StudioDraftReplacementActionData {
+  replacement: StudioDraftReplacementResult;
+  editor: StudioPreviewInput;
+  status?: StudioLifecycle;
 }
 
 export async function loadNewStudioEditorPage(
@@ -140,6 +147,66 @@ export async function saveStudioEditorAction(
     mediaBaseUrl,
   });
   return { save, editor: { metadata: decoded.value.metadata, body: decoded.value.body } };
+}
+
+export async function replaceStudioEditorAction(
+  event: StudioEditorRouteEvent,
+  expectedSlug: string,
+): Promise<StudioDraftReplacementActionData> {
+  await requireStudioMutation(event);
+  if (!isStudioSlug(expectedSlug)) error(400, 'Invalid article slug.');
+
+  const form = await event.request.formData();
+  const decoded = decodeStudioFormData(form);
+  const reconstructed = reconstructStudioPreviewInput(form);
+  reconstructed.metadata.slug = expectedSlug;
+  if (!decoded.ok || decoded.value.metadata.slug !== expectedSlug) {
+    return {
+      replacement: {
+        kind: 'replacement_failed',
+        candidate: reconstructed,
+        phase: 'decode-request',
+        reason: 'validation',
+        evidence: {},
+      },
+      editor: reconstructed,
+    };
+  }
+
+  let mediaBaseUrl: string;
+  try {
+    mediaBaseUrl = getStudioConfig(event.platform?.env).mediaBaseUrl;
+  } catch {
+    error(503, 'Studio draft replacement unavailable.');
+  }
+  const adapter = event.locals.studioGithubAdapter as GithubAdapter | undefined;
+  if (adapter === undefined) error(503, 'Studio draft replacement unavailable.');
+
+  const candidate = { metadata: decoded.value.metadata, body: decoded.value.body };
+  const replacement = await replaceStudioDraft(
+    adapter,
+    expectedSlug,
+    candidate,
+    decoded.value.concurrency,
+    { mediaBaseUrl },
+  );
+  if (replacement.kind !== 'replaced') return { replacement, editor: candidate };
+  const article = {
+    slug: candidate.metadata.slug,
+    title: candidate.metadata.title,
+    status: candidate.metadata.status,
+    updatedAt: candidate.metadata.updatedAt,
+  };
+  const status: StudioLifecycle =
+    replacement.compileIssues.length === 0
+      ? { kind: 'draft_valid', article, branch: replacement.branch }
+      : {
+          kind: 'draft_invalid',
+          article,
+          branch: replacement.branch,
+          issues: replacement.compileIssues,
+        };
+  return { replacement, editor: candidate, status };
 }
 
 function invalidFormPreview(form: FormData, expectedSlug?: string): StudioPreviewActionData {

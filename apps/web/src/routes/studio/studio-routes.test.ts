@@ -3,6 +3,7 @@ import { serializeArticleSource } from '@jelementi/content-compiler';
 import { render } from 'svelte/server';
 import { FakeGithubAdapter } from '../../lib/server/studio/github-adapter.fake';
 import { saveStudioDraft } from '../../lib/server/studio/editor.server';
+import StudioEditor from '../../lib/studio/StudioEditor.svelte';
 import StudioPublishPanel from '../../lib/studio/StudioPublishPanel.svelte';
 import type { StudioGithubConfig } from '../../lib/server/studio/config.server';
 import type { StudioLifecycle, StudioMetadata } from '../../lib/studio/contracts';
@@ -94,6 +95,10 @@ function eventFor<T extends (...args: never[]) => unknown>(
 }
 
 describe('Studio route shell', () => {
+  it('exposes the guarded Draft replacement as a named SvelteKit action', () => {
+    expect(studioArticleActions.replace).toBeTypeOf('function');
+  });
+
   it('keeps every Studio route dynamic and server-rendered', () => {
     expect(layoutPrerender).toBe(false);
     expect(studioPrerender).toBe(false);
@@ -458,6 +463,94 @@ describe('Studio publish & refresh actions', () => {
 
     expect(requireStudioMutation).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({ status: { kind: 'draft_valid' } });
+  });
+});
+
+describe('StudioEditor Draft replacement offer', () => {
+  it('renders the replacement action only for a proven unrelated-main conflict', () => {
+    const concurrency = {
+      baseMainSha: 'a'.repeat(40),
+      draftHeadSha: 'b'.repeat(40),
+      expectedBlobSha: 'c'.repeat(40),
+    };
+    const editor = {
+      metadata: draftMetadata,
+      body: 'Loaded body.',
+      concurrency,
+      slugEditable: false,
+    };
+    const submitted = { metadata: draftMetadata, body: 'Preserved candidate body.' };
+    const eligible = render(StudioEditor, {
+      props: {
+        editor,
+        submitted,
+        save: {
+          kind: 'save_conflict',
+          loaded: concurrency,
+          current: { baseMainSha: 'd'.repeat(40), draftHeadSha: 'b'.repeat(40) },
+          replacementAvailable: true,
+        },
+      },
+    });
+    const ineligible = render(StudioEditor, {
+      props: {
+        editor,
+        submitted,
+        save: {
+          kind: 'save_conflict',
+          loaded: concurrency,
+          current: { baseMainSha: 'd'.repeat(40), draftHeadSha: 'e'.repeat(40) },
+        },
+      },
+    });
+
+    expect(eligible.body).toContain('formaction="?/replace"');
+    expect(eligible.body).toContain('>Replace stale Studio draft</button>');
+    expect(eligible.body).toContain('Preserved candidate body.');
+    expect(ineligible.body).not.toContain('formaction="?/replace"');
+  });
+
+  it('renders the failed phase and recoverable evidence without losing candidate text', () => {
+    const candidate = { metadata: draftMetadata, body: 'Unsaved candidate survives.' };
+    const { body } = render(StudioEditor, {
+      props: {
+        editor: {
+          ...candidate,
+          concurrency: {
+            baseMainSha: 'a'.repeat(40),
+            draftHeadSha: 'b'.repeat(40),
+            expectedBlobSha: 'c'.repeat(40),
+          },
+          slugEditable: false,
+        },
+        submitted: candidate,
+        replacement: {
+          kind: 'replacement_failed',
+          candidate,
+          phase: 'delete-branch',
+          reason: 'github',
+          evidence: {
+            mainSha: 'd'.repeat(40),
+            branch: {
+              name: 'studio/article/a-draft-article',
+              headSha: 'b'.repeat(40),
+              url: 'https://github.com/DarkoKuzmanovic/jelementi/tree/studio/article/a-draft-article',
+            },
+            pullRequest: {
+              number: 42,
+              url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+              state: 'closed',
+              draft: true,
+            },
+          },
+        },
+      },
+    });
+
+    expect(body).toContain('Unsaved candidate survives.');
+    expect(body).toContain('delete-branch');
+    expect(body).toContain('/pull/42');
+    expect(body).toContain('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
   });
 });
 

@@ -5,6 +5,7 @@ import type { StudioGithubConfig } from './config.server';
 import {
   loadStudioEditorPage,
   previewStudioEditorAction,
+  replaceStudioEditorAction,
   saveStudioEditorAction,
 } from './editor-route.server';
 
@@ -297,5 +298,99 @@ describe('Studio save route boundary', () => {
     await expect(
       saveStudioEditorAction({ request, platform: { env }, locals: {} }),
     ).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe('Studio Draft replacement route boundary', () => {
+  it('authorizes, decodes, replaces, and preserves the submitted candidate', async () => {
+    requireStudioMutation.mockClear();
+    const replacementAdapter = new FakeGithubAdapter(config);
+    const main = await replacementAdapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const firstForm = validForm();
+    firstForm.set('baseMainSha', main.value.sha);
+    const saved = await saveStudioEditorAction(
+      {
+        request: new Request('https://jelementi.quz.ma/studio/articles/a-draft?/save', {
+          method: 'POST',
+          body: firstForm,
+        }),
+        platform: { env },
+        locals: { studioGithubAdapter: replacementAdapter },
+      },
+      'a-draft',
+    );
+    if (saved.save.kind !== 'saved') throw new Error(`save failed: ${saved.save.kind}`);
+    replacementAdapter.advanceMain();
+
+    const replacementForm = validForm();
+    replacementForm.set('body', 'Candidate preserved by the route.');
+    replacementForm.set('baseMainSha', saved.save.concurrency.baseMainSha);
+    replacementForm.set('draftHeadSha', saved.save.concurrency.draftHeadSha as string);
+    replacementForm.set('expectedBlobSha', saved.save.concurrency.expectedBlobSha as string);
+    const result = await replaceStudioEditorAction(
+      {
+        request: new Request('https://jelementi.quz.ma/studio/articles/a-draft?/replace', {
+          method: 'POST',
+          body: replacementForm,
+        }),
+        platform: { env },
+        locals: { studioGithubAdapter: replacementAdapter },
+      },
+      'a-draft',
+    );
+
+    expect(requireStudioMutation).toHaveBeenCalled();
+    expect(result.replacement).toMatchObject({
+      kind: 'replaced',
+      candidate: { body: 'Candidate preserved by the route.' },
+    });
+    expect(result.editor?.body).toBe('Candidate preserved by the route.');
+    expect(result.status).toMatchObject({
+      kind: 'draft_valid',
+      article: { slug: 'a-draft' },
+      branch: {
+        headSha:
+          result.replacement.kind === 'replaced'
+            ? result.replacement.concurrency.draftHeadSha
+            : undefined,
+      },
+    });
+  });
+
+  it('guards first and rejects a tampered slug without calling GitHub or losing the candidate', async () => {
+    requireStudioMutation.mockClear();
+    const replacementAdapter = new FakeGithubAdapter(config);
+    const getMainRef = vi.spyOn(replacementAdapter, 'getMainRef');
+    const form = validForm();
+    form.set('slug', 'different-article');
+    form.set('body', 'Keep this tampered submission visible.');
+
+    const result = await replaceStudioEditorAction(
+      {
+        request: new Request('https://jelementi.quz.ma/studio/articles/a-draft?/replace', {
+          method: 'POST',
+          body: form,
+        }),
+        platform: { env },
+        locals: { studioGithubAdapter: replacementAdapter },
+      },
+      'a-draft',
+    );
+
+    expect(requireStudioMutation).toHaveBeenCalledTimes(1);
+    expect(getMainRef).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      replacement: {
+        kind: 'replacement_failed',
+        phase: 'decode-request',
+        reason: 'validation',
+        candidate: {
+          metadata: { slug: 'a-draft' },
+          body: 'Keep this tampered submission visible.',
+        },
+      },
+      editor: { metadata: { slug: 'a-draft' }, body: 'Keep this tampered submission visible.' },
+    });
   });
 });

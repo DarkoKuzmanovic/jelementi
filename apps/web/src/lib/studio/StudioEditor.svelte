@@ -3,20 +3,23 @@
     StudioEditorData,
     StudioPreviewInput,
     StudioSaveResult,
-  } from '$lib/server/studio/editor.server';
-  import type { StudioPreviewResult } from '$lib/studio/contracts';
-  import ArticleRenderer from '$lib/article/ArticleRenderer.svelte';
+  } from '../server/studio/editor.server';
+  import type { StudioDraftReplacementResult } from '../server/studio/draft-replacement.server';
+  import type { StudioPreviewResult } from './contracts';
+  import ArticleRenderer from '../article/ArticleRenderer.svelte';
 
   let {
     editor,
     submitted,
     preview,
     save,
+    replacement,
   }: {
     editor: StudioEditorData;
     submitted?: StudioPreviewInput;
     preview?: StudioPreviewResult;
     save?: StudioSaveResult;
+    replacement?: StudioDraftReplacementResult;
   } = $props();
 
   const visible = $derived(submitted ?? { metadata: editor.metadata, body: editor.body });
@@ -30,9 +33,11 @@
   // originally loaded one) so a second Save or Preview on the same page,
   // without a reload, is checked against what is actually on GitHub now.
   const concurrency = $derived(
-    save?.kind === 'saved'
-      ? save.concurrency
-      : ((save?.kind === 'save_failed' ? save.concurrency : undefined) ?? editor.concurrency),
+    replacement?.kind === 'replaced'
+      ? replacement.concurrency
+      : save?.kind === 'saved'
+        ? save.concurrency
+        : ((save?.kind === 'save_failed' ? save.concurrency : undefined) ?? editor.concurrency),
   );
   // The slug becomes immutable the moment a draft branch exists. On an
   // established article route the server already enforces this on every
@@ -179,11 +184,14 @@
     {/if}
     <button type="submit">Preview</button>
     <button type="submit" formaction="?/save">Save draft</button>
+    {#if save?.kind === 'save_conflict' && save.replacementAvailable}
+      <button type="submit" formaction="?/replace">Replace stale Studio draft</button>
+    {/if}
   </form>
 
   {#if save?.kind === 'saved'}
     <section aria-labelledby="save-result-heading">
-      <h3 id="save-result-heading">Draft saved</h3>
+      <h3 id="save-result-heading">Studio draft saved</h3>
       <p>
         Committed to <code>studio/article/{metadata.slug}</code> and opened as
         <a href={save.pullRequest.url}>Draft PR #{save.pullRequest.number}</a>.
@@ -248,6 +256,65 @@
       {:else}
         <p>GitHub could not be reached. Nothing was changed; try again.</p>
       {/if}
+    </section>
+  {/if}
+
+  {#if replacement?.kind === 'replaced'}
+    <section aria-labelledby="replacement-result-heading">
+      <h3 id="replacement-result-heading">Studio draft replaced</h3>
+      <p>
+        The replacement is based on main <code>{replacement.concurrency.baseMainSha}</code> and has
+        a new <a href={replacement.pullRequest.url}>Draft PR #{replacement.pullRequest.number}</a>.
+        Review it and run Publish again; the previous approval was not carried forward.
+      </p>
+      {#if replacement.compileIssues.length > 0}
+        <p>The candidate was preserved, but the replacement is not publishable yet:</p>
+        <ul>
+          {#each replacement.compileIssues as issue, index (index)}
+            <li>{issue.code}: {issue.message}</li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+  {:else if replacement}
+    <section aria-labelledby="replacement-failed-heading">
+      <h3 id="replacement-failed-heading">Draft replacement stopped</h3>
+      <p>
+        Phase <code>{replacement.phase}</code> stopped with <code>{replacement.reason}</code>. Your
+        candidate remains in the editor above. Inspect this evidence before retrying.
+      </p>
+      <dl>
+        {#if replacement.evidence.mainSha}
+          <dt>Main</dt>
+          <dd><code>{replacement.evidence.mainSha}</code></dd>
+        {/if}
+        {#if replacement.evidence.target}
+          <dt>Target</dt>
+          <dd>
+            <code>{replacement.evidence.target.path}</code>, loaded blob
+            <code>{replacement.evidence.target.loadedBlobSha ?? 'absent'}</code>, fresh blob
+            <code>{replacement.evidence.target.freshBlobSha ?? 'absent'}</code>
+          </dd>
+        {/if}
+        {#if replacement.evidence.branch}
+          <dt>Branch</dt>
+          <dd>
+            <a href={replacement.evidence.branch.url}>{replacement.evidence.branch.name}</a>
+            at <code>{replacement.evidence.branch.headSha}</code>
+          </dd>
+        {/if}
+        {#if replacement.evidence.pullRequest}
+          <dt>Pull request</dt>
+          <dd>
+            <a href={replacement.evidence.pullRequest.url}
+              >#{replacement.evidence.pullRequest.number}</a
+            >
+            ({replacement.evidence.pullRequest.state}, {replacement.evidence.pullRequest.draft
+              ? 'Draft'
+              : 'ready'})
+          </dd>
+        {/if}
+      </dl>
     </section>
   {/if}
 
