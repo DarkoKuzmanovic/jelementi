@@ -960,7 +960,13 @@ describe('GithubApiAdapter write methods', () => {
         const { path, method } = request(url, init);
         if (path === '/graphql' && method === 'POST') {
           graphqlBody = JSON.parse(String(init?.body));
-          return json({ data: { enablePullRequestAutoMerge: { clientMutationId: null } } });
+          return json({
+            data: {
+              enablePullRequestAutoMerge: {
+                pullRequest: { autoMergeRequest: { enabledAt: '2026-08-16T00:00:00Z' } },
+              },
+            },
+          });
         }
         if (path.endsWith('/pulls/42') && method === 'GET') return json(readyPullRecord());
         throw new Error(`unexpected request: ${method} ${path}`);
@@ -975,6 +981,42 @@ describe('GithubApiAdapter write methods', () => {
         variables: {
           input: { pullRequestId: nodeId, expectedHeadOid: draftSha, mergeMethod: 'SQUASH' },
         },
+      });
+    });
+
+    it('does not report success when the GraphQL mutation returns a well-formed 200 without proof auto-merge was enabled', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql' && method === 'POST') {
+          return json({
+            data: {
+              enablePullRequestAutoMerge: { pullRequest: { autoMergeRequest: null } },
+            },
+          });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(readyPullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.enableAutoMerge(pullNumber, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'validation' },
+      });
+    });
+
+    it('does not report success when the GraphQL mutation payload is entirely empty', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path === '/graphql' && method === 'POST') {
+          return json({ data: { enablePullRequestAutoMerge: {} } });
+        }
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(readyPullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.enableAutoMerge(pullNumber, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'enable-auto-merge', reason: 'validation' },
       });
     });
 

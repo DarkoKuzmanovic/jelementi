@@ -386,7 +386,7 @@ export class GithubApiAdapter implements GithubPublishAdapter {
     if (record.value.pull.headSha !== expectedHeadSha) {
       return this.failure('enable-auto-merge', 'conflict');
     }
-    const mutation = `mutation($input: EnablePullRequestAutoMergeInput!) { enablePullRequestAutoMerge(input: $input) { clientMutationId } }`;
+    const mutation = `mutation($input: EnablePullRequestAutoMergeInput!) { enablePullRequestAutoMerge(input: $input) { pullRequest { autoMergeRequest { enabledAt } } } }`;
     const result = await this.requestGraphQL('enable-auto-merge', mutation, {
       input: {
         pullRequestId: record.value.nodeId,
@@ -395,6 +395,15 @@ export class GithubApiAdapter implements GithubPublishAdapter {
       },
     });
     if (!result.ok) return result;
+    // The GraphQL envelope alone (`ok: true`) only proves the request was
+    // well-formed, not that GitHub actually enabled auto-merge — validate
+    // the mutation's own claimed result rather than trusting a bare 200.
+    const payload = readRecord(result.value.enablePullRequestAutoMerge);
+    const pull = payload === undefined ? undefined : readRecord(payload.pullRequest);
+    const autoMergeRequest = pull === undefined ? undefined : readRecord(pull.autoMergeRequest);
+    if (autoMergeRequest === undefined) {
+      return this.failure('enable-auto-merge', 'validation');
+    }
     return { ok: true, value: undefined };
   }
 

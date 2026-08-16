@@ -631,6 +631,99 @@ describe('deriveStudioArticleStatus', () => {
     }
   });
 
+  it('attaches proven Live evidence to draft_valid: Live persists while an edit draft exists', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedPublishedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const branch = await adapter.createBranch('studio/article/tristan-da-cunha', main.value.sha);
+    if (!branch.ok) throw new Error('branch missing');
+    const draftSource = serializeArticleSource({
+      frontmatter,
+      body: 'A still-valid draft paragraph, unrelated to the published version.',
+    });
+    const commit = await adapter.commitFile({
+      branch: 'studio/article/tristan-da-cunha',
+      path: 'content/articles/tristan-da-cunha.md',
+      content: draftSource,
+      message: 'Update draft',
+      expectedHeadSha: branch.value.sha,
+    });
+    if (!commit.ok) throw new Error('commit failed');
+
+    const document = compileArticle({
+      markdown: articleSource,
+      sourcePath: 'content/articles/tristan-da-cunha.md',
+      mediaBaseUrl,
+    }).document;
+    const fingerprint = await articleContentFingerprint(document);
+    const expectedIndex = expectedIndexEvidenceFor(document);
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => okArticleProbe(fingerprint),
+      probeIndex: async () => okIndexProbe([expectedIndex]),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.value.kind !== 'draft_valid') {
+      throw new Error('expected draft_valid');
+    }
+    expect(result.value.productionLive).toEqual({
+      mainSha: main.value.sha,
+      contentVersion: fingerprint,
+      expected: expectedIndex,
+      observed: expectedIndex,
+    });
+  });
+
+  it('omits productionLive on draft_valid when Live is not actually proven (ordinary load, or a failed/mismatched probe)', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedPublishedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const branch = await adapter.createBranch('studio/article/tristan-da-cunha', main.value.sha);
+    if (!branch.ok) throw new Error('branch missing');
+    const draftSource = serializeArticleSource({
+      frontmatter,
+      body: 'A still-valid draft paragraph.',
+    });
+    const commit = await adapter.commitFile({
+      branch: 'studio/article/tristan-da-cunha',
+      path: 'content/articles/tristan-da-cunha.md',
+      content: draftSource,
+      message: 'Update draft',
+      expectedHeadSha: branch.value.sha,
+    });
+    if (!commit.ok) throw new Error('commit failed');
+
+    // Ordinary load: no probe ever runs, so no Live claim is possible.
+    const ordinaryLoad = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: false,
+    });
+    expect(ordinaryLoad.ok && ordinaryLoad.value.kind === 'draft_valid').toBe(true);
+    if (ordinaryLoad.ok && ordinaryLoad.value.kind === 'draft_valid') {
+      expect(ordinaryLoad.value.productionLive).toBeUndefined();
+    }
+
+    // Refresh, but the fingerprint does not match: never a false Live claim.
+    const mismatchedRefresh = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: true,
+      probeArticle: async () => okArticleProbe('0'.repeat(64)),
+      probeIndex: async () => okIndexProbe([]),
+    });
+    expect(mismatchedRefresh.ok && mismatchedRefresh.value.kind === 'draft_valid').toBe(true);
+    if (mismatchedRefresh.ok && mismatchedRefresh.value.kind === 'draft_valid') {
+      expect(mismatchedRefresh.value.productionLive).toBeUndefined();
+    }
+  });
+
   it('reconstructs identical status across repeated reads, with no hidden server-side state', async () => {
     const adapter = new FakeGithubAdapter(config);
     seedPublishedArticle(adapter);

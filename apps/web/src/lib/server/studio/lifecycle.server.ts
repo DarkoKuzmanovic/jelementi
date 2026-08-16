@@ -25,6 +25,7 @@ import {
   type StudioFailureCategory,
   type StudioIndexEvidence,
   type StudioLifecycle,
+  type StudioLiveEvidence,
   type StudioProductionState,
 } from '../../studio/contracts';
 import {
@@ -373,6 +374,18 @@ export async function deriveStudioArticleStatus(
       if (branch === undefined) {
         return { ok: false, failure: { phase: 'branch', reason: 'topology' } };
       }
+      // The change axis (this article's edit draft) and the production axis
+      // (whether the currently published canonical article is proven Live)
+      // are independent facts (CONTEXT.md: Live persists while an edit draft
+      // exists). Only an explicit Refresh probes; a positive `productionLive`
+      // is attached only when both probes actually proved Live, never
+      // inferred — its absence just means "not proven live right now".
+      const productionLive =
+        options.includeProbe &&
+        canonical !== undefined &&
+        canonical.frontmatter.status === 'published'
+          ? await liveEvidenceIfProven(main.value.sha, canonical, slug, options)
+          : undefined;
       const draftFile = await adapter.getFileContent(branch.sha, filePath);
       if (!draftFile.ok) return githubFailure('branch', draftFile);
       try {
@@ -381,13 +394,27 @@ export async function deriveStudioArticleStatus(
           sourcePath: filePath,
           mediaBaseUrl: options.mediaBaseUrl,
         });
-        return { ok: true, value: { kind: 'draft_valid', article, branch: toBranchRef(branch) } };
+        return {
+          ok: true,
+          value: {
+            kind: 'draft_valid',
+            article,
+            branch: toBranchRef(branch),
+            ...(productionLive === undefined ? {} : { productionLive }),
+          },
+        };
       } catch (cause) {
         const issues =
           cause instanceof ContentCompileError ? cause.issues : [compilerFailureIssue(filePath)];
         return {
           ok: true,
-          value: { kind: 'draft_invalid', article, branch: toBranchRef(branch), issues },
+          value: {
+            kind: 'draft_invalid',
+            article,
+            branch: toBranchRef(branch),
+            issues,
+            ...(productionLive === undefined ? {} : { productionLive }),
+          },
         };
       }
     }
@@ -518,12 +545,26 @@ function probeFailureCategory(reason: string | undefined): StudioFailureCategory
   return reason === 'timeout' ? 'timeout' : 'probe';
 }
 
-async function resolveProbedStatus(
-  article: StudioArticleRef,
+type ProbeReconciliation =
+  | { outcome: 'live'; evidence: StudioLiveEvidence }
+  | { outcome: 'pending' }
+  | { outcome: 'failed'; phase: 'compile' | 'probe'; category: StudioFailureCategory };
+
+/**
+ * Recompiles the canonical article, runs both bounded production probes
+ * (article fingerprint + public index) in parallel, and reconciles them
+ * into the one fact both `resolveProbedStatus` (production-axis kinds) and
+ * the `draft` change-state (attaching `productionLive` evidence) need:
+ * whether the currently published version is actually proven Live right
+ * now. Shared so "Live persists while an edit draft exists" (CONTEXT.md) is
+ * backed by one reconciliation path, not two that could disagree.
+ */
+async function reconcileProbes(
   mainSha: string,
   canonical: { filePath: string; content: string },
+  slug: string,
   options: StudioArticleStatusOptions,
-): Promise<StudioLifecycle> {
+): Promise<ProbeReconciliation> {
   let document: ArticleDocument;
   try {
     document = compileArticle({
@@ -532,15 +573,15 @@ async function resolveProbedStatus(
       mediaBaseUrl: options.mediaBaseUrl,
     }).document;
   } catch {
-    return { kind: 'failed', article, phase: 'compile', failure: { category: 'validation' } };
+    return { outcome: 'failed', phase: 'compile', category: 'validation' };
   }
   const expectedIndex = articleIndexEvidence(document);
   if (expectedIndex === undefined) {
-    return { kind: 'failed', article, phase: 'compile', failure: { category: 'validation' } };
+    return { outcome: 'failed', phase: 'compile', category: 'validation' };
   }
 
   const trimmedOrigin = options.productionOrigin.replace(/\/$/, '');
-  const articleUrl = `${trimmedOrigin}/articles/${article.slug}`;
+  const articleUrl = `${trimmedOrigin}/articles/${slug}`;
   const indexUrl = `${trimmedOrigin}/index.json`;
   const probeArticleFn = options.probeArticle ?? probeUrl;
   const probeIndexFn = options.probeIndex ?? probeIndexJson;
@@ -553,43 +594,81 @@ async function resolveProbedStatus(
   if (!articleProbe.ok) {
     if (probeIsUnreachable(articleProbe.reason)) {
       return {
-        kind: 'failed',
-        article,
+        outcome: 'failed',
         phase: 'probe',
-        failure: { category: probeFailureCategory(articleProbe.reason) },
+        category: probeFailureCategory(articleProbe.reason),
       };
     }
-    return { kind: 'pending_deployment', article, mainSha };
+    return { outcome: 'pending' };
   }
 
   if (!indexProbe.ok) {
     if (indexProbe.reason !== 'invalid-body' && probeIsUnreachable(indexProbe.reason)) {
       return {
-        kind: 'failed',
-        article,
+        outcome: 'failed',
         phase: 'probe',
-        failure: { category: probeFailureCategory(indexProbe.reason) },
+        category: probeFailureCategory(indexProbe.reason),
       };
     }
-    return { kind: 'pending_deployment', article, mainSha };
+    return { outcome: 'pending' };
   }
 
   const expectedFingerprint = await articleContentFingerprint(document);
   if (articleProbe.fingerprint !== expectedFingerprint) {
-    return { kind: 'pending_deployment', article, mainSha };
+    return { outcome: 'pending' };
   }
 
-  const observedIndex = indexProbe.entries.find((entry) => entry.slug === article.slug);
+  const observedIndex = indexProbe.entries.find((entry) => entry.slug === slug);
   if (observedIndex === undefined || !indexEvidenceEquals(expectedIndex, observedIndex)) {
-    return { kind: 'pending_deployment', article, mainSha };
+    return { outcome: 'pending' };
   }
 
   return {
-    kind: 'live',
-    article,
-    mainSha,
-    contentVersion: expectedFingerprint,
-    expected: expectedIndex,
-    observed: observedIndex,
+    outcome: 'live',
+    evidence: {
+      mainSha,
+      contentVersion: expectedFingerprint,
+      expected: expectedIndex,
+      observed: observedIndex,
+    },
   };
+}
+
+/**
+ * Same reconciliation as `resolveProbedStatus`, but for attaching evidence
+ * to a `draft_valid`/`draft_invalid` result: only a proven `live` outcome
+ * is surfaced (as `StudioLiveEvidence`); `pending`/`failed` outcomes are
+ * swallowed to `undefined`; `draft_valid`/`draft_invalid` have no field to
+ * carry them, and "not proven live right now" is already the safe default.
+ */
+async function liveEvidenceIfProven(
+  mainSha: string,
+  canonical: { filePath: string; content: string },
+  slug: string,
+  options: StudioArticleStatusOptions,
+): Promise<StudioLiveEvidence | undefined> {
+  const reconciliation = await reconcileProbes(mainSha, canonical, slug, options);
+  return reconciliation.outcome === 'live' ? reconciliation.evidence : undefined;
+}
+
+async function resolveProbedStatus(
+  article: StudioArticleRef,
+  mainSha: string,
+  canonical: { filePath: string; content: string },
+  options: StudioArticleStatusOptions,
+): Promise<StudioLifecycle> {
+  const reconciliation = await reconcileProbes(mainSha, canonical, article.slug, options);
+  switch (reconciliation.outcome) {
+    case 'live':
+      return { kind: 'live', article, ...reconciliation.evidence };
+    case 'pending':
+      return { kind: 'pending_deployment', article, mainSha };
+    case 'failed':
+      return {
+        kind: 'failed',
+        article,
+        phase: reconciliation.phase,
+        failure: { category: reconciliation.category },
+      };
+  }
 }

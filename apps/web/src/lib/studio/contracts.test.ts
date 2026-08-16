@@ -484,6 +484,30 @@ describe('decodeStudioLifecycle', () => {
     ).toBe(false);
   });
 
+  it('draft_invalid/draft_valid accept optional productionLive evidence, proving Live persists alongside an edit draft', () => {
+    const invalid = lifecycleFixtures.find((f) => f.kind === 'draft_invalid')?.value;
+    const valid = lifecycleFixtures.find((f) => f.kind === 'draft_valid')?.value;
+    if (!invalid || !valid) throw new Error('draft fixtures missing');
+    const productionLive = {
+      mainSha: SHA_A,
+      contentVersion: SHA64,
+      expected: indexEvidence,
+      observed: indexEvidence,
+    };
+    expect(decodeStudioLifecycle({ ...valid, productionLive }).ok).toBe(true);
+    expect(decodeStudioLifecycle({ ...invalid, productionLive }).ok).toBe(true);
+    // Absent productionLive stays valid (unproven, never a false claim).
+    expect(decodeStudioLifecycle(valid).ok).toBe(true);
+    // Mismatched expected/observed within productionLive is rejected, same
+    // as the top-level `live` kind's own evidence-mismatch check.
+    expect(
+      decodeStudioLifecycle({
+        ...valid,
+        productionLive: { ...productionLive, observed: { ...indexEvidence, title: 'Different' } },
+      }).ok,
+    ).toBe(false);
+  });
+
   it('ready/checking require a valid pull request; check_failed requires failedCheck', () => {
     const ready = lifecycleFixtures.find((f) => f.kind === 'ready')?.value;
     const failed = lifecycleFixtures.find((f) => f.kind === 'check_failed')?.value;
