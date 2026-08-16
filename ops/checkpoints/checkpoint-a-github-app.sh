@@ -185,13 +185,21 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 TOTAL_STAGES=5
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." > /dev/null && pwd)"
 WRANGLER_JSONC="$REPO_ROOT/wrangler.jsonc"
 WRANGLER_M2_JSONC="$REPO_ROOT/wrangler.m2.jsonc"
 
 # write_var is shared with checkpoint-b-access-policy.sh — see _lib.sh.
 # shellcheck source=ops/checkpoints/_lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+
+# ENV_FILE is the vendored library's resume cache (ask() offers its values
+# as defaults on re-run — "[Enter keeps current]"). Matches .gitignore's
+# .dev.vars* pattern; holds non-secret IDs only (same trust level as the
+# committed wrangler.jsonc placeholders they mirror), purely so re-running
+# this wizard after an interruption doesn't mean retyping already-given
+# values. Safe to delete once Checkpoint A is done.
+ENV_FILE="$REPO_ROOT/.dev.vars.checkpoint-a"
 
 # put_wrangler_secret NAME FILE — pipe a file's exact bytes into a Cloudflare
 # Worker secret. Never echoed; never written to ENV_FILE or Git.
@@ -202,7 +210,7 @@ put_wrangler_secret() {
     warn "skipped Worker secret $name — pnpm not found"
     return
   fi
-  if (cd "$REPO_ROOT" && pnpm exec wrangler secret put "$name" < "$file"); then
+  if (cd "$REPO_ROOT" > /dev/null && pnpm exec wrangler secret put "$name" < "$file"); then
     WRITTEN_SECRET+=("$name (Cloudflare Worker secret)")
     printf '  %s✓ set%s Cloudflare Worker secret %s\n' "$GREEN" "$RESET" "$name"
   else
@@ -240,14 +248,20 @@ step "On the same page, copy the Client ID."
 ask GITHUB_APP_CLIENT_ID "Paste the Client ID:"
 step "Scroll to 'Private keys' → 'Generate a private key' → a .pem downloads."
 ask GITHUB_APP_PRIVATE_KEY_PATH "Full path to the downloaded .pem file:"
+GITHUB_APP_PRIVATE_KEY_PATH="${GITHUB_APP_PRIVATE_KEY_PATH/#\~/$HOME}"
 if [[ ! -f "$GITHUB_APP_PRIVATE_KEY_PATH" ]]; then
-  warn "file not found at that path — re-run this wizard once you have it"
+  warn "file not found at '$GITHUB_APP_PRIVATE_KEY_PATH' — paste the FULL absolute"
+  warn "path (e.g. /home/you/Downloads/app.pem), then re-run this wizard."
   exit 1
 fi
 write_var GITHUB_APP_ID "$GITHUB_APP_ID"
 write_var GITHUB_APP_CLIENT_ID "$GITHUB_APP_CLIENT_ID"
-note "(Non-secret — written straight into wrangler.jsonc/wrangler.m2.jsonc,"
-note " this repo's actual runtime source; not into $ENV_FILE.)"
+write_env GITHUB_APP_ID "$GITHUB_APP_ID"
+write_env GITHUB_APP_CLIENT_ID "$GITHUB_APP_CLIENT_ID"
+write_env GITHUB_APP_PRIVATE_KEY_PATH "$GITHUB_APP_PRIVATE_KEY_PATH"
+note "(Non-secret — the real values live in wrangler.jsonc/wrangler.m2.jsonc;"
+note " also cached in $ENV_FILE so a re-run offers them as defaults instead"
+note " of asking you to retype them.)"
 
 # ── Stage 2: install on this repo only ─────────────────────────────────────
 stage "Install on DarkoKuzmanovic/jelementi only"
@@ -258,6 +272,7 @@ step "Choose 'Only select repositories' → select ONLY 'jelementi'. Confirm."
 step "After install, the browser URL becomes .../settings/installations/<id>."
 ask GITHUB_INSTALLATION_ID "Paste the numeric installation id from that URL:"
 write_var GITHUB_INSTALLATION_ID "$GITHUB_INSTALLATION_ID"
+write_env GITHUB_INSTALLATION_ID "$GITHUB_INSTALLATION_ID"
 
 # ── Stage 3: repo auto-merge + delete-merged-branches ──────────────────────
 stage "Repo settings — auto-merge + delete merged branches"
@@ -311,8 +326,8 @@ say "Scanning tracked + untracked files, and any built bundle, for a leaked key�
 LEAK_SCAN=/tmp/jelementi-checkpoint-a-leak-scan
 : > "$LEAK_SCAN"
 if command -v git >/dev/null 2>&1; then
-  (cd "$REPO_ROOT" && git grep -l 'BEGIN.*PRIVATE KEY' -- . ':!ops/checkpoints/*' 2>/dev/null) >>"$LEAK_SCAN"
-  (cd "$REPO_ROOT" && git ls-files --others --exclude-standard -z | xargs -0 -r grep -l 'BEGIN.*PRIVATE KEY' 2>/dev/null) >>"$LEAK_SCAN"
+  (cd "$REPO_ROOT" > /dev/null && git grep -l 'BEGIN.*PRIVATE KEY' -- . ':!ops/checkpoints/*' 2>/dev/null) >>"$LEAK_SCAN"
+  (cd "$REPO_ROOT" > /dev/null && git ls-files --others --exclude-standard -z | xargs -0 -r grep -l 'BEGIN.*PRIVATE KEY' 2>/dev/null) >>"$LEAK_SCAN"
 fi
 if [[ -d "$REPO_ROOT/.svelte-kit/output/client" ]]; then
   grep -rl 'BEGIN.*PRIVATE KEY' "$REPO_ROOT/.svelte-kit/output/client" 2>/dev/null >>"$LEAK_SCAN"
@@ -331,7 +346,7 @@ if [[ -s "$LEAK_SCAN" ]]; then
 else
   printf '  %s✓%s no private-key pattern found in tracked, untracked, or built-client files\n' "$GREEN" "$RESET"
 fi
-if (cd "$REPO_ROOT" && git check-ignore -q .dev.vars 2>/dev/null); then
+if (cd "$REPO_ROOT" > /dev/null && git check-ignore -q .dev.vars 2>/dev/null); then
   printf '  %s✓%s .dev.vars is gitignored\n' "$GREEN" "$RESET"
 else
   warn ".dev.vars is NOT gitignored — fix before continuing"
