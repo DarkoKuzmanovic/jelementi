@@ -293,7 +293,12 @@ async function readSourceFiles(directory: string, root = directory): Promise<Wor
     if (entry.isDirectory()) sources.push(...(await readSourceFiles(path, root)));
     if (
       entry.isFile() &&
-      (entry.name.endsWith('.ts') || entry.name.endsWith('.svelte') || entry.name.endsWith('.js'))
+      (entry.name.endsWith('.ts') ||
+        entry.name.endsWith('.svelte') ||
+        entry.name.endsWith('.js')) &&
+      // Test files are never bundled into the Worker; their env fixtures may
+      // legitimately name bindings (e.g. R2_MEDIA) without accessing them.
+      !entry.name.endsWith('.test.ts')
     ) {
       sources.push({ path: relative(root, path), source: await readFile(path, 'utf8') });
     }
