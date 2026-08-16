@@ -13,6 +13,10 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
+## Branch naming
+
+Branches are named `t<N>-<slug>` after the GitHub issue they implement — e.g. `t5-publish-auto-merge` for issue #17 (T5), `t6-unpublish-discard` for issue #18 (T6). Non-ticket work (docs, chores) uses a short descriptive prefix branch such as `docs/<slug>` or `fix/<slug>`. `main` is protected: all changes land via PR with the `verify` status check green.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
