@@ -1100,4 +1100,223 @@ describe('GithubApiAdapter write methods', () => {
       });
     });
   });
+
+  describe('closePullRequest', () => {
+    function openPullRecord(overrides: Record<string, unknown> = {}) {
+      return {
+        number: pullNumber,
+        node_id: 'PR_kwDOhelloworld',
+        html_url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+        state: 'open',
+        draft: true,
+        merged_at: null,
+        head: {
+          ref: 'studio/article/hello-world',
+          sha: draftSha,
+          repo: { full_name: 'DarkoKuzmanovic/jelementi' },
+        },
+        base: { ref: 'main' },
+        ...overrides,
+      };
+    }
+
+    it('closes an open PR via PATCH and only reports success when GitHub confirms the closed state', async () => {
+      const calls: string[] = [];
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        calls.push(`${method} ${path}`);
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(openPullRecord());
+        if (path.endsWith('/pulls/42') && method === 'PATCH') {
+          return json(openPullRecord({ state: 'closed' }));
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.closePullRequest(pullNumber)).resolves.toEqual({
+        ok: true,
+        value: undefined,
+      });
+      expect(calls).toEqual([
+        'GET /repos/DarkoKuzmanovic/jelementi/pulls/42',
+        'PATCH /repos/DarkoKuzmanovic/jelementi/pulls/42',
+      ]);
+    });
+
+    it('fails closed on a PR that is not open, without ever calling PATCH', async () => {
+      let patchCalled = false;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith('/pulls/42') && method === 'PATCH') patchCalled = true;
+        if (path.endsWith('/pulls/42') && method === 'GET') {
+          return json(openPullRecord({ state: 'closed' }));
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.closePullRequest(pullNumber)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'close-pull-request', reason: 'validation' },
+      });
+      expect(patchCalled).toBe(false);
+    });
+
+    it('does not report success when the PATCH response does not confirm the closed state', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(openPullRecord());
+        if (path.endsWith('/pulls/42') && method === 'PATCH') return json(openPullRecord());
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.closePullRequest(pullNumber)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'close-pull-request', reason: 'topology' },
+      });
+    });
+
+    it('rejects an invalid PR number without a request', async () => {
+      const adapter = adapterFor(async () => {
+        throw new Error('must not call GitHub for invalid input');
+      });
+
+      await expect(adapter.closePullRequest(0)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'close-pull-request', reason: 'validation' },
+      });
+    });
+
+    it('maps a github-side failure through the sanitized reason mapping', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith('/pulls/42') && method === 'GET') return json(openPullRecord());
+        if (path.endsWith('/pulls/42') && method === 'PATCH') {
+          return json({ message: 'private upstream detail' }, 403);
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.closePullRequest(pullNumber)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'close-pull-request', reason: 'forbidden', status: 403 },
+      });
+    });
+  });
+
+  describe('deleteBranch', () => {
+    it('verifies the branch head equals the expected SHA, then deletes the ref', async () => {
+      const calls: string[] = [];
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        calls.push(`${method} ${path}`);
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
+          return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
+        }
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE') {
+          return new Response(null, { status: 204 });
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.deleteBranch(branchName, draftSha)).resolves.toEqual({
+        ok: true,
+        value: undefined,
+      });
+      expect(calls).toEqual([
+        `GET /repos/DarkoKuzmanovic/jelementi/git/ref/heads/${branchName}`,
+        `DELETE /repos/DarkoKuzmanovic/jelementi/git/ref/heads/${branchName}`,
+      ]);
+    });
+
+    it('fails closed on a stale expected head without ever issuing the DELETE', async () => {
+      let deleteCalled = false;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE')
+          deleteCalled = true;
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
+          return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.deleteBranch(branchName, mainSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'delete-branch', reason: 'conflict' },
+      });
+      expect(deleteCalled).toBe(false);
+    });
+
+    it('forbids main and rejects malformed input without a request', async () => {
+      const adapter = adapterFor(async () => {
+        throw new Error('must not call GitHub for invalid input');
+      });
+
+      await expect(adapter.deleteBranch('main', draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'delete-branch', reason: 'forbidden' },
+      });
+      await expect(adapter.deleteBranch('not a slug', draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'delete-branch', reason: 'validation' },
+      });
+      await expect(adapter.deleteBranch(branchName, 'not-a-sha')).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'delete-branch', reason: 'validation' },
+      });
+    });
+
+    it('maps a github-side failure through the sanitized reason mapping', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
+          return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
+        }
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE') {
+          return json({ message: 'private upstream detail' }, 403);
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.deleteBranch(branchName, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'delete-branch', reason: 'forbidden', status: 403 },
+      });
+    });
+
+    it('surfaces a 422 from the DELETE itself as a conflict, not a validation failure', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
+          return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
+        }
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE') {
+          return json({ message: 'Reference does not exist' }, 422);
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.deleteBranch(branchName, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'delete-branch', reason: 'conflict', status: 422 },
+      });
+    });
+
+    it('surfaces a 409 from the DELETE itself as a conflict', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
+          return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
+        }
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE') {
+          return json({ message: 'conflict' }, 409);
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      await expect(adapter.deleteBranch(branchName, draftSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'delete-branch', reason: 'conflict', status: 409 },
+      });
+    });
+  });
 });

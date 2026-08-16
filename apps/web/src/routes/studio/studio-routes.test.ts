@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { serializeArticleSource } from '@jelementi/content-compiler';
+import { render } from 'svelte/server';
 import { FakeGithubAdapter } from '../../lib/server/studio/github-adapter.fake';
 import { saveStudioDraft } from '../../lib/server/studio/editor.server';
+import StudioPublishPanel from '../../lib/studio/StudioPublishPanel.svelte';
 import type { StudioGithubConfig } from '../../lib/server/studio/config.server';
-import type { StudioMetadata } from '../../lib/studio/contracts';
+import type { StudioLifecycle, StudioMetadata } from '../../lib/studio/contracts';
 
 const { requireStudioAccess, requireStudioMutation } = vi.hoisted(() => ({
   requireStudioAccess: vi.fn(async () => ({ ok: true as const, email: 'darko@example.com' })),
@@ -214,6 +216,169 @@ const draftMetadata: StudioMetadata = {
   references: [],
 };
 
+function githubBlockingAdapter(): FakeGithubAdapter {
+  const adapter = new FakeGithubAdapter(githubConfig);
+  const methods = [
+    'getMainRef',
+    'getBranch',
+    'listPullRequests',
+    'closePullRequest',
+    'deleteBranch',
+    'createBranch',
+    'commitFile',
+    'createPullRequest',
+    'updatePullRequest',
+    'enableAutoMerge',
+    'getFileContent',
+  ] as const;
+  for (const method of methods) {
+    vi.spyOn(adapter, method).mockImplementation((() => {
+      throw new Error('must not access GitHub');
+    }) as never);
+  }
+  return adapter;
+}
+
+function seedPublishedOnMain(adapter: FakeGithubAdapter): void {
+  adapter.seedFile(
+    'main',
+    'content/articles/tristan-da-cunha.md',
+    serializeArticleSource({
+      frontmatter: {
+        title: 'The 250 People at the End of the World',
+        slug: 'tristan-da-cunha',
+        excerpt: 'A remote settlement.',
+        publishedAt: '2026-07-26',
+        updatedAt: '2026-07-26',
+        status: 'published',
+        category: 'History',
+        tags: ['islands'],
+        author: 'Jelementi',
+        cover: { src: 'articles/tristan-da-cunha/cover.svg', alt: 'Island' },
+        references: [],
+      },
+      body: 'Body.',
+    }),
+    'b'.repeat(64),
+  );
+}
+
+describe('Studio unpublish & discard actions', () => {
+  it('runs the mutation guard before a typed-slug mismatch and never reaches GitHub', async () => {
+    requireStudioMutation.mockClear();
+    const adapter = githubBlockingAdapter();
+
+    await expect(
+      studioArticleActions.unpublish?.(
+        actionEventFor(
+          'tristan-da-cunha',
+          { studioGithubAdapter: adapter },
+          { env: studioEnv },
+          { confirmation: 'wrong-slug' },
+        ),
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      studioArticleActions.discard?.(
+        actionEventFor(
+          'tristan-da-cunha',
+          { studioGithubAdapter: adapter },
+          { env: studioEnv },
+          { confirmation: 'wrong-slug', expectedHeadSha: 'b'.repeat(40) },
+        ),
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(requireStudioMutation).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects malformed article slugs for unpublish and discard', async () => {
+    await expect(
+      studioArticleActions.unpublish?.(
+        actionEventFor('../secrets', {}, undefined, { confirmation: '../secrets' }),
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      studioArticleActions.discard?.(
+        actionEventFor('../secrets', {}, undefined, {
+          confirmation: '../secrets',
+          expectedHeadSha: 'b'.repeat(40),
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('unpublishes a published article only after exact typed-slug confirmation', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+
+    const result = await studioArticleActions.unpublish?.(
+      actionEventFor(
+        'tristan-da-cunha',
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        { confirmation: 'tristan-da-cunha' },
+      ),
+    );
+
+    expect(result).toMatchObject({ unpublish: { kind: 'unpublish_submitted' } });
+    const branch = await adapter.getBranch('studio/article/tristan-da-cunha');
+    expect(branch.ok).toBe(true);
+  });
+
+  it('rejects a discard request with a missing or malformed expectedHeadSha', async () => {
+    requireStudioMutation.mockClear();
+    const adapter = new FakeGithubAdapter(githubConfig);
+
+    await expect(
+      studioArticleActions.discard?.(
+        actionEventFor(
+          draftSlug,
+          { studioGithubAdapter: adapter },
+          { env: studioEnv },
+          { confirmation: draftSlug, expectedHeadSha: 'not-a-sha' },
+        ),
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(requireStudioMutation).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards a saved draft after exact typed-slug confirmation and expected head', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      draftSlug,
+      {
+        metadata: draftMetadata,
+        body: 'Saved body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
+    );
+    if (saved.kind !== 'saved') throw new Error(`save failed: ${saved.kind}`);
+
+    const result = await studioArticleActions.discard?.({
+      request: new Request('https://jelementi.quz.ma/studio/articles/' + draftSlug, {
+        method: 'POST',
+        body: new URLSearchParams({
+          confirmation: draftSlug,
+          expectedHeadSha: saved.concurrency.draftHeadSha as string,
+        }),
+      }),
+      platform: { env: studioEnv },
+      params: { slug: draftSlug },
+      locals: { studioGithubAdapter: adapter },
+    } as unknown as Parameters<NonNullable<typeof studioArticleActions.publish>>[0]);
+
+    expect(result).toMatchObject({
+      discard: { kind: 'discarded', pullRequest: { number: saved.pullRequest.number } },
+    });
+    const branch = await adapter.getBranch(`studio/article/${draftSlug}`);
+    expect(branch.ok).toBe(false);
+  });
+});
+
 describe('Studio publish & refresh actions', () => {
   it('rejects malformed article slugs for publish and refresh', async () => {
     await expect(
@@ -293,5 +458,41 @@ describe('Studio publish & refresh actions', () => {
 
     expect(requireStudioMutation).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({ status: { kind: 'draft_valid' } });
+  });
+});
+
+describe('StudioPublishPanel unpublish retry availability', () => {
+  const article: StudioLifecycle['article'] = {
+    slug: 'tristan-da-cunha',
+    title: 'The 250 People at the End of the World',
+    status: 'published',
+    updatedAt: '2026-07-26',
+  };
+  const pullRequest = {
+    number: 42,
+    url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+    headSha: 'b'.repeat(40),
+  };
+
+  it('still offers Unpublish when a reload reconstructs ready, checking, or check_failed after a partial unpublish failure', () => {
+    const statuses: StudioLifecycle[] = [
+      { kind: 'ready', article, pullRequest },
+      { kind: 'checking', article, pullRequest },
+      { kind: 'check_failed', article, pullRequest, failedCheck: { name: 'verify' } },
+    ];
+    for (const status of statuses) {
+      const { body } = render(StudioPublishPanel, { props: { status } });
+      expect(body).toContain('action="?/unpublish"');
+      expect(body).toContain('>Unpublish</button>');
+    }
+  });
+
+  it('keeps the retry safe: Publish stays limited to a revalidated draft in these states', () => {
+    const { body } = render(StudioPublishPanel, {
+      props: { status: { kind: 'ready', article, pullRequest } },
+    });
+    // The ready/checking/check_failed retry path must never widen Publish:
+    // only a revalidated committed draft (`draft_valid`) enables it.
+    expect(body).toContain('<button type="submit" disabled="">Publish</button>');
   });
 });

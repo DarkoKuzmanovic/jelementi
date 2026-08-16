@@ -7,6 +7,7 @@
     StudioSaveActionData,
   } from '../../../../lib/server/studio/editor-route.server';
   import type { StudioPublishActionData, StudioRefreshActionData } from './+page.server';
+  import type { StudioUnpublishActionData, StudioDiscardActionData } from './+page.server';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
   const previewAction = $derived(
@@ -27,6 +28,16 @@
       ? (form as StudioRefreshActionData)
       : undefined,
   );
+  const unpublishAction = $derived(
+    form && typeof form === 'object' && 'unpublish' in form
+      ? (form as StudioUnpublishActionData)
+      : undefined,
+  );
+  const discardAction = $derived(
+    form && typeof form === 'object' && 'discard' in form
+      ? (form as StudioDiscardActionData)
+      : undefined,
+  );
   // Refresh re-reads GitHub AND re-runs probes; its result replaces the
   // loaded status until the page is reloaded. There is no background
   // polling — this is the only way `status` changes without a reload.
@@ -40,4 +51,9 @@
   save={saveAction?.save}
 />
 
-<StudioPublishPanel {status} publish={publishAction?.publish} />
+<StudioPublishPanel
+  {status}
+  publish={publishAction?.publish}
+  unpublish={unpublishAction?.unpublish}
+  discard={discardAction?.discard}
+/>
