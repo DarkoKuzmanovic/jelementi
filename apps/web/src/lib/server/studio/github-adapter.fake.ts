@@ -41,6 +41,8 @@ export interface FakeGithubAdapterOptions {
   unauthorized?: boolean;
   /** Simulates GitHub rate limiting on all calls. */
   rateLimited?: boolean;
+  /** Test-only fault injection for one protocol operation. */
+  failureOperation?: StudioGithubOperation;
 }
 
 export class FakeGithubAdapter implements GithubAdapter {
@@ -90,7 +92,13 @@ export class FakeGithubAdapter implements GithubAdapter {
     if (this.options.offline) return this.failure<T>(operation, 'transport');
     if (this.options.unauthorized) return this.failure<T>(operation, 'auth');
     if (this.options.rateLimited) return this.failure<T>(operation, 'rate-limit');
+    if (this.options.failureOperation === operation) return this.failure<T>(operation, 'transport');
     return undefined;
+  }
+
+  /** Test helper (not part of the adapter seam). */
+  setFailureOperation(operation: StudioGithubOperation | undefined): void {
+    this.options.failureOperation = operation;
   }
 
   async getBranch(name: string): Promise<GithubAdapterResult<StudioBranch>> {

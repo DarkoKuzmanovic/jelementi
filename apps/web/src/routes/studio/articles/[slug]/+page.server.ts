@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import {
   loadStudioEditorPage,
   previewStudioEditorAction,
+  replaceStudioEditorAction,
   saveStudioEditorAction,
   type StudioEditorRouteEvent,
 } from '../../../../lib/server/studio/editor-route.server';
@@ -81,6 +82,7 @@ export const load: PageServerLoad<{ editor: StudioEditorData; status: StudioLife
 export const actions: Actions = {
   preview: (event) => previewStudioEditorAction(eventForEditorRoute(event), event.params.slug),
   save: (event) => saveStudioEditorAction(eventForEditorRoute(event), event.params.slug),
+  replace: (event) => replaceStudioEditorAction(eventForEditorRoute(event), event.params.slug),
 
   /**
    * Explicit, head-bound approval (ADR-0004): revalidates the exact

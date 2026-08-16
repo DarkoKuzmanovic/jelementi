@@ -592,6 +592,44 @@ describe('saveStudioDraft', () => {
     expect(committed.ok && committed.value.content).toContain('# A heading is not supported here');
   });
 
+  it('offers Draft replacement only when unrelated main movement passes every proof', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    adapter.seedFile(
+      'main',
+      `content/articles/${slug}.md`,
+      serializeArticleSource({ frontmatter: metadata, body: 'Canonical body.' }),
+      'b'.repeat(40),
+    );
+    const first = await saveStudioDraft(
+      adapter,
+      slug,
+      {
+        metadata,
+        body: 'Original draft.',
+        concurrency: { baseMainSha: main.value.sha, expectedBlobSha: 'b'.repeat(40) },
+      },
+      previewOptions,
+    );
+    if (first.kind !== 'saved') throw new Error('first save failed');
+    const freshMainSha = adapter.advanceMain();
+
+    const result = await saveStudioDraft(
+      adapter,
+      slug,
+      { metadata, body: 'Preserved candidate.', concurrency: first.concurrency },
+      previewOptions,
+    );
+
+    expect(result).toEqual({
+      kind: 'save_conflict',
+      loaded: first.concurrency,
+      current: { baseMainSha: freshMainSha, draftHeadSha: first.concurrency.draftHeadSha },
+      replacementAvailable: true,
+    });
+  });
+
   it('blocks a save onto an existing draft when the loaded main SHA is stale', async () => {
     const adapter = new FakeGithubAdapter(config);
     const main = await adapter.getMainRef();

@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0006
+---
+
 # Draft-branch rebase as the concurrency recovery path
 
 When a Studio operation finds a stale base (newer `main` article version or unexpected active draft head), the recovery is: re-base the Studio branch onto the newer `main` when the target article blob is unchanged and the merge is clean; otherwise block with a comparison and offer the operator a copy of the local text (discard local, reload remote). Studio never auto-merges and never overwrites.

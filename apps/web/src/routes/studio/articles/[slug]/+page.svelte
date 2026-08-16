@@ -3,6 +3,7 @@
   import StudioEditor from '../../../../lib/studio/StudioEditor.svelte';
   import StudioPublishPanel from '../../../../lib/studio/StudioPublishPanel.svelte';
   import type {
+    StudioDraftReplacementActionData,
     StudioPreviewActionData,
     StudioSaveActionData,
   } from '../../../../lib/server/studio/editor-route.server';
@@ -17,6 +18,11 @@
   );
   const saveAction = $derived(
     form && typeof form === 'object' && 'save' in form ? (form as StudioSaveActionData) : undefined,
+  );
+  const replacementAction = $derived(
+    form && typeof form === 'object' && 'replacement' in form
+      ? (form as StudioDraftReplacementActionData)
+      : undefined,
   );
   const publishAction = $derived(
     form && typeof form === 'object' && 'publish' in form
@@ -41,14 +47,15 @@
   // Refresh re-reads GitHub AND re-runs probes; its result replaces the
   // loaded status until the page is reloaded. There is no background
   // polling — this is the only way `status` changes without a reload.
-  const status = $derived(refreshAction?.status ?? data.status);
+  const status = $derived(replacementAction?.status ?? refreshAction?.status ?? data.status);
 </script>
 
 <StudioEditor
   editor={data.editor}
-  submitted={previewAction?.editor ?? saveAction?.editor}
+  submitted={previewAction?.editor ?? saveAction?.editor ?? replacementAction?.editor}
   preview={previewAction?.preview}
   save={saveAction?.save}
+  replacement={replacementAction?.replacement}
 />
 
 <StudioPublishPanel

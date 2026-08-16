@@ -14,6 +14,7 @@ import type {
   StudioMetadata,
   StudioPreviewResult,
 } from '../../studio/contracts';
+import { isStudioDraftReplacementEligible } from './draft-replacement.server';
 import type { GithubReadAdapter, GithubSaveAdapter } from './github-adapter';
 
 const MAX_EDITOR_BODY_DISPLAY = 2_000_000;
@@ -296,6 +297,7 @@ export type StudioSaveResult =
       kind: 'save_conflict';
       loaded: StudioConcurrencyEvidence;
       current: StudioConcurrencyEvidence;
+      replacementAvailable?: true;
     }
   | {
       kind: 'save_failed';
@@ -409,12 +411,17 @@ export async function saveStudioDraft(
   } else if (branch === undefined || branch.sha !== input.concurrency.draftHeadSha) {
     return { kind: 'save_conflict', loaded: input.concurrency, current: currentEvidence() };
   } else if (main.value.sha !== input.concurrency.baseMainSha) {
-    // main moved on since this draft's evidence was captured. No rebase
-    // capability exists yet (a separately deferred feature), so the safe
-    // fallback per the concurrency contract is to block with a comparison
-    // rather than silently continue committing onto a branch based on a
-    // main SHA the operator never actually saw.
-    return { kind: 'save_conflict', loaded: input.concurrency, current: currentEvidence() };
+    const replacementAvailable = await isStudioDraftReplacementEligible(
+      adapter,
+      slug,
+      input.concurrency,
+    );
+    return {
+      kind: 'save_conflict',
+      loaded: input.concurrency,
+      current: currentEvidence(),
+      ...(replacementAvailable ? { replacementAvailable: true as const } : {}),
+    };
   }
 
   // Discover PR topology before writing anything: an unexpected topology

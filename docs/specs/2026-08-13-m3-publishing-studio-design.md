@@ -80,7 +80,7 @@ M3 is complete when:
 - Preview has two layers: immediate server compilation of the current editor input, and an Access-protected branch-preview link after Save.
 - The editor exposes known metadata as form fields and only the Markdown body as source text. M3 does not provide a raw YAML/frontmatter mode.
 - Every Studio endpoint validates the Access JWT signature, issuer, audience, expiry, and exact configured Darko email. Trusting an identity header alone is forbidden.
-- A newer `main` article version or unexpected active draft head blocks Save and Publish. Studio shows a comparison and offers recovery; it never automatically merges or overwrites.
+- A newer `main` article version or unexpected active draft head blocks Save and Publish. When only unrelated `main` content changed, Studio offers explicit Draft replacement: preserve the submitted candidate, close and confirm the exact old pull request unmerged, delete its expected branch head, recreate the deterministic branch from fresh `main`, recommit the candidate, and open a new Draft PR. It never calls GitHub's in-place `update-branch` operation, automatically merges, or overwrites.
 - `Live` requires the deployed public article HTML and published index to prove the expected article version. GitHub merge and Cloudflare build success are intermediate evidence only.
 - `Unpublish` changes article status to `archived` through the same one-draft topology. If a content draft already differs from `main`, Unpublish is blocked until that draft is published or discarded. The operator must type the exact slug before auto-merge is enabled.
 - `Discard draft` is available in Studio. After confirmation it closes only that article's draft pull request and deletes only its Studio branch; `main` is unchanged.
@@ -202,7 +202,7 @@ Publish operates only on a saved commit and never silently includes unsaved edit
 6. enable GitHub auto-merge for the expected head SHA using the squash merge method;
 7. return a checking/ready status while the required `verify` check runs.
 
-The GitHub App receives no branch-protection bypass. A failing required check yields `check_failed`, leaves the pull request open, and exposes the failed check. The repository currently requires strict up-to-date `verify` checks. If unrelated content reaches `main` first, Studio may update the draft branch only when the target article blob on `main` is unchanged, the draft head still matches, and GitHub reports a clean update. A changed target article or merge conflict yields `conflict` and requires operator resolution.
+The GitHub App receives no branch-protection bypass. A failing required check yields `check_failed`, leaves the pull request open, and exposes the failed check. The repository currently requires strict up-to-date `verify` checks. If unrelated content reaches `main` first, Publish remains blocked; it never updates the approved candidate's branch. The operator may run Draft replacement only while the target article blob on fresh `main` is unchanged, the loaded draft head still matches, and the draft contains exactly that article change. Recovery closes and confirms the old pull request unmerged before deleting its expected branch head, then recreates the deterministic branch from fresh `main`, recommits the preserved candidate, opens a new Draft PR, fully revalidates it, and requires a fresh Publish. A changed target article, moved head, unexpected diff, merge, or ambiguous close/delete/recreate outcome yields `conflict` or a named failure with the submitted candidate preserved.
 
 ### Deploy and verify
 
@@ -374,7 +374,7 @@ Return structured compiler issues. Save remains available. Publish remains block
 
 ### Stale base or branch
 
-Return HTTP conflict semantics with the loaded and current identities plus a bounded comparison. Preserve the user's editor text. Offer reload/copy recovery; do not auto-merge.
+Return HTTP conflict semantics with the loaded and current identities plus a bounded comparison, preserving the submitted metadata and body. When the loaded draft head still matches, the target article blob is unchanged on fresh `main`, and the draft changes exactly that article, offer explicit Draft replacement. Close the exact old pull request and confirm it closed and unmerged before expected-head branch deletion; then recreate from fresh `main`, recommit the preserved candidate, open one new Draft PR, and fully revalidate its head. Never call GitHub's in-place `update-branch` operation. A ready, merged, moved, changed-target, unexpected-diff, or ambiguous partial outcome aborts or conservatively cancels publication and returns the candidate plus current evidence.
 
 ### Partial GitHub failure
 
@@ -445,7 +445,7 @@ Mock at the HTTP boundary and prove:
 - unsaved editor input is never published;
 - a newer `main` article or draft head blocks Save and Publish;
 - a failed required check stays visible and unmerged;
-- an unrelated `main` change updates the branch only when the target article is unchanged and the merge is clean;
+- an unrelated `main` change permits Draft replacement only when the target article is unchanged, the loaded head still matches, and the draft changes exactly that article;
 - merge yields pending, not Live;
 - production 200 with the wrong fingerprint is not Live;
 - matching article fingerprint plus index metadata yields Live;
@@ -490,7 +490,7 @@ M3 is implemented in bounded slices:
 2. add Access verification and dynamic Studio route guards with failing tests first;
 3. add the server-only GitHub App adapter and deterministic draft discovery;
 4. implement immediate preview and the metadata/body editor;
-5. implement Save draft with concurrency and idempotent recovery;
+5. implement Save draft with concurrency and idempotent Draft replacement recovery;
 6. implement Publish, required-check/auto-merge status, deployment tracking, and Live verification;
 7. implement typed-slug Unpublish and confirmed Discard draft;
 8. add full lifecycle, bundle-boundary, reader-regression, and deployment tests;
