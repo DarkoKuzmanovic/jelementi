@@ -59,9 +59,9 @@ _Avoid_: Cancel, abandon
 The production-axis state where the public route and index prove the expected published version. Requires content fingerprint + index metadata match; never equivalent to merge or build success. Persists while an edit draft exists; starting an edit does not make production non-live.
 _Avoid_: Deployed, done, released
 
-**Rebase (Studio)**:
-The recovery path when a Studio operation finds a stale base: update the Studio branch onto the newer `main` only when the target article blob is unchanged and the merge is clean. Never auto-merge, never overwrite. Applies only before approval, never after Publish. A rebased head is fully revalidated before Publish; unchanged article blob does not skip validation.
-_Avoid_: Refresh, sync, force-save
+**Draft replacement**:
+The explicit recovery path when unrelated `main` movement makes a Studio draft stale: preserve the submitted candidate, close and confirm the exact old pull request unmerged, delete its expected branch head, then recreate the deterministic Studio branch from fresh `main`, recommit the candidate, and open a new Draft PR. Allowed only when the loaded draft head still matches, the target article blob on `main` is unchanged, and the draft changes exactly that article. The replacement head requires full validation and a fresh Publish. Never mutates an approved branch or uses GitHub's in-place `update-branch` operation.
+_Avoid_: Rebase, refresh, sync, force-save
 
 **Concurrency evidence**:
 The `main` SHA, draft head SHA, and expected blob SHA a Studio operation carries, compared with fresh GitHub reads before Save or Publish.
