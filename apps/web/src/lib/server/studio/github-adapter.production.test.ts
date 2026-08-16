@@ -458,3 +458,294 @@ describe('GithubApiAdapter', () => {
     });
   });
 });
+
+describe('GithubApiAdapter write methods', () => {
+  const branchName = 'studio/article/hello-world';
+  const treeSha = 'd'.repeat(40);
+  const newTreeSha = 'e'.repeat(40);
+  const newCommitSha = 'f'.repeat(40);
+
+  function request(url: string | URL | Request, init: RequestInit | undefined) {
+    const requestUrl = new URL(String(url));
+    return { path: requestUrl.pathname, method: init?.method ?? 'GET', init };
+  }
+
+  describe('createBranch', () => {
+    it('creates a Studio branch from an observed main SHA', async () => {
+      let captured: { path: string; method: string; init?: RequestInit } | undefined;
+      const adapter = adapterFor(async (url, init) => {
+        captured = request(url, init);
+        return json({
+          ref: `refs/heads/${branchName}`,
+          object: { sha: mainSha, type: 'commit' },
+        });
+      });
+
+      const result = await adapter.createBranch(branchName, mainSha);
+
+      expect(result).toEqual({
+        ok: true,
+        value: {
+          name: branchName,
+          sha: mainSha,
+          url: `https://github.com/DarkoKuzmanovic/jelementi/tree/${branchName}`,
+        },
+      });
+      expect(captured?.path).toBe('/repos/DarkoKuzmanovic/jelementi/git/refs');
+      expect(captured?.method).toBe('POST');
+      expect(JSON.parse(String(captured?.init?.body))).toEqual({
+        ref: `refs/heads/${branchName}`,
+        sha: mainSha,
+      });
+    });
+
+    it('treats an already-existing reference as a conflict, not a validation failure', async () => {
+      const adapter = adapterFor(async () => json({ message: 'Reference already exists' }, 422));
+
+      await expect(adapter.createBranch(branchName, mainSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'create-branch', reason: 'conflict', status: 422 },
+      });
+    });
+
+    it('rejects malformed branch names and SHAs without a request, and forbids main', async () => {
+      const adapter = adapterFor(async () => {
+        throw new Error('must not call GitHub for invalid input');
+      });
+
+      await expect(adapter.createBranch('not a slug', mainSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'create-branch', reason: 'validation' },
+      });
+      await expect(adapter.createBranch(branchName, 'not-a-sha')).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'create-branch', reason: 'validation' },
+      });
+      await expect(adapter.createBranch('main', mainSha)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'create-branch', reason: 'forbidden' },
+      });
+    });
+  });
+
+  describe('commitFile', () => {
+    const validInput = {
+      branch: branchName,
+      path: 'content/articles/hello-world.md',
+      content: '---\ntitle: Hello\n---\nBody.',
+      message: 'Studio: save draft for hello-world',
+      expectedHeadSha: draftSha,
+    };
+
+    function fullSequenceFetch(onRef?: () => void) {
+      return async (url: string | URL | Request, init?: RequestInit) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
+          onRef?.();
+          return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha, type: 'commit' } });
+        }
+        if (path.endsWith(`/git/commits/${draftSha}`) && method === 'GET') {
+          return json({ sha: draftSha, tree: { sha: treeSha } });
+        }
+        if (path.endsWith('/git/blobs') && method === 'POST') {
+          return json({ sha: blobSha });
+        }
+        if (path.endsWith('/git/trees') && method === 'POST') {
+          return json({ sha: newTreeSha });
+        }
+        if (path.endsWith('/git/commits') && method === 'POST') {
+          return json({ sha: newCommitSha });
+        }
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'PATCH') {
+          return json({ ref: `refs/heads/${branchName}`, object: { sha: newCommitSha } });
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      };
+    }
+
+    it('commits through blob -> tree -> commit -> fast-forward ref update', async () => {
+      const calls: string[] = [];
+      const adapter = adapterFor(async (url, init) => {
+        calls.push(`${request(url, init).method} ${request(url, init).path}`);
+        return fullSequenceFetch()(url, init);
+      });
+
+      const result = await adapter.commitFile(validInput);
+
+      expect(result).toEqual({
+        ok: true,
+        value: {
+          commitSha: newCommitSha,
+          commitUrl: `https://github.com/DarkoKuzmanovic/jelementi/commit/${newCommitSha}`,
+          blobSha,
+        },
+      });
+      expect(calls).toEqual([
+        `GET /repos/DarkoKuzmanovic/jelementi/git/ref/heads/${branchName}`,
+        `GET /repos/DarkoKuzmanovic/jelementi/git/commits/${draftSha}`,
+        'POST /repos/DarkoKuzmanovic/jelementi/git/blobs',
+        'POST /repos/DarkoKuzmanovic/jelementi/git/trees',
+        'POST /repos/DarkoKuzmanovic/jelementi/git/commits',
+        `PATCH /repos/DarkoKuzmanovic/jelementi/git/ref/heads/${branchName}`,
+      ]);
+    });
+
+    it('fails closed on a stale expected head without writing any object', async () => {
+      let requests = 0;
+      const adapter = adapterFor(async (url, init) => {
+        requests += 1;
+        return fullSequenceFetch()(url, init);
+      });
+
+      const result = await adapter.commitFile({ ...validInput, expectedHeadSha: mainSha });
+
+      expect(result).toEqual({
+        ok: false,
+        failure: { operation: 'commit-file', reason: 'conflict' },
+      });
+      expect(requests).toBe(1);
+    });
+
+    it('treats a non-fast-forward ref update as a conflict', async () => {
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'PATCH') {
+          return json({ message: 'Update is not a fast forward' }, 422);
+        }
+        return fullSequenceFetch()(url, init);
+      });
+
+      await expect(adapter.commitFile(validInput)).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'commit-file', reason: 'conflict', status: 422 },
+      });
+    });
+
+    it('rejects out-of-bound input without a request, and forbids main', async () => {
+      const adapter = adapterFor(async () => {
+        throw new Error('must not call GitHub for invalid input');
+      });
+
+      await expect(
+        adapter.commitFile({ ...validInput, path: 'content/articles/not slug.md' }),
+      ).resolves.toEqual({ ok: false, failure: { operation: 'commit-file', reason: 'validation' } });
+      await expect(
+        adapter.commitFile({ ...validInput, message: '' }),
+      ).resolves.toEqual({ ok: false, failure: { operation: 'commit-file', reason: 'validation' } });
+      await expect(
+        adapter.commitFile({ ...validInput, expectedHeadSha: 'not-a-sha' }),
+      ).resolves.toEqual({ ok: false, failure: { operation: 'commit-file', reason: 'validation' } });
+      await expect(adapter.commitFile({ ...validInput, branch: 'main' })).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'commit-file', reason: 'forbidden' },
+      });
+    });
+  });
+
+  describe('createPullRequest', () => {
+    const validInput = {
+      title: 'Studio draft: Hello world',
+      body: 'Opened by Studio for a draft save.',
+      head: branchName,
+      base: 'main' as const,
+      draft: true as const,
+    };
+
+    it('opens a Draft PR after confirming no open PR already exists for the head', async () => {
+      const calls: string[] = [];
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        calls.push(`${method} ${path}`);
+        if (path.endsWith('/pulls') && method === 'GET') return json([]);
+        if (path.endsWith('/pulls') && method === 'POST') {
+          return json({
+            number: pullNumber,
+            html_url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+            state: 'open',
+            draft: true,
+            merged_at: null,
+            head: { ref: branchName, sha: draftSha, repo: { full_name: 'DarkoKuzmanovic/jelementi' } },
+            base: { ref: 'main' },
+          });
+        }
+        throw new Error(`unexpected request: ${method} ${path}`);
+      });
+
+      const result = await adapter.createPullRequest(validInput);
+
+      expect(result).toEqual({
+        ok: true,
+        value: {
+          number: pullNumber,
+          url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+          headRef: branchName,
+          headSha: draftSha,
+          baseRef: 'main',
+          draft: true,
+          state: 'open',
+        },
+      });
+      expect(calls[0]).toBe('GET /repos/DarkoKuzmanovic/jelementi/pulls');
+      expect(calls[1]).toBe('POST /repos/DarkoKuzmanovic/jelementi/pulls');
+    });
+
+    it('fails closed on unexpected topology when an open PR already exists for the head', async () => {
+      let postCalled = false;
+      const adapter = adapterFor(async (url, init) => {
+        const { path, method } = request(url, init);
+        if (path.endsWith('/pulls') && method === 'GET') {
+          return json([
+            {
+              number: pullNumber,
+              html_url: 'https://github.com/DarkoKuzmanovic/jelementi/pull/42',
+              state: 'open',
+              draft: true,
+              merged_at: null,
+              head: {
+                ref: branchName,
+                sha: draftSha,
+                repo: { full_name: 'DarkoKuzmanovic/jelementi' },
+              },
+              base: { ref: 'main' },
+            },
+          ]);
+        }
+        postCalled = true;
+        throw new Error('must not create a second PR for the same head');
+      });
+
+      const result = await adapter.createPullRequest(validInput);
+
+      expect(result).toEqual({
+        ok: false,
+        failure: { operation: 'create-pull-request', reason: 'topology' },
+      });
+      expect(postCalled).toBe(false);
+    });
+
+    it('rejects malformed input without a request', async () => {
+      const adapter = adapterFor(async () => {
+        throw new Error('must not call GitHub for invalid input');
+      });
+
+      await expect(
+        adapter.createPullRequest({ ...validInput, base: 'develop' as 'main' }),
+      ).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'create-pull-request', reason: 'validation' },
+      });
+      await expect(
+        adapter.createPullRequest({ ...validInput, title: '   ' }),
+      ).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'create-pull-request', reason: 'validation' },
+      });
+      await expect(
+        adapter.createPullRequest({ ...validInput, head: 'not a slug' }),
+      ).resolves.toEqual({
+        ok: false,
+        failure: { operation: 'create-pull-request', reason: 'validation' },
+      });
+    });
+  });
+});

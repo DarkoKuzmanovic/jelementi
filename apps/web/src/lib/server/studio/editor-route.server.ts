@@ -5,11 +5,12 @@ import {
   loadStudioEditor,
   previewFromEditorInput,
   reconstructStudioPreviewInput,
+  saveStudioDraft,
 } from './editor.server';
 import { getStudioConfig } from './config.server';
-import type { GithubReadAdapter } from './github-adapter';
+import type { GithubReadAdapter, GithubSaveAdapter } from './github-adapter';
 import { requireStudioAccess, requireStudioMutation } from './request-guard.server';
-import type { StudioEditorData, StudioPreviewInput } from './editor.server';
+import type { StudioEditorData, StudioPreviewInput, StudioSaveResult } from './editor.server';
 import type { StudioPreviewResult } from '../../studio/contracts';
 
 const MAX_SLUG_LENGTH = 100;
@@ -23,6 +24,11 @@ export interface StudioEditorRouteEvent {
 
 export interface StudioPreviewActionData {
   preview: StudioPreviewResult;
+  editor?: StudioPreviewInput;
+}
+
+export interface StudioSaveActionData {
+  save: StudioSaveResult;
   editor?: StudioPreviewInput;
 }
 
@@ -91,29 +97,97 @@ export async function previewStudioEditorAction(
   };
 }
 
+/**
+ * Mirrors `previewStudioEditorAction`'s boundary shape: `expectedSlug` is
+ * present for an established article route and absent for the new-article
+ * route, where the submitted form's own (validated) slug is the target.
+ */
+export async function saveStudioEditorAction(
+  event: StudioEditorRouteEvent,
+  expectedSlug?: string,
+): Promise<StudioSaveActionData> {
+  await requireStudioMutation(event);
+  if (expectedSlug !== undefined && !isStudioSlug(expectedSlug)) {
+    error(400, 'Invalid article slug.');
+  }
+  let mediaBaseUrl: string;
+  try {
+    mediaBaseUrl = getStudioConfig(event.platform?.env).mediaBaseUrl;
+  } catch {
+    error(503, 'Studio save unavailable.');
+  }
+
+  const adapter = event.locals.studioGithubAdapter as GithubSaveAdapter | undefined;
+  if (adapter === undefined) error(503, 'Studio save unavailable.');
+
+  const form = await event.request.formData();
+  const decoded = decodeStudioFormData(form);
+  if (!decoded.ok) {
+    return invalidFormSave(form, expectedSlug);
+  }
+  if (expectedSlug !== undefined && decoded.value.metadata.slug !== expectedSlug) {
+    const submitted = reconstructStudioPreviewInput(form);
+    return {
+      save: immutableSlugSave(expectedSlug),
+      editor: {
+        metadata: { ...submitted.metadata, slug: expectedSlug },
+        body: submitted.body,
+      },
+    };
+  }
+
+  const save = await saveStudioDraft(adapter, decoded.value.metadata.slug, decoded.value, {
+    mediaBaseUrl,
+  });
+  return { save, editor: { metadata: decoded.value.metadata, body: decoded.value.body } };
+}
+
 function invalidFormPreview(form: FormData, expectedSlug?: string): StudioPreviewActionData {
   const submitted = reconstructStudioPreviewInput(form);
-  const submittedSlug = form.get('slug');
-  const slug =
-    expectedSlug ??
-    (typeof submittedSlug === 'string' && isStudioSlug(submittedSlug)
-      ? submittedSlug
-      : 'new-article');
+  const slug = invalidFormSlug(form, expectedSlug);
   if (expectedSlug !== undefined) submitted.metadata.slug = expectedSlug;
   return {
     preview: {
       kind: 'preview_issues',
-      compileIssues: [
-        {
-          code: 'INVALID_EDITOR_INPUT',
-          message: 'Review the article fields and try again.',
-          sourcePath: `content/articles/${slug}.md`,
-          line: 1,
-          column: 1,
-        },
-      ],
+      compileIssues: [invalidEditorInputIssue(slug)],
     },
     editor: submitted,
+  };
+}
+
+function invalidFormSave(form: FormData, expectedSlug?: string): StudioSaveActionData {
+  const submitted = reconstructStudioPreviewInput(form);
+  const slug = invalidFormSlug(form, expectedSlug);
+  if (expectedSlug !== undefined) submitted.metadata.slug = expectedSlug;
+  return {
+    save: { kind: 'save_rejected', compileIssues: [invalidEditorInputIssue(slug)] },
+    editor: submitted,
+  };
+}
+
+function invalidFormSlug(form: FormData, expectedSlug?: string): string {
+  const submittedSlug = form.get('slug');
+  return (
+    expectedSlug ??
+    (typeof submittedSlug === 'string' && isStudioSlug(submittedSlug)
+      ? submittedSlug
+      : 'new-article')
+  );
+}
+
+function invalidEditorInputIssue(slug: string): {
+  code: string;
+  message: string;
+  sourcePath: string;
+  line: number;
+  column: number;
+} {
+  return {
+    code: 'INVALID_EDITOR_INPUT',
+    message: 'Review the article fields and try again.',
+    sourcePath: `content/articles/${slug}.md`,
+    line: 1,
+    column: 1,
   };
 }
 
@@ -122,16 +196,25 @@ function isStudioSlug(value: string): boolean {
 }
 
 function immutableSlugPreview(expectedSlug: string): StudioPreviewResult {
+  return { kind: 'preview_issues', compileIssues: [slugImmutableIssue(expectedSlug)] };
+}
+
+function immutableSlugSave(expectedSlug: string): StudioSaveResult {
+  return { kind: 'save_rejected', compileIssues: [slugImmutableIssue(expectedSlug)] };
+}
+
+function slugImmutableIssue(expectedSlug: string): {
+  code: string;
+  message: string;
+  sourcePath: string;
+  line: number;
+  column: number;
+} {
   return {
-    kind: 'preview_issues',
-    compileIssues: [
-      {
-        code: 'SLUG_IMMUTABLE',
-        message: 'The slug cannot change after the first saved draft.',
-        sourcePath: `content/articles/${expectedSlug}.md`,
-        line: 1,
-        column: 1,
-      },
-    ],
+    code: 'SLUG_IMMUTABLE',
+    message: 'The slug cannot change after the first saved draft.',
+    sourcePath: `content/articles/${expectedSlug}.md`,
+    line: 1,
+    column: 1,
   };
 }

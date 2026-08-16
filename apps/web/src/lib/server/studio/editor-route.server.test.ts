@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { serializeArticleSource } from '@jelementi/content-compiler';
 import { FakeGithubAdapter } from './github-adapter.fake';
 import type { StudioGithubConfig } from './config.server';
-import { loadStudioEditorPage, previewStudioEditorAction } from './editor-route.server';
+import {
+  loadStudioEditorPage,
+  previewStudioEditorAction,
+  saveStudioEditorAction,
+} from './editor-route.server';
 
 const { requireStudioAccess, requireStudioMutation } = vi.hoisted(() => ({
   requireStudioAccess: vi.fn(async () => ({ ok: true as const, email: 'darko@example.com' })),
@@ -178,5 +182,120 @@ describe('Studio editor route boundary', () => {
       ],
     });
     expect(result.editor?.metadata.slug).toBe('tristan-da-cunha');
+  });
+});
+
+describe('Studio save route boundary', () => {
+  it('commits a new draft branch and opens a Draft PR after authorization', async () => {
+    const form = validForm();
+    form.set('slug', 'a-fresh-save');
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(requireStudioMutation).toHaveBeenCalled();
+    expect(result.save.kind).toBe('saved');
+    if (result.save.kind !== 'saved') throw new Error('expected saved');
+    expect(result.save.pullRequest.number).toBeGreaterThan(0);
+    expect(result.save.concurrency.draftHeadSha).toBeDefined();
+    expect(result.editor?.metadata.slug).toBe('a-fresh-save');
+
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).toContain(
+      'studio/article/a-fresh-save',
+    );
+  });
+
+  it('rejects an invalid form without touching GitHub', async () => {
+    const form = validForm();
+    form.set('slug', 'bad-save');
+    form.set('baseMainSha', 'not-a-sha');
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save).toMatchObject({
+      kind: 'save_rejected',
+      compileIssues: [{ code: 'INVALID_EDITOR_INPUT', sourcePath: 'content/articles/bad-save.md' }],
+    });
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/bad-save',
+    );
+  });
+
+  it('rejects a tampered slug on an established article before any GitHub write', async () => {
+    const form = validForm();
+    form.set('slug', 'different-slug');
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/tristan-da-cunha?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+      'tristan-da-cunha',
+    );
+
+    expect(result.save).toMatchObject({
+      kind: 'save_rejected',
+      compileIssues: [
+        { code: 'SLUG_IMMUTABLE', sourcePath: 'content/articles/tristan-da-cunha.md' },
+      ],
+    });
+    expect(result.editor?.metadata.slug).toBe('tristan-da-cunha');
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/different-slug',
+    );
+  });
+
+  it('fails closed as a save conflict when the loaded main SHA is stale', async () => {
+    const form = validForm();
+    form.set('slug', 'stale-main-save');
+    form.set('baseMainSha', 'c'.repeat(40));
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save.kind).toBe('save_conflict');
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/stale-main-save',
+    );
+  });
+
+  it('reports 503 when no GitHub adapter is wired', async () => {
+    const form = validForm();
+    const request = new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+      method: 'POST',
+      body: form,
+    });
+
+    await expect(
+      saveStudioEditorAction({ request, platform: { env }, locals: {} }),
+    ).rejects.toMatchObject({ status: 503 });
   });
 });

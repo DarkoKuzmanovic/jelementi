@@ -211,5 +211,14 @@ export type GithubReadAdapter = Pick<
   | 'getCheckRun'
 >;
 
+/**
+ * Read capability plus the three write methods Save (#16) needs: branch
+ * creation, a single-file commit with an expected-head precondition, and a
+ * Draft PR. Publish (#17) and Discard (#18) add the remaining write methods
+ * to a full `GithubAdapter` later.
+ */
+export type GithubSaveAdapter = GithubReadAdapter &
+  Pick<GithubAdapter, 'createBranch' | 'commitFile' | 'createPullRequest'>;
+
 /** The repository context every adapter needs; production wires StudioGithubConfig. */
 export type { StudioGithubConfig };

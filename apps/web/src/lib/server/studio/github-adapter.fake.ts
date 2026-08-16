@@ -343,6 +343,28 @@ export class FakeGithubAdapter implements GithubAdapter {
     this.files.set(branch, files);
   }
 
+  /**
+   * Seeds a pull request directly for topology tests (ambiguous/multiple
+   * open PRs, a non-draft open PR) without exercising createPullRequest's
+   * own invariants.
+   */
+  seedPullRequest(head: string, overrides: Partial<StudioPullRequest> = {}): StudioPullRequest {
+    const number = overrides.number ?? this.nextPullNumber();
+    const pull: StudioPullRequest = {
+      number,
+      url: overrides.url ?? `${this.repositoryUrl}/pull/${number}`,
+      headRef: overrides.headRef ?? head,
+      headSha: overrides.headSha ?? this.branches.get(head)?.sha ?? '',
+      baseRef: overrides.baseRef ?? 'main',
+      draft: overrides.draft ?? true,
+      state: overrides.state ?? 'open',
+      ...(overrides.mergeCommitSha === undefined ? {} : { mergeCommitSha: overrides.mergeCommitSha }),
+    };
+    const existing = this.pulls.get(head) ?? [];
+    this.pulls.set(head, [...existing, pull]);
+    return { ...pull };
+  }
+
   seedCheckRun(pullNumber: number, run: StudioCheckRun): void {
     const pull = this.findPull(pullNumber);
     if (pull === undefined) throw new Error(`no pull ${pullNumber}`);

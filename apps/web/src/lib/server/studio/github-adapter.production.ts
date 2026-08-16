@@ -5,10 +5,13 @@ import {
 } from './github-adapter.auth';
 import type { StudioGithubConfig } from './config.server';
 import type {
+  CommitFileInput,
+  CreatePullRequestInput,
   GithubAdapterResult,
-  GithubReadAdapter,
+  GithubSaveAdapter,
   StudioBranch,
   StudioCheckRun,
+  StudioCommitFileResult,
   StudioFileContent,
   StudioGitRef,
   StudioGithubFailure,
@@ -27,6 +30,9 @@ const MAX_PULL_PAGE_SIZE = 100;
 const MAX_BRANCH_PAGE_SIZE = 100;
 const MAX_BRANCH_PAGES = 10;
 const MAX_CHECK_PAGE_SIZE = 100;
+const MAX_COMMIT_MESSAGE = 500;
+const MAX_PULL_REQUEST_TITLE = 500;
+const MAX_PULL_REQUEST_BODY = 20_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 const TOKEN_LEEWAY_MS = 30_000;
 const SHA_PATTERN = /^[0-9a-f]{40,64}$/i;
@@ -69,7 +75,7 @@ export interface GithubApiAdapterOptions {
  * returns only bounded, validated Studio values. Runtime route activation is
  * deliberately separate: Checkpoint A supplies credentials and wiring.
  */
-export class GithubApiAdapter implements GithubReadAdapter {
+export class GithubApiAdapter implements GithubSaveAdapter {
   private readonly fetchImpl: typeof globalThis.fetch;
   private readonly now: () => number;
   private readonly apiBaseUrl: string;
@@ -159,6 +165,166 @@ export class GithubApiAdapter implements GithubReadAdapter {
         url: this.repositoryTreeUrl('main'),
       },
     };
+  }
+
+  async createBranch(name: string, fromSha: string): Promise<ApiResult<StudioBranch>> {
+    if (name === 'main') return this.failure('create-branch', 'forbidden');
+    if (!STUDIO_BRANCH_PATTERN.test(name) || !SHA_PATTERN.test(fromSha)) {
+      return this.failure('create-branch', 'validation');
+    }
+    const result = await this.requestJson(
+      'create-branch',
+      `/repos/${this.repositoryPath()}/git/refs`,
+      { method: 'POST', body: JSON.stringify({ ref: `refs/heads/${name}`, sha: fromSha }) },
+    );
+    if (!result.ok) return this.remapUnprocessableToConflict(result, 'create-branch');
+    return parseBranch(result.value, name, this.repositoryTreeUrl(name), 'create-branch');
+  }
+
+  /**
+   * Commits one file via the low-level Git Data API (blob -> tree -> commit
+   * -> non-force ref update) so the branch head precondition is explicit: the
+   * branch is read first and compared against `expectedHeadSha` before any
+   * object is written, and the final ref update stays a fast-forward from
+   * that exact parent, so a head that moved between the read and the write is
+   * rejected as a conflict rather than silently overwritten.
+   */
+  async commitFile(input: CommitFileInput): Promise<ApiResult<StudioCommitFileResult>> {
+    if (input.branch === 'main') return this.failure('commit-file', 'forbidden');
+    if (
+      !STUDIO_BRANCH_PATTERN.test(input.branch) ||
+      !ARTICLE_PATH_PATTERN.test(input.path) ||
+      input.content.length > MAX_ARTICLE_BYTES ||
+      input.message.trim().length === 0 ||
+      input.message.length > MAX_COMMIT_MESSAGE ||
+      !SHA_PATTERN.test(input.expectedHeadSha)
+    ) {
+      return this.failure('commit-file', 'validation');
+    }
+
+    const ref = await this.requestJson('commit-file', this.refPath(input.branch));
+    if (!ref.ok) return ref;
+    const parsedRef = parseRef(ref.value, input.branch, 'commit-file');
+    if (!parsedRef.ok) return parsedRef;
+    if (parsedRef.value.sha !== input.expectedHeadSha) {
+      return this.failure('commit-file', 'conflict');
+    }
+
+    const parentCommit = await this.requestJson(
+      'commit-file',
+      `/repos/${this.repositoryPath()}/git/commits/${input.expectedHeadSha}`,
+    );
+    if (!parentCommit.ok) return parentCommit;
+    const baseTreeSha = readSha(readRecord(readRecord(parentCommit.value)?.tree)?.sha);
+    if (baseTreeSha === undefined) return this.failure('commit-file', 'validation');
+
+    const blob = await this.requestJson(
+      'commit-file',
+      `/repos/${this.repositoryPath()}/git/blobs`,
+      { method: 'POST', body: JSON.stringify({ content: input.content, encoding: 'utf-8' }) },
+    );
+    if (!blob.ok) return blob;
+    const blobSha = readSha(readRecord(blob.value)?.sha);
+    if (blobSha === undefined) return this.failure('commit-file', 'validation');
+
+    const tree = await this.requestJson(
+      'commit-file',
+      `/repos/${this.repositoryPath()}/git/trees`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          base_tree: baseTreeSha,
+          tree: [{ path: input.path, mode: '100644', type: 'blob', sha: blobSha }],
+        }),
+      },
+    );
+    if (!tree.ok) return tree;
+    const treeSha = readSha(readRecord(tree.value)?.sha);
+    if (treeSha === undefined) return this.failure('commit-file', 'validation');
+
+    const commit = await this.requestJson(
+      'commit-file',
+      `/repos/${this.repositoryPath()}/git/commits`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          message: input.message,
+          tree: treeSha,
+          parents: [input.expectedHeadSha],
+        }),
+      },
+    );
+    if (!commit.ok) return commit;
+    const commitSha = readSha(readRecord(commit.value)?.sha);
+    if (commitSha === undefined) return this.failure('commit-file', 'validation');
+
+    const updatedRef = await this.requestJson(
+      'commit-file',
+      this.refPath(input.branch),
+      { method: 'PATCH', body: JSON.stringify({ sha: commitSha, force: false }) },
+    );
+    if (!updatedRef.ok) return this.remapUnprocessableToConflict(updatedRef, 'commit-file');
+
+    return {
+      ok: true,
+      value: {
+        commitSha,
+        commitUrl: `https://github.com/${this.config.owner}/${this.config.repo}/commit/${commitSha}`,
+        blobSha,
+      },
+    };
+  }
+
+  /**
+   * Creates a Draft PR. Re-reads open pull requests for the head first so a
+   * retry after an earlier successful create fails closed on unexpected
+   * topology (an existing open PR) instead of racing GitHub's own duplicate
+   * check or creating a second PR.
+   */
+  async createPullRequest(
+    input: CreatePullRequestInput,
+  ): Promise<ApiResult<StudioPullRequest>> {
+    if (
+      !STUDIO_BRANCH_PATTERN.test(input.head) ||
+      input.base !== 'main' ||
+      input.draft !== true ||
+      input.title.trim().length === 0 ||
+      input.title.length > MAX_PULL_REQUEST_TITLE ||
+      input.body.length > MAX_PULL_REQUEST_BODY
+    ) {
+      return this.failure('create-pull-request', 'validation');
+    }
+    const existing = await this.listPullRequests(input.head);
+    if (!existing.ok) return remapFailure(existing, 'create-pull-request');
+    if (existing.value.some((pull) => pull.state === 'open')) {
+      return this.failure('create-pull-request', 'topology');
+    }
+
+    const result = await this.requestJson(
+      'create-pull-request',
+      `/repos/${this.repositoryPath()}/pulls`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          title: input.title,
+          body: input.body,
+          head: input.head,
+          base: input.base,
+          draft: true,
+        }),
+      },
+    );
+    if (!result.ok) return result;
+    const parsed = parsePullRequest(result.value, 'create-pull-request');
+    if (!parsed.ok) return parsed;
+    if (
+      parsed.value.headRef !== input.head ||
+      parsed.value.baseRef !== input.base ||
+      !parsed.value.draft
+    ) {
+      return this.failure('create-pull-request', 'topology');
+    }
+    return parsed;
   }
 
   async getFileContent(ref: string, path: string): Promise<ApiResult<StudioFileContent>> {
@@ -403,6 +569,20 @@ export class GithubApiAdapter implements GithubReadAdapter {
     const failure: StudioGithubFailure = { operation, reason };
     if (status !== undefined) failure.status = status;
     return { ok: false, failure };
+  }
+
+  /**
+   * GitHub reports both "reference already exists" (create-branch) and a
+   * non-fast-forward ref update (commit-file's concurrency backstop) as 422.
+   * Both are real conflicts, not malformed input, so this narrows the
+   * generic status mapping for exactly those two write paths.
+   */
+  private remapUnprocessableToConflict<T>(
+    result: ApiResult<T>,
+    operation: StudioGithubOperation,
+  ): ApiResult<T> {
+    if (result.ok || result.failure.status !== 422) return result;
+    return this.failure(operation, 'conflict', result.failure.status);
   }
 }
 

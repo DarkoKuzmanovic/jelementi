@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import {
   loadStudioEditorPage,
   previewStudioEditorAction,
+  saveStudioEditorAction,
   type StudioEditorRouteEvent,
 } from '../../../../lib/server/studio/editor-route.server';
 import type { StudioEditorData } from '../../../../lib/server/studio/editor.server';
@@ -15,6 +16,7 @@ export const load: PageServerLoad<{ editor: StudioEditorData }> = async (event) 
 
 export const actions: Actions = {
   preview: (event) => previewStudioEditorAction(eventForEditorRoute(event), event.params.slug),
+  save: (event) => saveStudioEditorAction(eventForEditorRoute(event), event.params.slug),
 };
 
 function eventForEditorRoute(event: {

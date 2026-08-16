@@ -14,7 +14,7 @@ import type {
   StudioMetadata,
   StudioPreviewResult,
 } from '../../studio/contracts';
-import type { GithubReadAdapter } from './github-adapter';
+import type { GithubReadAdapter, GithubSaveAdapter } from './github-adapter';
 
 const MAX_EDITOR_BODY_DISPLAY = 2_000_000;
 const MAX_EDITOR_REFERENCES_DISPLAY = 100;
@@ -280,6 +280,245 @@ export function previewFromEditorInput(
   options: StudioPreviewOptions,
 ): StudioPreviewResult {
   return previewStudioArticle(input, options);
+}
+
+const STUDIO_SAVE_COMMIT_MESSAGE_MAX = 500;
+const STUDIO_SAVE_PR_TITLE_MAX = 500;
+
+export type StudioSaveResult =
+  | {
+      kind: 'saved';
+      concurrency: StudioConcurrencyEvidence;
+      pullRequest: { number: number; url: string };
+      compileIssues: StudioCompileIssue[];
+    }
+  | {
+      kind: 'save_conflict';
+      loaded: StudioConcurrencyEvidence;
+      current: StudioConcurrencyEvidence;
+    }
+  | {
+      kind: 'save_failed';
+      /** Names the failed operation phase so failures are always actionable. */
+      phase: 'main' | 'branch' | 'commit' | 'pull-request';
+      /**
+       * 'topology' marks a GitHub-side state Save cannot safely resolve on
+       * its own (e.g. more than one open PR, or an open PR unexpectedly not
+       * a Draft PR) rather than a transient GitHub error.
+       */
+      reason: 'github' | 'topology';
+      /**
+       * Recoverable evidence from any write that completed before the
+       * failure (currently only a completed commit before a pull-request
+       * failure) so a natural retry resumes from it instead of stale,
+       * pre-write evidence self-conflicting.
+       */
+      concurrency?: StudioConcurrencyEvidence;
+    }
+  | { kind: 'save_rejected'; compileIssues: StudioCompileIssue[] };
+
+/**
+ * Commits exactly one article file to the deterministic
+ * `studio/article/<slug>` branch (created from the observed `main` SHA on
+ * the first save) and ensures exactly one Draft PR exists for it.
+ *
+ * Concurrency evidence is re-verified against fresh GitHub reads before any
+ * write: a `main` that moved before the first branch exists or after an
+ * existing draft branch was loaded, or a draft branch head that no longer
+ * matches what the editor loaded, fails closed as `save_conflict` with both
+ * the evidence the caller loaded and what was just observed, so the operator
+ * can compare and decide how to proceed. (Rebasing the draft branch onto a
+ * newer `main` is a separately deferred recovery feature; blocking is the
+ * safe fallback in its absence.) Save itself never runs a mergeability gate
+ * — an invalid draft is saved and reported (via `compileIssues`) exactly
+ * like a valid one; only Publish (a later ticket) is expected to block on
+ * validity.
+ *
+ * Retry safety: an existing branch at exactly the observed `main` SHA (no
+ * commits yet) is reused rather than re-created — this is also the
+ * recoverable topology an interrupted earlier Save can leave behind (branch
+ * created, file commit never landed; see `loadStudioEditor`). An existing,
+ * sole, open Draft PR for the branch is reused rather than re-created; more
+ * than one open PR, or one that is no longer a Draft PR, is an unexpected
+ * topology Save fails closed on rather than silently picking one. Neither
+ * path ever creates a second branch or a second PR for the same article.
+ */
+export async function saveStudioDraft(
+  adapter: GithubSaveAdapter,
+  slug: string,
+  input: Pick<StudioEditorInput, 'metadata' | 'body' | 'concurrency'>,
+  options: StudioPreviewOptions,
+): Promise<StudioSaveResult> {
+  const branchName = `studio/article/${slug}`;
+  const path = `content/articles/${slug}.md`;
+
+  const main = await adapter.getMainRef();
+  if (!main.ok) return { kind: 'save_failed', phase: 'main', reason: 'github' };
+
+  const branchRead = await adapter.getBranch(branchName);
+  if (!branchRead.ok && branchRead.failure.reason !== 'not-found') {
+    return { kind: 'save_failed', phase: 'branch', reason: 'github' };
+  }
+  let branch = branchRead.ok ? branchRead.value : undefined;
+
+  const currentEvidence = (): StudioConcurrencyEvidence => ({
+    baseMainSha: main.value.sha,
+    ...(branch !== undefined ? { draftHeadSha: branch.sha } : {}),
+  });
+
+  if (input.concurrency.draftHeadSha === undefined) {
+    if (branch === undefined) {
+      if (main.value.sha !== input.concurrency.baseMainSha) {
+        return { kind: 'save_conflict', loaded: input.concurrency, current: currentEvidence() };
+      }
+      const created = await adapter.createBranch(branchName, main.value.sha);
+      if (!created.ok) {
+        if (created.failure.reason === 'conflict') {
+          // Lost a race to create the branch (e.g. a duplicate Save
+          // submission) — re-read rather than report an opaque failure so
+          // the operator sees accurate current evidence to retry against.
+          const refreshed = await adapter.getBranch(branchName);
+          if (!refreshed.ok && refreshed.failure.reason !== 'not-found') {
+            // The refresh itself failed for a real reason — do not
+            // misrepresent that as branch-absent evidence.
+            return { kind: 'save_failed', phase: 'branch', reason: 'github' };
+          }
+          return {
+            kind: 'save_conflict',
+            loaded: input.concurrency,
+            current: {
+              baseMainSha: main.value.sha,
+              ...(refreshed.ok ? { draftHeadSha: refreshed.value.sha } : {}),
+            },
+          };
+        }
+        return { kind: 'save_failed', phase: 'branch', reason: 'github' };
+      }
+      branch = created.value;
+    } else if (branch.sha !== main.value.sha) {
+      // The branch already exists but has moved beyond the unbranched state we
+      // recognize (e.g. a completed prior save) — fail closed rather than
+      // silently commit on top of unknown branch history.
+      return { kind: 'save_conflict', loaded: input.concurrency, current: currentEvidence() };
+    }
+    // else: the branch already exists at exactly the observed main SHA — the
+    // recoverable "branch created, file commit not yet landed" state an
+    // interrupted earlier Save can leave behind. Continuing onto it instead of
+    // failing or creating a second branch keeps that recovery path correct:
+    // re-read-before-retry, no duplicate branch.
+  } else if (branch === undefined || branch.sha !== input.concurrency.draftHeadSha) {
+    return { kind: 'save_conflict', loaded: input.concurrency, current: currentEvidence() };
+  } else if (main.value.sha !== input.concurrency.baseMainSha) {
+    // main moved on since this draft's evidence was captured. No rebase
+    // capability exists yet (a separately deferred feature), so the safe
+    // fallback per the concurrency contract is to block with a comparison
+    // rather than silently continue committing onto a branch based on a
+    // main SHA the operator never actually saw.
+    return { kind: 'save_conflict', loaded: input.concurrency, current: currentEvidence() };
+  }
+
+  // Discover PR topology before writing anything: an unexpected topology
+  // (more than one open PR, or an open PR that is no longer a Draft PR) is
+  // rejected before any commit lands, so Save never attaches a new commit to
+  // a branch it should not be touching. A brand-new branch with no PR yet
+  // cannot have a PR opened before its first commit (GitHub refuses a PR
+  // with no diff from base), so PR creation itself still happens after the
+  // commit below — discovery and validation do not.
+  const existingPulls = await adapter.listPullRequests(branchName);
+  if (!existingPulls.ok) {
+    return { kind: 'save_failed', phase: 'pull-request', reason: 'github' };
+  }
+  const openPulls = existingPulls.value.filter((pull) => pull.state === 'open');
+  const [solePull] = openPulls;
+  if (openPulls.length > 1 || (solePull !== undefined && !solePull.draft)) {
+    // More than one open PR for this branch, or the sole open PR is no longer
+    // a Draft PR: an unexpected topology Save cannot safely resolve on its
+    // own (story 16's "at most one active... Draft PR per article"). Fail
+    // closed rather than silently attaching a new commit to an ambiguous or
+    // already-ready PR.
+    return { kind: 'save_failed', phase: 'pull-request', reason: 'topology' };
+  }
+
+  const headSha = branch?.sha ?? main.value.sha;
+  const source = serializeArticleSource({ frontmatter: input.metadata, body: input.body });
+  const commit = await adapter.commitFile({
+    branch: branchName,
+    path,
+    content: source,
+    message: `Studio: save draft for ${slug}`.slice(0, STUDIO_SAVE_COMMIT_MESSAGE_MAX),
+    expectedHeadSha: headSha,
+  });
+  if (!commit.ok) {
+    if (commit.failure.reason === 'conflict') {
+      const refreshed = await adapter.getBranch(branchName);
+      if (!refreshed.ok && refreshed.failure.reason !== 'not-found') {
+        // The refresh itself failed for a real reason (not "the branch is
+        // gone") — do not misrepresent that as branch-absent evidence; fail
+        // closed on the read instead of showing the operator a comparison we
+        // cannot actually vouch for.
+        return { kind: 'save_failed', phase: 'branch', reason: 'github' };
+      }
+      return {
+        kind: 'save_conflict',
+        loaded: input.concurrency,
+        current: {
+          baseMainSha: main.value.sha,
+          ...(refreshed.ok ? { draftHeadSha: refreshed.value.sha } : {}),
+        },
+      };
+    }
+    return { kind: 'save_failed', phase: 'commit', reason: 'github' };
+  }
+
+  // Evidence to hand back on any failure from here on, so a retry after a
+  // partial PR-stage failure resumes from the commit that already landed
+  // instead of the stale, pre-commit evidence self-conflicting.
+  const committedEvidence: StudioConcurrencyEvidence = {
+    baseMainSha: main.value.sha,
+    draftHeadSha: commit.value.commitSha,
+    expectedBlobSha: commit.value.blobSha,
+  };
+
+  let pullRequest: { number: number; url: string };
+  if (solePull !== undefined) {
+    // The topology check above already confirmed this is the sole open
+    // Draft PR for the branch — reuse it rather than re-listing (and rather
+    // than re-creating, which would violate story 16's one-PR invariant).
+    pullRequest = { number: solePull.number, url: solePull.url };
+  } else {
+    const created = await adapter.createPullRequest({
+      title: `Studio draft: ${input.metadata.title}`.slice(0, STUDIO_SAVE_PR_TITLE_MAX),
+      body: studioDraftPullRequestBody(slug),
+      head: branchName,
+      base: 'main',
+      draft: true,
+    });
+    if (!created.ok) {
+      return {
+        kind: 'save_failed',
+        phase: 'pull-request',
+        // A 'topology' failure here means the adapter itself detected an open
+        // PR that appeared after the discovery check above (e.g. a
+        // duplicate Save submission racing this one) — preserve that
+        // classification rather than flattening it to a generic failure.
+        reason: created.failure.reason === 'topology' ? 'topology' : 'github',
+        concurrency: committedEvidence,
+      };
+    }
+    pullRequest = { number: created.value.number, url: created.value.url };
+  }
+
+  const preview = previewStudioArticle({ metadata: input.metadata, body: input.body }, options);
+  return {
+    kind: 'saved',
+    concurrency: committedEvidence,
+    pullRequest,
+    compileIssues: preview.kind === 'preview_issues' ? preview.compileIssues : [],
+  };
+}
+
+function studioDraftPullRequestBody(slug: string): string {
+  return `Studio draft for \`content/articles/${slug}.md\`. Opened as a draft; not ready for review until Publish.`;
 }
 
 function formText(form: FormData, name: string): string {
