@@ -1,6 +1,32 @@
-import { describe, expect, it } from 'vitest';
-import { generatedContent } from '../../lib/generated-content.server';
-import { GET, prerender } from './+server';
+import { describe, expect, it, vi } from 'vitest';
+import type { ArticleIndexEntry } from '@jelementi/article-model';
+import type { GeneratedContent } from '../../lib/generated-content';
+
+// This route statically imports the real, eagerly-globbed generated/index.json
+// via generated-content.server.ts (a build-time artifact that only exists
+// after `content:build` has run). Mocking it here keeps this unit test
+// hermetic and independent of pipeline step order (`pnpm test` runs before
+// `pnpm build:web` in `verify:deploy`).
+const entry: ArticleIndexEntry = {
+  slug: 'known',
+  title: 'Known',
+  excerpt: 'Excerpt',
+  publishedAt: '2026-07-26',
+  updatedAt: '2026-07-26',
+  category: 'History',
+  categorySlug: 'history',
+  tags: ['remote places'],
+  author: 'Jelementi',
+  cover: { src: 'https://example.org/c.webp', alt: 'Cover' },
+  readingTimeMinutes: 1,
+  searchText: 'known excerpt',
+};
+
+const generatedContent: GeneratedContent = { index: [entry], articles: {} };
+
+vi.mock('../../lib/generated-content.server', () => ({ generatedContent }));
+
+const { GET, prerender } = await import('./+server');
 
 describe('/index.json', () => {
   it('is prerendered', () => {
@@ -14,28 +40,21 @@ describe('/index.json', () => {
     expect(response.headers.get('X-Robots-Tag')).toBe('noindex');
 
     const body: unknown = await response.json();
-    expect(Array.isArray(body)).toBe(true);
-    const entries = body as Record<string, unknown>[];
-    expect(entries.length).toBe(generatedContent.index.length);
-    expect(entries.length).toBeGreaterThan(0);
-
-    for (const [index, entry] of entries.entries()) {
-      const source = generatedContent.index[index];
-      if (source === undefined) throw new Error('missing generated index entry');
-      expect(entry).toEqual({
-        slug: source.slug,
-        title: source.title,
-        excerpt: source.excerpt,
-        publishedAt: source.publishedAt,
-        updatedAt: source.updatedAt,
-        category: source.category,
-        categorySlug: source.categorySlug,
-        tags: source.tags,
-        author: source.author,
-        cover: source.cover,
-        readingTimeMinutes: source.readingTimeMinutes,
-      });
-      expect(entry).not.toHaveProperty('searchText');
-    }
+    expect(body).toEqual([
+      {
+        slug: entry.slug,
+        title: entry.title,
+        excerpt: entry.excerpt,
+        publishedAt: entry.publishedAt,
+        updatedAt: entry.updatedAt,
+        category: entry.category,
+        categorySlug: entry.categorySlug,
+        tags: entry.tags,
+        author: entry.author,
+        cover: entry.cover,
+        readingTimeMinutes: entry.readingTimeMinutes,
+      },
+    ]);
+    expect((body as Record<string, unknown>[])[0]).not.toHaveProperty('searchText');
   });
 });
