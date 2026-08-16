@@ -686,6 +686,51 @@ describe('replaceStudioDraft', () => {
     });
   });
 
+  it('aborts reconstruction when the prior pull request was ready, not Draft, before a direct-UI close and delete', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedCanonical(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      slug,
+      {
+        metadata,
+        body: 'Original draft body.',
+        concurrency: { baseMainSha: main.value.sha, expectedBlobSha: 'b'.repeat(40) },
+      },
+      { mediaBaseUrl },
+    );
+    if (saved.kind !== 'saved') throw new Error(`save failed: ${saved.kind}`);
+    adapter.advanceMain();
+    const ready = await adapter.updatePullRequest(saved.pullRequest.number, { draft: false });
+    if (!ready.ok) throw new Error('could not mark pull ready');
+    const closed = await adapter.closePullRequest(saved.pullRequest.number);
+    if (!closed.ok) throw new Error('could not close ready pull');
+    const deleted = await adapter.deleteBranch(
+      branchName,
+      saved.concurrency.draftHeadSha as string,
+    );
+    if (!deleted.ok) throw new Error('could not delete old branch');
+    const candidate = {
+      metadata,
+      body: 'Must not silently replace an approved-then-closed draft.',
+    };
+
+    const result = await replaceStudioDraft(adapter, slug, candidate, saved.concurrency, {
+      mediaBaseUrl,
+    });
+
+    expect(result).toMatchObject({
+      kind: 'replacement_conflict',
+      candidate,
+      phase: 'confirm-pull-request',
+      reason: 'topology',
+    });
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value.filter((pull) => pull.state === 'open')).toEqual([]);
+  });
+
   it('aborts explicitly when discovery shows the prior pull request already merged', async () => {
     const adapter = new MergedPullDiscoveryAdapter(config);
     seedCanonical(adapter);

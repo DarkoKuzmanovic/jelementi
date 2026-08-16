@@ -332,6 +332,9 @@ async function resumeAfterDeletedBranch(
   if (priorPull.state === 'merged') {
     return conflict(candidate, 'confirm-pull-request', 'merged', evidence);
   }
+  if (!priorPull.draft) {
+    return conflict(candidate, 'confirm-pull-request', 'topology', evidence);
+  }
   if (priorPull.state !== 'closed') {
     return conflict(candidate, 'confirm-pull-request', 'topology', evidence);
   }
