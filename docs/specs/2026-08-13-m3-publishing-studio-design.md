@@ -83,7 +83,7 @@ M3 is complete when:
 - A newer `main` article version or unexpected active draft head blocks Save and Publish. When only unrelated `main` content changed, Studio offers explicit Draft replacement: preserve the submitted candidate, close and confirm the exact old pull request unmerged, delete its expected branch head, recreate the deterministic branch from fresh `main`, recommit the candidate, and open a new Draft PR. It never calls GitHub's in-place `update-branch` operation, automatically merges, or overwrites.
 - `Live` requires the deployed public article HTML and published index to prove the expected article version. GitHub merge and Cloudflare build success are intermediate evidence only.
 - `Unpublish` changes article status to `archived` through the same one-draft topology. If a content draft already differs from `main`, Unpublish is blocked until that draft is published or discarded. The operator must type the exact slug before auto-merge is enabled.
-- `Discard draft` is available in Studio. After confirmation it closes only that article's draft pull request and deletes only its Studio branch; `main` is unchanged.
+- `Discard draft` is available in Studio for any still-open, unmerged Draft PR. After confirmation it revalidates the expected head, closes only that article's Draft PR (including a ready/checking/check_failed approval whose auto-merge has not fired), and deletes only its Studio branch; `main` is unchanged. This is the explicit recovery reset for a failed required check (ADR-0008).
 - M3 includes GitHub App and Access provisioning plus a production canary as explicit operator checkpoints. Design approval does not authorize those remote mutations.
 - The M2 public-reader and deployment invariants remain locked: `schemaVersion: 1`; all seven block discriminants and inline contracts; static validated generated data; reader routes non-hydrated except `/search`; production `preview_urls: true`, `workers_dev: false`, route `jelementi.quz.ma`; `R2_MEDIA` remains unused by M3 application code.
 
@@ -202,7 +202,7 @@ Publish operates only on a saved commit and never silently includes unsaved edit
 6. enable GitHub auto-merge for the expected head SHA using the squash merge method;
 7. return a checking/ready status while the required `verify` check runs.
 
-The GitHub App receives no branch-protection bypass. A failing required check yields `check_failed`, leaves the pull request open, and exposes the failed check. The repository currently requires strict up-to-date `verify` checks. If unrelated content reaches `main` first, Publish remains blocked; it never updates the approved candidate's branch. The operator may run Draft replacement only while the target article blob on fresh `main` is unchanged, the loaded draft head still matches, and the draft contains exactly that article change. Recovery closes and confirms the old pull request unmerged before deleting its expected branch head, then recreates the deterministic branch from fresh `main`, recommits the preserved candidate, opens a new Draft PR, fully revalidates it, and requires a fresh Publish. A changed target article, moved head, unexpected diff, merge, or ambiguous close/delete/recreate outcome yields `conflict` or a named failure with the submitted candidate preserved.
+The GitHub App receives no branch-protection bypass. A failing required check yields `check_failed`, leaves the Draft PR open, and exposes the failed check. While that Draft PR remains open and unmerged, the operator may choose Discard draft to close the approved Draft PR and delete its expected Studio branch, resetting the failed check without touching `main` or mutating the approved branch contents. The same recovery is available for the ready and checking states when auto-merge has not fired. The repository currently requires strict up-to-date `verify` checks. If unrelated content reaches `main` first, Publish remains blocked; it never updates the approved candidate's branch. The operator may run Draft replacement only while the target article blob on fresh `main` is unchanged, the loaded draft head still matches, and the draft contains exactly that article change. Recovery closes and confirms the old Draft PR unmerged before deleting its expected branch head, then recreates the deterministic branch from fresh `main`, recommits the preserved candidate, opens a new Draft PR, fully revalidates it, and requires a fresh Publish. A changed target article, moved head, unexpected diff, merge, or ambiguous close/delete/recreate outcome yields `conflict` or a named failure with the submitted candidate preserved.
 
 ### Deploy and verify
 
@@ -236,7 +236,7 @@ The canonical archived Markdown remains on `main`, so republishing is a future n
 
 ### Discard draft
 
-Discard requires explicit confirmation and fresh GitHub discovery. It closes the active draft pull request and deletes only the expected Studio branch after verifying the branch still points to the expected head. If either resource changed, deletion stops and reports a conflict. It never changes `main` or deletes canonical content.
+Discard requires explicit confirmation and fresh GitHub discovery. It closes the article's sole open, unmerged Draft PR — whether it is still marked as a draft or has been marked ready and is checking or has a failed required check — and deletes only the expected Studio branch after verifying the branch still points to the expected head. A moved head, merged Draft PR, unexpected base/head, or ambiguous topology stops with a conflict or named failure; Studio never guesses which resource to close or delete. It never changes `main`, mutates the approved branch, or deletes canonical content.
 
 ## 8. Studio interface
 
@@ -298,7 +298,7 @@ GitHub checks, merge, Cloudflare build, and production probe are separate phases
 
 - Publish requires an explicit action and a valid saved commit.
 - Unpublish requires typing the exact slug.
-- Discard requires confirmation and shows the pull request and branch that will be closed/deleted.
+- Discard requires confirmation and shows the Draft PR and branch that will be closed/deleted. It is available before merge whether the Draft PR is still marked as a draft or has been marked ready, checking, or check_failed.
 - No destructive action is triggered by a GET request.
 - Every state-changing request requires POST, a same-origin `Origin` header matching the configured production origin, and SvelteKit's CSRF protection. Missing, cross-origin, or malformed origins are rejected before authentication side effects or GitHub writes.
 
@@ -447,6 +447,7 @@ Mock at the HTTP boundary and prove:
 - unsaved editor input is never published;
 - a newer `main` article or draft head blocks Save and Publish;
 - a failed required check stays visible and unmerged;
+- an open ready/checking/check_failed Draft PR can be discarded without changing `main`;
 - an unrelated `main` change permits Draft replacement only when the target article is unchanged, the loaded head still matches, and the draft changes exactly that article;
 - merge yields pending, not Live;
 - production 200 with the wrong fingerprint is not Live;
