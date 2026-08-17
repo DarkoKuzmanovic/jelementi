@@ -24,7 +24,7 @@
               <h3><a href={`/studio/articles/${article.slug}`}>{article.title}</a></h3>
               <p class="studio-slug">{article.slug}</p>
             </div>
-            <span class="studio-status">{article.canonicalStatus}</span>
+            <span class="studio-status">{article.canonicalStatus ?? 'new'}</span>
           </div>
           <dl class="studio-state-list">
             <div>
@@ -35,10 +35,12 @@
               <dt>Change</dt>
               <dd>{article.change}</dd>
             </div>
-            <div>
-              <dt>Updated</dt>
-              <dd>{article.updatedAt}</dd>
-            </div>
+            {#if article.updatedAt !== undefined}
+              <div>
+                <dt>Updated</dt>
+                <dd>{article.updatedAt}</dd>
+              </div>
+            {/if}
           </dl>
           <nav aria-label={`Evidence for ${article.slug}`}>
             {#if article.publicUrl}<a href={article.publicUrl}>Public article</a>{/if}
