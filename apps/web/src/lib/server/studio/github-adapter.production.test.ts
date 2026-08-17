@@ -599,7 +599,9 @@ describe('GithubApiAdapter write methods', () => {
         if (path.endsWith('/git/commits') && method === 'POST') {
           return json({ sha: newCommitSha });
         }
-        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'PATCH') {
+        // Ref *mutations* live on the plural /git/refs/ route; the singular
+        // /git/ref/ route is read-only and 404s on PATCH (issue #36).
+        if (path.endsWith(`/git/refs/heads/${branchName}`) && method === 'PATCH') {
           return json({ ref: `refs/heads/${branchName}`, object: { sha: newCommitSha } });
         }
         throw new Error(`unexpected request: ${method} ${path}`);
@@ -629,7 +631,7 @@ describe('GithubApiAdapter write methods', () => {
         'POST /repos/DarkoKuzmanovic/jelementi/git/blobs',
         'POST /repos/DarkoKuzmanovic/jelementi/git/trees',
         'POST /repos/DarkoKuzmanovic/jelementi/git/commits',
-        `PATCH /repos/DarkoKuzmanovic/jelementi/git/ref/heads/${branchName}`,
+        `PATCH /repos/DarkoKuzmanovic/jelementi/git/refs/heads/${branchName}`,
       ]);
     });
 
@@ -652,7 +654,7 @@ describe('GithubApiAdapter write methods', () => {
     it('treats a non-fast-forward ref update as a conflict', async () => {
       const adapter = adapterFor(async (url, init) => {
         const { path, method } = request(url, init);
-        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'PATCH') {
+        if (path.endsWith(`/git/refs/heads/${branchName}`) && method === 'PATCH') {
           return json({ message: 'Update is not a fast forward' }, 422);
         }
         return fullSequenceFetch()(url, init);
@@ -1254,7 +1256,8 @@ describe('GithubApiAdapter write methods', () => {
         if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
           return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
         }
-        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE') {
+        // DELETE, like PATCH, only exists on the plural /git/refs/ route.
+        if (path.endsWith(`/git/refs/heads/${branchName}`) && method === 'DELETE') {
           return new Response(null, { status: 204 });
         }
         throw new Error(`unexpected request: ${method} ${path}`);
@@ -1266,7 +1269,7 @@ describe('GithubApiAdapter write methods', () => {
       });
       expect(calls).toEqual([
         `GET /repos/DarkoKuzmanovic/jelementi/git/ref/heads/${branchName}`,
-        `DELETE /repos/DarkoKuzmanovic/jelementi/git/ref/heads/${branchName}`,
+        `DELETE /repos/DarkoKuzmanovic/jelementi/git/refs/heads/${branchName}`,
       ]);
     });
 
@@ -1274,7 +1277,7 @@ describe('GithubApiAdapter write methods', () => {
       let deleteCalled = false;
       const adapter = adapterFor(async (url, init) => {
         const { path, method } = request(url, init);
-        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE')
+        if (path.endsWith(`/git/refs/heads/${branchName}`) && method === 'DELETE')
           deleteCalled = true;
         if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
           return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
@@ -1314,7 +1317,7 @@ describe('GithubApiAdapter write methods', () => {
         if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
           return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
         }
-        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE') {
+        if (path.endsWith(`/git/refs/heads/${branchName}`) && method === 'DELETE') {
           return json({ message: 'private upstream detail' }, 403);
         }
         throw new Error(`unexpected request: ${method} ${path}`);
@@ -1332,7 +1335,7 @@ describe('GithubApiAdapter write methods', () => {
         if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
           return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
         }
-        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE') {
+        if (path.endsWith(`/git/refs/heads/${branchName}`) && method === 'DELETE') {
           return json({ message: 'Reference does not exist' }, 422);
         }
         throw new Error(`unexpected request: ${method} ${path}`);
@@ -1350,7 +1353,7 @@ describe('GithubApiAdapter write methods', () => {
         if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'GET') {
           return json({ ref: `refs/heads/${branchName}`, object: { sha: draftSha } });
         }
-        if (path.endsWith(`/git/ref/heads/${branchName}`) && method === 'DELETE') {
+        if (path.endsWith(`/git/refs/heads/${branchName}`) && method === 'DELETE') {
           return json({ message: 'conflict' }, 409);
         }
         throw new Error(`unexpected request: ${method} ${path}`);

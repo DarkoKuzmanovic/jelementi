@@ -270,7 +270,7 @@ export class GithubApiAdapter implements GithubPublishAdapter {
     const commitSha = readSha(readRecord(commit.value)?.sha);
     if (commitSha === undefined) return this.failure('commit-file', 'validation');
 
-    const updatedRef = await this.requestJson('commit-file', this.refPath(input.branch), {
+    const updatedRef = await this.requestJson('commit-file', this.mutableRefPath(input.branch), {
       method: 'PATCH',
       body: JSON.stringify({ sha: commitSha, force: false }),
     });
@@ -464,7 +464,7 @@ export class GithubApiAdapter implements GithubPublishAdapter {
     if (parsedRef.value.sha !== expectedHeadSha) {
       return this.failure('delete-branch', 'conflict');
     }
-    const deleted = await this.requestJson('delete-branch', this.refPath(name), {
+    const deleted = await this.requestJson('delete-branch', this.mutableRefPath(name), {
       method: 'DELETE',
     });
     if (!deleted.ok) return this.remapUnprocessableToConflict(deleted, 'delete-branch');
@@ -786,6 +786,15 @@ export class GithubApiAdapter implements GithubPublishAdapter {
 
   private refPath(name: string): string {
     return `/repos/${this.repositoryPath()}/git/ref/heads/${encodePath(name)}`;
+  }
+
+  /**
+   * GitHub splits git-ref routes by verb: reads use the singular
+   * `/git/ref/{ref}`, but PATCH/DELETE only exist on the plural
+   * `/git/refs/{ref}` and 404 on the singular route (issue #36).
+   */
+  private mutableRefPath(name: string): string {
+    return `/repos/${this.repositoryPath()}/git/refs/heads/${encodePath(name)}`;
   }
 
   private repositoryTreeUrl(branch: string): string {
