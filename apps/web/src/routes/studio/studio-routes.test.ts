@@ -435,14 +435,21 @@ describe('Studio publish & refresh actions', () => {
     );
     if (saved.kind !== 'saved') throw new Error(`save failed: ${saved.kind}`);
 
-    const result = await studioArticleActions.publish?.(
-      actionEventFor(
-        draftSlug,
-        { studioGithubAdapter: adapter },
-        { env: studioEnv },
-        { expectedHeadSha: saved.concurrency.draftHeadSha as string },
-      ),
-    );
+    const result = await (async () => {
+      vi.stubGlobal('fetch', async () => new Response(null, { status: 200 }));
+      try {
+        return await studioArticleActions.publish?.(
+          actionEventFor(
+            draftSlug,
+            { studioGithubAdapter: adapter },
+            { env: studioEnv },
+            { expectedHeadSha: saved.concurrency.draftHeadSha as string },
+          ),
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    })();
 
     expect(result).toMatchObject({
       publish: { kind: 'published', pullRequest: { number: saved.pullRequest.number } },
