@@ -39,6 +39,10 @@ _Avoid_: Save, deploy, release
 The exact article blob on the Studio branch head, as committed by a Save. The thing Publish validates; never unsaved editor text.
 _Avoid_: Draft document, working copy, editor content
 
+**Recovery copy**:
+A temporary browser-held copy of unsaved Studio input. It can recover a candidate for review but is never canonical, a committed draft, or publication evidence.
+_Avoid_: Autosave, local draft, saved draft
+
 **Draft PR**:
 The single open pull request from the Studio branch to `main`. After a successful publish it is terminal (merged, then branch deleted); the next edit starts a fresh branch and PR from the new `main`.
 _Avoid_: Draft (when meaning the branch), pull request (generic)
