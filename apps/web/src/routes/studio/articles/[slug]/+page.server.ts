@@ -127,10 +127,26 @@ export const actions: Actions = {
     if (adapter === undefined) error(503, 'Studio status unavailable.');
     const config = loadConfig(event.platform);
 
+    // Production probes MUST go through the Worker's self service binding
+    // (issue #56): a plain fetch of the production origin from inside the
+    // production Worker is a same-zone subrequest, which Cloudflare routes
+    // past the worker route to the (nonexistent) zone origin — the probe
+    // would never observe the deployed site. The binding proves the current
+    // deployment's full worker+assets serving path. Absent binding fails
+    // closed: falling back to a zone fetch would silently report
+    // pending_deployment forever.
+    const self = (event.platform?.env as { SELF?: { fetch: typeof globalThis.fetch } } | undefined)
+      ?.SELF;
+    if (self === undefined || typeof self.fetch !== 'function') {
+      error(503, 'Studio status unavailable.');
+    }
+    const probeFetch = self.fetch.bind(self) as typeof globalThis.fetch;
+
     const status = await deriveStudioArticleStatus(adapter, event.params.slug, {
       productionOrigin: config.productionOrigin,
       mediaBaseUrl: config.mediaBaseUrl,
       includeProbe: true,
+      probeOptions: { fetch: probeFetch },
     });
     if (!status.ok) error(503, 'Studio status unavailable.');
     const result: StudioRefreshActionData = { status: status.value };

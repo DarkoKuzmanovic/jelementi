@@ -465,12 +465,65 @@ describe('Studio publish & refresh actions', () => {
       { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
     );
 
+    const selfFetch = vi.fn(async () => new Response('unused', { status: 404 }));
+    const env = { ...studioEnv, SELF: { fetch: selfFetch } } as unknown as WorkerEnv;
     const result = await studioArticleActions.refresh?.(
-      actionEventFor(draftSlug, { studioGithubAdapter: adapter }, { env: studioEnv }),
+      actionEventFor(draftSlug, { studioGithubAdapter: adapter }, { env }),
     );
 
     expect(requireStudioMutation).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({ status: { kind: 'draft_valid' } });
+  });
+
+  it('refresh routes production probes exclusively through the SELF service binding (issue #56)', async () => {
+    // Same-zone subrequests from the production Worker bypass the worker
+    // route entirely (the zone has no origin), so a plain fetch of the
+    // production origin can never observe the deployed site. Probes must
+    // go through the Worker's self service binding.
+    const adapter = new FakeGithubAdapter(githubConfig);
+    adapter.seedFile(
+      'main',
+      `content/articles/${draftSlug}.md`,
+      serializeArticleSource({
+        frontmatter: { ...publishableMetadata },
+        body: 'Published body.',
+      }),
+      'c'.repeat(64),
+    );
+    const probedUrls: string[] = [];
+    const selfFetch = vi.fn(async (input: RequestInfo | URL) => {
+      probedUrls.push(String(input));
+      return new Response('not yet deployed', { status: 404 });
+    });
+    const env = { ...studioEnv, SELF: { fetch: selfFetch } } as unknown as WorkerEnv;
+
+    const result = await studioArticleActions.refresh?.(
+      actionEventFor(draftSlug, { studioGithubAdapter: adapter }, { env }),
+    );
+
+    expect(selfFetch).toHaveBeenCalled();
+    expect(probedUrls.some((url) => url.includes('/articles/' + draftSlug))).toBe(true);
+    expect(probedUrls.some((url) => url.includes('/index.json'))).toBe(true);
+    // A 404 from the binding is "not yet propagated", never Live.
+    expect(result).toMatchObject({ status: { kind: 'pending_deployment' } });
+  });
+
+  it('refresh fails closed when the SELF probe binding is absent', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    const envWithoutSelf = { ...studioEnv } as Record<string, unknown>;
+    delete envWithoutSelf.SELF;
+
+    await expect(
+      studioArticleActions.refresh?.(
+        actionEventFor(
+          draftSlug,
+          { studioGithubAdapter: adapter },
+          {
+            env: envWithoutSelf as unknown as WorkerEnv,
+          },
+        ),
+      ),
+    ).rejects.toMatchObject({ status: 503 });
   });
 });
 

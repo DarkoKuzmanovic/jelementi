@@ -28,6 +28,17 @@
       "bucket_name": "jelementi-media",
     },
   ],
+  // Studio's production probes (Refresh → Live proof) must call the worker
+  // through this self service binding: a plain fetch of the production origin
+  // from inside the Worker is a same-zone subrequest that bypasses the worker
+  // route (the zone has no origin), so it can never observe the deployed site
+  // (issue #56).
+  "services": [
+    {
+      "binding": "SELF",
+      "service": "jelementi-web",
+    },
+  ],
   "secrets": {
     "required": ["GITHUB_APP_PRIVATE_KEY"],
   },

@@ -56,7 +56,7 @@ Closes only the article's draft pull request and deletes only its Studio branch,
 _Avoid_: Cancel, abandon
 
 **Live**:
-The production-axis state where the public route and index prove the expected published version. Requires content fingerprint + index metadata match; never equivalent to merge or build success. Persists while an edit draft exists; starting an edit does not make production non-live.
+The production-axis state where the public route and index prove the expected published version. Requires content fingerprint + index metadata match; never equivalent to merge or build success. Probed through the Worker's `SELF` service binding, so it proves the current deployment's worker+assets serving path, not the edge DNS/routing layer (ADR-0007). Persists while an edit draft exists; starting an edit does not make production non-live.
 _Avoid_: Deployed, done, released
 
 **Draft replacement**:

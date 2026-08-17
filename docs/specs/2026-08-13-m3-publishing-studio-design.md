@@ -212,6 +212,8 @@ M3 locks one production fingerprint contract. During content generation, each pu
 
 Status refresh is asynchronous and reconstructable: it lists pull requests for the deterministic article branch, including closed and merged results, then selects the unique newest pull request whose recorded head SHA or resulting article blob matches the current operation. Ambiguous matching history yields `conflict`; missing or unavailable evidence yields `unknown`. It then performs bounded, cache-busted production probes. No in-memory timer or background operation is required for correctness. The operator may revisit or refresh Studio after a later deployment.
 
+Production probes execute through the Worker's `SELF` service binding, never through a plain fetch of the production origin: a same-zone subrequest from inside the production Worker bypasses the worker route entirely and reaches the (nonexistent) zone origin, so a plain fetch can never observe the deployed site (ADR-0007). `Live` therefore proves that the current deployment's full worker-and-assets serving path returns the expected article fingerprint and index entry; it does not additionally prove Cloudflare's edge DNS/routing layer, which no in-Worker probe can traverse. A missing `SELF` binding fails Refresh closed — falling back to a zone fetch would silently report `pending_deployment` forever.
+
 `Live` requires all of:
 
 - the pull request reports that the expected Studio head was squash-merged and identifies the resulting `main` commit;
