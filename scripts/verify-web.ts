@@ -45,6 +45,9 @@ interface GeneratedIndexEntry extends RenderedArticleExpectation {
   categorySlug: string;
 }
 
+/** The seeded fixture article known to exercise sources and footnotes. */
+const richContentSlug = 'tristan-da-cunha';
+
 const fixtureExpectations: RenderedPageExpectations = {
   articles: [{ slug: 'tristan-da-cunha', title: 'A Rock at the Edge of the World' }],
   categories: ['history'],
@@ -81,13 +84,23 @@ export function verifyRenderedPages(
       throw new Error(`Unexpected hydration client entry on reader route: ${route}.`);
     }
   }
-  const representative = expectations.articles[0];
-  if (representative === undefined)
+  if (expectations.articles.length === 0)
     throw new Error('Generated content has no published article expectations.');
-  const article = pages[`/articles/${representative.slug}`] ?? '';
-  for (const text of [representative.title, 'Sources', 'Footnotes']) {
-    if (!article.includes(text))
-      throw new Error(`Missing representative article content: ${text}.`);
+  for (const { slug, title } of expectations.articles) {
+    if (!(pages[`/articles/${slug}`] ?? '').includes(title))
+      throw new Error(`Missing article title on /articles/${slug}.`);
+  }
+  // The rich-render smoke check (sources + footnotes sections) is pinned to
+  // the known rich fixture article. The newest article is whatever the
+  // operator last published and may legally have no references or footnotes
+  // (#47) — its coverage is the title check above.
+  const rich = expectations.articles.find((article) => article.slug === richContentSlug);
+  if (rich !== undefined) {
+    const article = pages[`/articles/${rich.slug}`] ?? '';
+    for (const text of ['Sources', 'Footnotes']) {
+      if (!article.includes(text))
+        throw new Error(`Missing representative article content: ${text}.`);
+    }
   }
 }
 
