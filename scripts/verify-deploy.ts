@@ -77,14 +77,18 @@ function run(command: string, args: string[], cwd: string): Promise<void> {
   });
 }
 
+// Minimal JSONC support: strip full-line `//` comments (never inline ones —
+// string values contain `https://`), then trailing commas.
+function parseJsonc(source: string): unknown {
+  return JSON.parse(source.replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([}\]])/g, '$1'));
+}
+
 async function main(): Promise<void> {
   const rootDir = process.cwd();
-  const config: unknown = JSON.parse(
-    (await readFile(join(rootDir, 'wrangler.jsonc'), 'utf8')).replace(/,\s*([}\]])/g, '$1'),
-  );
+  const config: unknown = parseJsonc(await readFile(join(rootDir, 'wrangler.jsonc'), 'utf8'));
   verifyWranglerContract(config);
-  const branchConfig: unknown = JSON.parse(
-    (await readFile(join(rootDir, 'wrangler.m2.jsonc'), 'utf8')).replace(/,\s*([}\]])/g, '$1'),
+  const branchConfig: unknown = parseJsonc(
+    await readFile(join(rootDir, 'wrangler.m2.jsonc'), 'utf8'),
   );
   verifyWranglerContract(branchConfig, 'branch-upload');
   const temporaryDir = await mkdtemp(join(tmpdir(), 'jelementi-wrangler-dry-run-'));
