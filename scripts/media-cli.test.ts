@@ -104,8 +104,12 @@ describe('media CLI routing', () => {
   });
 
   it('locks production custom domain with Access-protected previews and route-less branch uploads', async () => {
+    // Minimal JSONC support: strip full-line `//` comments (never inline ones —
+    // string values contain `https://`), then trailing commas.
     const parseConfig = (source: string): Record<string, unknown> =>
-      JSON.parse(source.replace(/,\s*([}\]])/g, '$1')) as Record<string, unknown>;
+      JSON.parse(
+        source.replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([}\]])/g, '$1'),
+      ) as Record<string, unknown>;
     const [productionConfig, previewConfig] = await Promise.all([
       readFile(new URL('../wrangler.jsonc', import.meta.url), 'utf8').then(parseConfig),
       readFile(new URL('../wrangler.m2.jsonc', import.meta.url), 'utf8').then(parseConfig),
