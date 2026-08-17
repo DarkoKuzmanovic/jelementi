@@ -110,3 +110,49 @@ M2 precedent (`checkpoint-c-2026-07-29.md` §12).
 Deliberately not a third, separate "D0-only" ask: the pre-flight check and
 the D1 acceptance-criterion action are the same GitHub write, so splitting
 approval before/after it would ask for sign-off twice on one action.
+
+## Checkpoint D record — 2026-08-17
+
+All secret-free evidence for the executed canary run (D1–D8). No token,
+key, or JWT value appears below.
+
+**Canary:** slug `canary-studio-checkpoint-d`, title
+"CANARY — DO NOT INDEX (delete me)".
+
+### Outcome per stage
+
+| Stage | Result | Evidence |
+| --- | --- | --- |
+| D1 | PASS (attempt 5) | Save persisted invalid draft: commit `38f1ec1` on `studio/article/canary-studio-checkpoint-d`, Draft PR #43; compile gate reported `UNSUPPORTED_NODE` "Links must use HTTPS URLs."; Publish refused while invalid; canary absent from `/index.json`. Pre-flight write initially failed 403 — the flagged token-scope risk (issue #34, fixed via PR #35) — treated as the designed stop, fixed, then retried. |
+| D2 | PASS | Link fixed to https; draft compiled clean; Publish enabled. |
+| D3 | PASS (attempt 4) | Final publish PR #55 merged to `main` `f8f021e` at 10:28:40Z after status set to `published` + `publishedAt: 2026-08-17` and cover moved to versioned key. Earlier attempts: PR #43 merged `fc001ce` (see deviation 1), PRs #46/#50/#52 closed unmerged (see deviation 2). |
+| D4 | PASS | Studio Refresh reported **Live**: fingerprint `72d4828ad74e25d389fa2d1b29c052983d0c221112851a7ed945bf2102bb1b9b` proven on both the public article and `/index.json` at `main` `41a9bcb`; deployment `1878ad55` (11:19:50Z). Required the SELF-binding probe fix (issue #56 → PR #57). |
+| D5 | PASS | Archive commit `be9f478` on PR #58, ready + auto-merge bound to that head; merged `ca726d3` at 11:28:18Z; deployment `9f25758a` (11:34:18Z); canary absent from `/index.json` and its route serves the not-available page; operator Refresh confirmed archived. |
+| D6 | PASS | Canonical file removed via PR #59, merged `de30e37`; `content:validate` passes. Orphaned media asset `articles/canary-studio-checkpoint-d/cover-v1.svg` deleted from R2 (`wrangler r2 object delete`, confirmed). |
+| D7 | PASS | No branch or open PR references the canary slug. Pre-existing engineering branches `t5-publish-auto-merge` and `t7-lifecycle-regression-tests` remain (unrelated to Studio; predate the checkpoint). |
+| D8 | This record. | — |
+
+### Production bugs found live and fixed during D (issue → fix PR)
+
+1. #34 → #35 — installation tokens requested read-only scopes; writes 403'd (the flagged pre-flight risk).
+2. #36 → #38 — ref mutations used GitHub's singular `/git/ref/` path, which 404s for PATCH/DELETE.
+3. #39 → #40 — article list 503'd on any draft branch without a canonical article.
+4. #41 → #42 — interrupted-save branches (no committed file) 503'd the article page.
+5. #44 → #45 — Publish accepted `status: draft` articles (spec §Publish step 4 gate was missing).
+6. #47 → #48 + #51 — verify scripts assumed the newest article renders Sources/Footnotes; blocked any minimal article (assumption duplicated across verify-web/worker/remote).
+7. #53 (part 1) → #54 — default Studio cover key was unversioned and could never be satisfied by `media-cli upload`.
+8. #56 → #57 — production probes self-fetched the zone and bypassed the Worker; Live was unreachable (fixed via SELF service binding; ADR-0007).
+
+### Deviations from the designed procedure
+
+1. **`update-branch` on Studio PR #43** (operator-run `gh api`): the spec forbids Studio's flows from using in-place update-branch; the designed recovery was Draft replacement. Content was identical and verify re-ran, but this bypassed the design. Finding: GitHub auto-merge is **not** SHA-bound after enablement — it merged the post-update head; ADR-0004's head binding holds only at enable time.
+2. **Manual `gh pr close` + branch delete for PRs #46, #50, #52**: a publish whose required check fails (`check_failed`) has no in-Studio recovery (Save, Discard, and re-Publish are all refused) — filed as issue #49.
+3. **Mid-checkpoint CLI media upload**: the canary cover was uploaded with `media-cli upload` because Studio neither provisions nor verifies media existence before Publish — the remaining gap is issue #53 part 2.
+
+### Open issues carried out of Checkpoint D
+
+- **#49** — design gap: no in-Studio recovery from `check_failed` (spec amendment needed, e.g. Discard for a ready-but-unmerged Studio PR).
+- **#53 (part 2)** — Publish should probe cover/media existence (bounded HEAD) before arming auto-merge, so a missing asset fails before the no-recovery state.
+
+Checkpoint D is **complete**; the M3 Studio is live, operator-only, and its
+full publish/unpublish lifecycle is proven against real production.
