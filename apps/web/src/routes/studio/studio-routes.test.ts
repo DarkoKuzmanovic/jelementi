@@ -221,6 +221,14 @@ const draftMetadata: StudioMetadata = {
   references: [],
 };
 
+// Publish requires `status: published` (spec §Publish step 4); the compiler
+// then also requires `publishedAt`.
+const publishableMetadata: StudioMetadata = {
+  ...draftMetadata,
+  status: 'published',
+  publishedAt: '2026-08-01',
+};
+
 function githubBlockingAdapter(): FakeGithubAdapter {
   const adapter = new FakeGithubAdapter(githubConfig);
   const methods = [
@@ -419,7 +427,7 @@ describe('Studio publish & refresh actions', () => {
       adapter,
       draftSlug,
       {
-        metadata: draftMetadata,
+        metadata: publishableMetadata,
         body: 'Saved body.',
         concurrency: { baseMainSha: main.value.sha },
       },
