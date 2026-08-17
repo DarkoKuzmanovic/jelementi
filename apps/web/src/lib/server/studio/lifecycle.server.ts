@@ -102,12 +102,17 @@ export async function deriveStudioArticleList(
   if (!branches.ok) return githubFailure('branches', branches);
 
   const branchesBySlug = new Map<string, StudioBranch>();
+  const draftOnlySlugs: string[] = [];
   for (const branch of branches.value) {
     const match = STUDIO_BRANCH_PATTERN.exec(branch.name);
     const slug = match?.[1];
-    if (slug === undefined || !canonical.has(slug)) return topologyFailure('branches');
+    if (slug === undefined) return topologyFailure('branches');
     if (branchesBySlug.has(slug)) return topologyFailure('branches');
     branchesBySlug.set(slug, branch);
+    // A studio branch whose slug has no canonical article on `main` is a
+    // new-article draft (spec: the list shows canonical articles AND
+    // discovered active Studio drafts), not a topology violation (#39).
+    if (!canonical.has(slug)) draftOnlySlugs.push(slug);
   }
 
   const rows: StudioArticleListEntry[] = [];
@@ -132,6 +137,48 @@ export async function deriveStudioArticleList(
         ? { publicUrl: `${options.productionOrigin.replace(/\/$/, '')}/articles/${slug}` }
         : {}),
       ...(branch === undefined ? {} : { branch: toBranchRef(branch) }),
+      ...(draft.pullRequest === undefined
+        ? {}
+        : { pullRequest: toPullRequestRef(draft.pullRequest) }),
+      ...(draft.check === undefined ? {} : { check: toCheckEvidence(draft.check) }),
+    });
+  }
+
+  for (const slug of draftOnlySlugs) {
+    const branch = branchesBySlug.get(slug);
+    if (branch === undefined) continue;
+    const filePath = `content/articles/${slug}.md`;
+    const file = await adapter.getFileContent(branch.sha, filePath);
+    let draftFrontmatter: ArticleSourceFrontmatter | undefined;
+    if (file.ok) {
+      try {
+        draftFrontmatter = parseArticleSource(file.value.content, filePath).frontmatter;
+      } catch {
+        // Invalid content is legal on draft branches (spec: invalid commits
+        // are permitted there, never on `main`); fall back to a slug-titled
+        // row rather than failing the whole list.
+      }
+    } else if (file.failure.reason !== 'not-found') {
+      // `not-found` is the documented interrupted-save state (#16): the
+      // branch exists but the first commit never landed. Anything else is a
+      // real GitHub read failure.
+      return githubFailure('branches', file);
+    }
+    const draft = await deriveDraftState(
+      adapter,
+      slug,
+      { filePath },
+      branch,
+      options.checkName ?? CHECK_NAME,
+    );
+    if (!draft.ok) return draft;
+    rows.push({
+      slug,
+      title: draftFrontmatter?.title ?? slug,
+      production: 'absent',
+      change: draft.change,
+      ...(draftFrontmatter === undefined ? {} : { updatedAt: draftFrontmatter.updatedAt }),
+      branch: toBranchRef(branch),
       ...(draft.pullRequest === undefined
         ? {}
         : { pullRequest: toPullRequestRef(draft.pullRequest) }),
@@ -399,7 +446,26 @@ export async function deriveStudioArticleStatus(
           ? await liveEvidenceIfProven(main.value.sha, canonical, slug, options)
           : undefined;
       const draftFile = await adapter.getFileContent(branch.sha, filePath);
-      if (!draftFile.ok) return githubFailure('branch', draftFile);
+      if (!draftFile.ok) {
+        if (draftFile.failure.reason === 'not-found') {
+          // The documented interrupted-save state (#16): the branch exists
+          // but the first file commit never landed. The editor deliberately
+          // resumes it as a blank slug-locked editor and the list shows a
+          // slug-titled row; project it here as an invalid draft (nothing to
+          // publish yet) instead of failing the whole page.
+          return {
+            ok: true,
+            value: {
+              kind: 'draft_invalid',
+              article,
+              branch: toBranchRef(branch),
+              issues: [missingDraftFileIssue(filePath)],
+              ...(productionLive === undefined ? {} : { productionLive }),
+            },
+          };
+        }
+        return githubFailure('branch', draftFile);
+      }
       try {
         compileArticle({
           markdown: draftFile.value.content,
@@ -519,6 +585,16 @@ function articleRefFrom(
     title: 'Untitled article',
     status: 'draft',
     updatedAt: options.now?.() ?? new Date().toISOString(),
+  };
+}
+
+function missingDraftFileIssue(sourcePath: string): StudioCompileIssue {
+  return {
+    code: 'MISSING_DRAFT_FILE',
+    message: 'The draft branch has no committed article file yet. Save the editor to create it.',
+    sourcePath,
+    line: 1,
+    column: 1,
   };
 }
 

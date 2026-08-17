@@ -231,7 +231,7 @@ describe('deriveStudioArticleList', () => {
     }
   });
 
-  it('fails closed when GitHub contains a Studio branch for a non-canonical article', async () => {
+  it('lists a new-article draft branch with no committed file as a slug-titled draft row', async () => {
     const adapter = new FakeGithubAdapter(config);
     seedPublishedArticle(adapter);
     adapter.seedBranch('studio/article/not-on-main', 'c'.repeat(40));
@@ -240,9 +240,130 @@ describe('deriveStudioArticleList', () => {
       productionOrigin: 'https://jelementi.quz.ma',
     });
 
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.map((row) => row.slug)).toEqual(['not-on-main', 'tristan-da-cunha']);
+      const draftRow = result.value[0];
+      expect(draftRow).toMatchObject({
+        slug: 'not-on-main',
+        title: 'not-on-main',
+        production: 'absent',
+        change: 'draft',
+        branch: { name: 'studio/article/not-on-main' },
+      });
+      expect(draftRow?.canonicalStatus).toBeUndefined();
+      expect(draftRow?.updatedAt).toBeUndefined();
+      expect(draftRow?.publicUrl).toBeUndefined();
+    }
+  });
+
+  it('lists a new-article draft using its draft frontmatter when the branch has a committed file', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedPublishedArticle(adapter);
+    const draftSource = serializeArticleSource({
+      frontmatter: {
+        ...frontmatter,
+        title: 'A Brand New Article',
+        slug: 'new-arrival',
+        status: 'draft',
+        publishedAt: '2026-08-16',
+        updatedAt: '2026-08-16',
+      },
+      body: 'Fresh words.',
+    });
+    adapter.seedBranch('studio/article/new-arrival', 'd'.repeat(40));
+    adapter.seedFile(
+      'studio/article/new-arrival',
+      'content/articles/new-arrival.md',
+      draftSource,
+      'e'.repeat(64),
+    );
+    adapter.seedPullRequest('studio/article/new-arrival');
+
+    const result = await deriveStudioArticleList(adapter, {
+      productionOrigin: 'https://jelementi.quz.ma',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const draftRow = result.value.find((row) => row.slug === 'new-arrival');
+      expect(draftRow).toMatchObject({
+        title: 'A Brand New Article',
+        updatedAt: '2026-08-16',
+        production: 'absent',
+        change: 'draft',
+        branch: { name: 'studio/article/new-arrival' },
+      });
+      expect(draftRow?.pullRequest?.number).toBeTypeOf('number');
+      expect(draftRow?.canonicalStatus).toBeUndefined();
+      expect(draftRow?.publicUrl).toBeUndefined();
+    }
+  });
+
+  it('falls back to a slug-titled row when a new-article draft file does not parse', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedPublishedArticle(adapter);
+    adapter.seedBranch('studio/article/broken-draft', 'f'.repeat(40));
+    adapter.seedFile(
+      'studio/article/broken-draft',
+      'content/articles/broken-draft.md',
+      'not an article at all',
+      'a1'.repeat(32),
+    );
+
+    const result = await deriveStudioArticleList(adapter, {
+      productionOrigin: 'https://jelementi.quz.ma',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const draftRow = result.value.find((row) => row.slug === 'broken-draft');
+      expect(draftRow).toMatchObject({
+        title: 'broken-draft',
+        production: 'absent',
+        change: 'draft',
+      });
+      expect(draftRow?.updatedAt).toBeUndefined();
+    }
+  });
+
+  it('fails closed when a listed branch name is not a valid studio article branch', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedPublishedArticle(adapter);
+    vi.spyOn(adapter, 'listStudioBranches').mockResolvedValue({
+      ok: true,
+      value: [
+        {
+          name: 'studio/article/Bad_Slug',
+          sha: 'c'.repeat(40),
+          url: 'https://github.com/DarkoKuzmanovic/jelementi/branch/studio/article/Bad_Slug',
+        },
+      ],
+    });
+
+    const result = await deriveStudioArticleList(adapter, {
+      productionOrigin: 'https://jelementi.quz.ma',
+    });
+
     expect(result).toEqual({
       ok: false,
       failure: { phase: 'branches', reason: 'topology' },
+    });
+  });
+
+  it('fails closed when reading a new-article draft file fails on GitHub', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedPublishedArticle(adapter);
+    adapter.seedBranch('studio/article/not-on-main', 'c'.repeat(40));
+    adapter.setFailureOperation('get-file-content');
+
+    const result = await deriveStudioArticleList(adapter, {
+      productionOrigin: 'https://jelementi.quz.ma',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      failure: { phase: 'branches', reason: 'github' },
     });
   });
 
@@ -1052,6 +1173,37 @@ describe('deriveStudioArticleStatus', () => {
           updatedAt: '2026-02-02T00:00:00.000Z',
         },
         branch: expect.objectContaining({ name: 'studio/article/new-article' }),
+      },
+    });
+  });
+
+  it('reports an interrupted save (branch with no committed file, #16) as draft_invalid, not a failure', async () => {
+    // The recoverable in-between state an interrupted Save leaves behind:
+    // branch created, first file commit never landed. The editor resumes it
+    // as a blank slug-locked editor and the list shows a slug-titled row;
+    // the status projection must render too instead of 503ing the page.
+    const adapter = new FakeGithubAdapter(config);
+    adapter.seedBranch('studio/article/interrupted-save', 'f'.repeat(40));
+
+    const result = await deriveStudioArticleStatus(adapter, 'interrupted-save', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: false,
+      now: () => '2026-02-02T00:00:00.000Z',
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'draft_invalid',
+        article: expect.objectContaining({ slug: 'interrupted-save' }),
+        branch: expect.objectContaining({ name: 'studio/article/interrupted-save' }),
+        issues: [
+          expect.objectContaining({
+            code: 'MISSING_DRAFT_FILE',
+            sourcePath: 'content/articles/interrupted-save.md',
+          }),
+        ],
       },
     });
   });
