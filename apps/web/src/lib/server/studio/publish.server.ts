@@ -82,11 +82,29 @@ export async function publishStudioDraft(
     return { kind: 'publish_failed', phase: 'revalidate', reason: 'github' };
   }
   try {
-    compileArticle({
+    const compiled = compileArticle({
       markdown: file.value.content,
       sourcePath: path,
       mediaBaseUrl: options.mediaBaseUrl,
     });
+    // Spec (§Publish step 4): only a valid article with `status: published`
+    // may proceed — a draft/archived-status article compiles fine but can
+    // never appear in the published index or be proven Live. The compiler
+    // already requires `publishedAt` for published status, so this one gate
+    // covers both invariants. (Unpublish's archive commit does not pass
+    // through here; it has its own flow and gates.)
+    if (compiled.document.status !== 'published') {
+      return {
+        kind: 'publish_rejected',
+        compileIssues: [
+          {
+            code: 'UNPUBLISHABLE_STATUS',
+            message: `Only articles with status "published" can be published; this draft has status "${compiled.document.status}". Set the status to "published" and save again.`,
+            sourcePath: path,
+          },
+        ],
+      };
+    }
   } catch (cause) {
     if (cause instanceof ContentCompileError) {
       return { kind: 'publish_rejected', compileIssues: cause.issues };

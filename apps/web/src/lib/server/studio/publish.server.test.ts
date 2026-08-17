@@ -24,7 +24,8 @@ const metadata: StudioMetadata = {
   title: 'A Draft Article',
   slug,
   excerpt: 'An article being written in Studio.',
-  status: 'draft',
+  status: 'published',
+  publishedAt: '2026-08-01',
   updatedAt: '2026-08-01',
   category: 'Ideas',
   tags: ['studio'],
@@ -34,13 +35,17 @@ const metadata: StudioMetadata = {
 };
 
 /** Drives a real Save so tests publish against realistic, saved state. */
-async function seedSavedDraft(adapter: FakeGithubAdapter, body = 'Saved body.') {
+async function seedSavedDraft(
+  adapter: FakeGithubAdapter,
+  body = 'Saved body.',
+  overrideMetadata: StudioMetadata = metadata,
+) {
   const main = await adapter.getMainRef();
   if (!main.ok) throw new Error('main missing');
   const saved = await saveStudioDraft(
     adapter,
     slug,
-    { metadata, body, concurrency: { baseMainSha: main.value.sha } },
+    { metadata: overrideMetadata, body, concurrency: { baseMainSha: main.value.sha } },
     previewOptions,
   );
   if (saved.kind !== 'saved') throw new Error(`save failed: ${saved.kind}`);
@@ -121,6 +126,33 @@ describe('publishStudioDraft', () => {
       expectedHeadSha: 'b'.repeat(40),
       currentHeadSha: null,
     });
+  });
+
+  it('rejects a non-published article status: nothing unpublishable proceeds past Publish (spec §Publish step 4)', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    // Valid, compilable draft — but its frontmatter status is still 'draft',
+    // so it can never appear in the published index or be proven Live.
+    const saved = await seedSavedDraft(adapter, 'A perfectly valid body.', {
+      ...metadata,
+      status: 'draft',
+    });
+
+    const result = await publishStudioDraft(
+      adapter,
+      slug,
+      saved.concurrency.draftHeadSha as string,
+      previewOptions,
+    );
+
+    expect(result).toEqual({
+      kind: 'publish_rejected',
+      compileIssues: [expect.objectContaining({ code: 'UNPUBLISHABLE_STATUS', sourcePath: path })],
+    });
+    // The PR must remain an untouched open Draft.
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ draft: true, state: 'open' }),
+    ]);
   });
 
   it('rejects a change that would fail to compile, and leaves GitHub untouched', async () => {
