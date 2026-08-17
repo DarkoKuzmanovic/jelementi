@@ -10,6 +10,9 @@
     "binding": "ASSETS",
     "directory": ".svelte-kit/cloudflare",
     "not_found_handling": "404-page",
+    // Keep in sync with wrangler.jsonc: Studio SSR + form actions require the
+    // Worker to run for navigation requests (else assets router serves 404/405).
+    "run_worker_first": ["/studio", "/studio/*"],
   },
   "r2_buckets": [
     {
