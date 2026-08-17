@@ -10,6 +10,11 @@
     "binding": "ASSETS",
     "directory": ".svelte-kit/cloudflare",
     "not_found_handling": "404-page",
+    // Studio routes are server-rendered (SSR + form actions). Without this,
+    // the assets router answers browser navigation requests (Sec-Fetch-Mode:
+    // navigate) itself — 404.html for GETs, bare 405 for form POSTs — and the
+    // Worker is never invoked (compatibility_date >= 2025-04-01 behavior).
+    "run_worker_first": ["/studio", "/studio/*"],
   },
   "routes": [
     {
