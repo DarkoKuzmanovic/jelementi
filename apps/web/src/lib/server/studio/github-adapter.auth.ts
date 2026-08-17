@@ -48,11 +48,20 @@ const MAX_AUTH_RESPONSE_BYTES = 16_384;
 const MAX_INSTALLATION_TOKEN_LENGTH = 4_096;
 const MAX_INSTALLATION_TOKEN_LIFETIME_MS = 3_660_000;
 const DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS = 10_000;
+/**
+ * Studio's mutation surface needs write scopes: branch create/delete and
+ * file commits (`contents`), PR create/merge (`pull_requests`). All-read
+ * defaults made GitHub 403 the first save's branch creation in production
+ * (issue #34, Checkpoint D1 stop-condition). A read/write token split was
+ * rejected: the token is short-lived, scoped to this one repo, and every
+ * caller is behind Cloudflare Access, so splitting would double token
+ * exchanges for no security gain.
+ */
 const DEFAULT_INSTALLATION_PERMISSIONS = {
   checks: 'read',
-  contents: 'read',
+  contents: 'write',
   metadata: 'read',
-  pull_requests: 'read',
+  pull_requests: 'write',
 } as const;
 
 async function readBoundedText(
