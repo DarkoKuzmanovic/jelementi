@@ -591,8 +591,7 @@ function articleRefFrom(
 function missingDraftFileIssue(sourcePath: string): StudioCompileIssue {
   return {
     code: 'MISSING_DRAFT_FILE',
-    message:
-      'The draft branch has no committed article file yet. Save the editor to create it.',
+    message: 'The draft branch has no committed article file yet. Save the editor to create it.',
     sourcePath,
     line: 1,
     column: 1,
