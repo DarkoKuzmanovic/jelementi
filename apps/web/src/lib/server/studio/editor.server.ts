@@ -680,7 +680,10 @@ function defaultStudioMetadata(slug: string, now?: () => string): StudioMetadata
     category: 'Uncategorized',
     tags: [],
     author: 'Jelementi',
-    cover: { src: `articles/${slug}/cover.svg`, alt: '' },
+    // Versioned canonical key: the media pipeline (validateMediaKey,
+    // scripts/media.ts) rejects unversioned keys, so an unversioned default
+    // would make every new article unpublishable (#53).
+    cover: { src: `articles/${slug}/cover-v1.svg`, alt: '' },
     references: [],
   };
 }
