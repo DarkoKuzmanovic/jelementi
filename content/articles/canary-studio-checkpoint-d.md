@@ -2,6 +2,7 @@
 title: CANARY — DO NOT INDEX (delete me)
 slug: canary-studio-checkpoint-d
 excerpt: Write an excerpt.
+publishedAt: 2026-08-17
 updatedAt: 2026-08-17
 status: published
 category: Uncategorized
