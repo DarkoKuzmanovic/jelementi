@@ -446,7 +446,26 @@ export async function deriveStudioArticleStatus(
           ? await liveEvidenceIfProven(main.value.sha, canonical, slug, options)
           : undefined;
       const draftFile = await adapter.getFileContent(branch.sha, filePath);
-      if (!draftFile.ok) return githubFailure('branch', draftFile);
+      if (!draftFile.ok) {
+        if (draftFile.failure.reason === 'not-found') {
+          // The documented interrupted-save state (#16): the branch exists
+          // but the first file commit never landed. The editor deliberately
+          // resumes it as a blank slug-locked editor and the list shows a
+          // slug-titled row; project it here as an invalid draft (nothing to
+          // publish yet) instead of failing the whole page.
+          return {
+            ok: true,
+            value: {
+              kind: 'draft_invalid',
+              article,
+              branch: toBranchRef(branch),
+              issues: [missingDraftFileIssue(filePath)],
+              ...(productionLive === undefined ? {} : { productionLive }),
+            },
+          };
+        }
+        return githubFailure('branch', draftFile);
+      }
       try {
         compileArticle({
           markdown: draftFile.value.content,
@@ -566,6 +585,16 @@ function articleRefFrom(
     title: 'Untitled article',
     status: 'draft',
     updatedAt: options.now?.() ?? new Date().toISOString(),
+  };
+}
+
+function missingDraftFileIssue(sourcePath: string): StudioCompileIssue {
+  return {
+    code: 'MISSING_DRAFT_FILE',
+    message: 'The draft branch has no committed article file yet. Save the editor to create it.',
+    sourcePath,
+    line: 1,
+    column: 1,
   };
 }
 
