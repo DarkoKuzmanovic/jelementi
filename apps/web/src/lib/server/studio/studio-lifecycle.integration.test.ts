@@ -27,7 +27,10 @@ const config: StudioGithubConfig = {
 
 const productionOrigin = 'https://jelementi.quz.ma';
 const mediaBaseUrl = 'https://media.jelementi.quz.ma/';
-const options = { mediaBaseUrl };
+const options = {
+  mediaBaseUrl,
+  fetch: async () => new Response(null, { status: 200 }),
+};
 const slug = 'lifecycle-article';
 const path = `content/articles/${slug}.md`;
 const branchName = `studio/article/${slug}`;

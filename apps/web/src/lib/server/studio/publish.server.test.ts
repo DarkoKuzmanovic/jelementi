@@ -15,7 +15,11 @@ const config: StudioGithubConfig = {
   privateKey: 'test-private-key',
 };
 
-const previewOptions = { mediaBaseUrl: 'https://media.jelementi.quz.ma/' };
+const mediaExists: typeof globalThis.fetch = async () => new Response(null, { status: 200 });
+const previewOptions = {
+  mediaBaseUrl: 'https://media.jelementi.quz.ma/',
+  fetch: mediaExists,
+};
 const slug = 'a-draft-article';
 const branchName = `studio/article/${slug}`;
 const path = `content/articles/${slug}.md`;
@@ -72,6 +76,118 @@ describe('publishStudioDraft', () => {
     const pulls = await adapter.listPullRequests(branchName);
     expect(pulls.ok && pulls.value).toEqual([
       expect.objectContaining({ number: saved.pullRequest.number, draft: false, state: 'open' }),
+    ]);
+  });
+
+  it('rejects a missing cover before making the Draft PR ready', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter);
+    const missingMedia: typeof globalThis.fetch = async () => new Response(null, { status: 404 });
+
+    const result = await publishStudioDraft(
+      adapter,
+      slug,
+      saved.concurrency.draftHeadSha as string,
+      { ...previewOptions, fetch: missingMedia },
+    );
+
+    expect(result).toEqual({
+      kind: 'publish_rejected',
+      compileIssues: [
+        expect.objectContaining({
+          code: 'MEDIA_UNAVAILABLE',
+          message:
+            'Article media "https://media.jelementi.quz.ma/articles/a-draft-article/cover.svg" is unavailable: HTTP 404.',
+          sourcePath: path,
+        }),
+      ],
+    });
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ draft: true, state: 'open' }),
+    ]);
+  });
+
+  it('rejects a missing body image before making the Draft PR ready', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter, '![A map](articles/a-draft-article/map-v1.svg)');
+    const missingBodyImage: typeof globalThis.fetch = async (input) =>
+      new Response(null, { status: String(input).endsWith('/map-v1.svg') ? 404 : 200 });
+
+    const result = await publishStudioDraft(
+      adapter,
+      slug,
+      saved.concurrency.draftHeadSha as string,
+      { ...previewOptions, fetch: missingBodyImage },
+    );
+
+    expect(result).toEqual({
+      kind: 'publish_rejected',
+      compileIssues: [expect.objectContaining({ code: 'MEDIA_UNAVAILABLE', sourcePath: path })],
+    });
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ draft: true, state: 'open' }),
+    ]);
+  });
+
+  it('rejects missing optional audio before making the Draft PR ready', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter, 'Saved body.', {
+      ...metadata,
+      audio: { src: 'articles/a-draft-article/audio-v1.m4a', durationSeconds: 120 },
+    });
+    const missingAudio: typeof globalThis.fetch = async (input) =>
+      new Response(null, { status: String(input).endsWith('/audio-v1.m4a') ? 404 : 200 });
+
+    const result = await publishStudioDraft(
+      adapter,
+      slug,
+      saved.concurrency.draftHeadSha as string,
+      { ...previewOptions, fetch: missingAudio },
+    );
+
+    expect(result).toEqual({
+      kind: 'publish_rejected',
+      compileIssues: [expect.objectContaining({ code: 'MEDIA_UNAVAILABLE', sourcePath: path })],
+    });
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ draft: true, state: 'open' }),
+    ]);
+  });
+
+  it('bounds a stalled media preflight and leaves the Draft PR untouched', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter);
+    const stalledMedia: typeof globalThis.fetch = async (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+      });
+
+    const result = await Promise.race([
+      publishStudioDraft(adapter, slug, saved.concurrency.draftHeadSha as string, {
+        ...previewOptions,
+        fetch: stalledMedia,
+        mediaTimeoutMs: 10,
+      }),
+      new Promise<'not-bounded'>((resolve) => setTimeout(() => resolve('not-bounded'), 100)),
+    ]);
+
+    expect(result).toEqual({
+      kind: 'publish_rejected',
+      compileIssues: [
+        expect.objectContaining({
+          code: 'MEDIA_UNAVAILABLE',
+          message:
+            'Article media "https://media.jelementi.quz.ma/articles/a-draft-article/cover.svg" is unavailable: request timed out.',
+          sourcePath: path,
+        }),
+      ],
+    });
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ draft: true, state: 'open' }),
     ]);
   });
 

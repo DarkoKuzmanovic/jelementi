@@ -4,6 +4,8 @@ import type { GithubPublishAdapter, StudioPullRequest } from './github-adapter';
 
 export interface StudioPublishOptions {
   mediaBaseUrl: string;
+  fetch?: typeof globalThis.fetch;
+  mediaTimeoutMs?: number;
 }
 
 export type StudioPublishResult =
@@ -105,6 +107,46 @@ export async function publishStudioDraft(
         ],
       };
     }
+
+    const mediaUrls = [
+      compiled.document.cover.src,
+      ...compiled.document.blocks.flatMap((block) => (block.type === 'image' ? [block.src] : [])),
+      ...(compiled.document.audio === undefined ? [] : [compiled.document.audio.src]),
+    ];
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.mediaTimeoutMs ?? 5_000);
+    try {
+      for (const mediaUrl of mediaUrls) {
+        let media: Response;
+        try {
+          media = await (options.fetch ?? globalThis.fetch)(mediaUrl, {
+            method: 'HEAD',
+            redirect: 'manual',
+            cache: 'no-store',
+            signal: controller.signal,
+          });
+        } catch {
+          return {
+            kind: 'publish_rejected',
+            compileIssues: [
+              mediaUnavailableIssue(
+                path,
+                mediaUrl,
+                controller.signal.aborted ? 'request timed out' : 'request failed',
+              ),
+            ],
+          };
+        }
+        if (!media.ok) {
+          return {
+            kind: 'publish_rejected',
+            compileIssues: [mediaUnavailableIssue(path, mediaUrl, `HTTP ${media.status}`)],
+          };
+        }
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch (cause) {
     if (cause instanceof ContentCompileError) {
       return { kind: 'publish_rejected', compileIssues: cause.issues };
@@ -154,5 +196,17 @@ export async function publishStudioDraft(
     kind: 'published',
     pullRequest: { number: ready.value.number, url: ready.value.url },
     headSha: expectedHeadSha,
+  };
+}
+
+function mediaUnavailableIssue(
+  sourcePath: string,
+  mediaUrl: string,
+  reason: string,
+): StudioCompileIssue {
+  return {
+    code: 'MEDIA_UNAVAILABLE',
+    message: `Article media "${mediaUrl}" is unavailable: ${reason}.`,
+    sourcePath,
   };
 }
