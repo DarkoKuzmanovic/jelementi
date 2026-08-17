@@ -74,7 +74,7 @@ describe('exchangeInstallationToken', () => {
     });
     expect(JSON.parse(String(requestInit?.body))).toEqual({
       repositories: ['jelementi'],
-      permissions: { checks: 'read', contents: 'read', metadata: 'read', pull_requests: 'read' },
+      permissions: { checks: 'read', contents: 'write', metadata: 'read', pull_requests: 'write' },
     });
   });
 
