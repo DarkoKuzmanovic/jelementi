@@ -14,4 +14,4 @@ references: []
 ---
 Hello
 
-[insecure link](http://example.com)
+[insecure link](https://example.com)
