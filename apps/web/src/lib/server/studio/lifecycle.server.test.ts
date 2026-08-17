@@ -1176,4 +1176,35 @@ describe('deriveStudioArticleStatus', () => {
       },
     });
   });
+
+  it('reports an interrupted save (branch with no committed file, #16) as draft_invalid, not a failure', async () => {
+    // The recoverable in-between state an interrupted Save leaves behind:
+    // branch created, first file commit never landed. The editor resumes it
+    // as a blank slug-locked editor and the list shows a slug-titled row;
+    // the status projection must render too instead of 503ing the page.
+    const adapter = new FakeGithubAdapter(config);
+    adapter.seedBranch('studio/article/interrupted-save', 'f'.repeat(40));
+
+    const result = await deriveStudioArticleStatus(adapter, 'interrupted-save', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: false,
+      now: () => '2026-02-02T00:00:00.000Z',
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'draft_invalid',
+        article: expect.objectContaining({ slug: 'interrupted-save' }),
+        branch: expect.objectContaining({ name: 'studio/article/interrupted-save' }),
+        issues: [
+          expect.objectContaining({
+            code: 'MISSING_DRAFT_FILE',
+            sourcePath: 'content/articles/interrupted-save.md',
+          }),
+        ],
+      },
+    });
+  });
 });
