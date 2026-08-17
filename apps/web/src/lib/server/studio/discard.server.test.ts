@@ -79,6 +79,40 @@ describe('discardStudioDraft', () => {
     expect(mainFileAfter.ok).toBe(false);
   });
 
+  it('discards a ready Draft PR after its required check fails, leaving main unchanged', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const ready = await adapter.updatePullRequest(saved.pullRequest.number, { draft: false });
+    if (!ready.ok) throw new Error('setup: PR must become ready');
+    adapter.seedCheckRun(saved.pullRequest.number, {
+      name: 'verify',
+      status: 'completed',
+      conclusion: 'failure',
+      url: 'https://github.com/DarkoKuzmanovic/jelementi/actions/runs/49',
+    });
+
+    const result = await discardStudioDraft(
+      adapter,
+      slug,
+      saved.concurrency.draftHeadSha as string,
+    );
+
+    expect(result).toEqual({
+      kind: 'discarded',
+      pullRequest: { number: saved.pullRequest.number, url: saved.pullRequest.url },
+    });
+    const branch = await adapter.getBranch(branchName);
+    expect(branch.ok).toBe(false);
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ draft: false, state: 'closed' }),
+    ]);
+    const mainAfter = await adapter.getMainRef();
+    expect(mainAfter.ok && mainAfter.value.sha).toBe(main.value.sha);
+  });
+
   it('blocks deletion when the expected head no longer matches the branch', async () => {
     const adapter = new FakeGithubAdapter(config);
     const saved = await seedSavedDraft(adapter);
@@ -119,12 +153,17 @@ describe('discardStudioDraft', () => {
     });
   });
 
-  it('fails closed as topology when the sole open PR is no longer a Draft PR', async () => {
+  it('fails closed as topology when the sole open Draft PR targets the wrong base', async () => {
     const adapter = new FakeGithubAdapter(config);
-    const saved = await seedSavedDraft(adapter);
-    await adapter.updatePullRequest(saved.pullRequest.number, { draft: false });
+    await seedSavedDraft(adapter);
     const branch = await adapter.getBranch(branchName);
     if (!branch.ok) throw new Error('branch missing');
+    const pulls = await adapter.listPullRequests(branchName);
+    if (!pulls.ok || pulls.value.length !== 1) throw new Error('setup: one PR expected');
+    vi.spyOn(adapter, 'listPullRequests').mockResolvedValue({
+      ok: true,
+      value: [{ ...pulls.value[0]!, draft: false, baseRef: 'develop' }],
+    });
 
     const result = await discardStudioDraft(adapter, slug, branch.value.sha);
 
@@ -133,13 +172,10 @@ describe('discardStudioDraft', () => {
       phase: 'pull-request',
       reason: 'topology',
     });
-    const pulls = await adapter.listPullRequests(branchName);
-    expect(pulls.ok && pulls.value).toEqual([
-      expect.objectContaining({ draft: false, state: 'open' }),
-    ]);
+    expect(await adapter.getBranch(branchName)).toEqual({ ok: true, value: branch.value });
   });
 
-  it('fails closed as topology when more than one open PR exists for the branch', async () => {
+  it('fails closed as topology when more than one open Draft PR exists for the branch', async () => {
     const adapter = new FakeGithubAdapter(config);
     const saved = await seedSavedDraft(adapter);
     adapter.seedPullRequest(branchName, {

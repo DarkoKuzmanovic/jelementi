@@ -40,12 +40,23 @@
       status.kind === 'check_failed',
   );
 
-  // Discard is offered while the article's PR is still a Draft; once the
-  // draft has been published (flipped ready) there is no Draft PR to close.
-  const canDiscard = $derived(status.kind === 'draft_valid' || status.kind === 'draft_invalid');
+  // Discard is offered for an unmerged Draft PR. Ready/checking/check_failed
+  // are recoverable too: closing the approved Draft PR and deleting its branch is
+  // the safe reset after auto-merge stalls or a required check fails.
+  const canDiscard = $derived(
+    status.kind === 'draft_valid' ||
+      status.kind === 'draft_invalid' ||
+      status.kind === 'ready' ||
+      status.kind === 'checking' ||
+      status.kind === 'check_failed',
+  );
 
   const discardHeadSha = $derived(
-    status.kind === 'draft_valid' || status.kind === 'draft_invalid' ? status.branch.headSha : '',
+    status.kind === 'draft_valid' || status.kind === 'draft_invalid'
+      ? status.branch.headSha
+      : status.kind === 'ready' || status.kind === 'checking' || status.kind === 'check_failed'
+        ? status.pullRequest.headSha
+        : '',
   );
 </script>
 
@@ -84,8 +95,9 @@
     </p>
   {:else if status.kind === 'check_failed'}
     <p>
-      The required check failed. The pull request stays open with auto-merge still enabled; a
-      changed blob needs a new Publish.
+      The required check failed. The Draft PR stays open with auto-merge still enabled; a changed
+      blob needs a new Publish. Discard closes this unmerged Draft PR and deletes its Studio branch
+      when you need to reset the failed check.
     </p>
     <p>
       <a href={status.pullRequest.url}>Pull request #{status.pullRequest.number}</a>
@@ -145,6 +157,13 @@
     </form>
   {/if}
   {#if canDiscard}
+    {#if status.kind === 'ready' || status.kind === 'checking' || status.kind === 'check_failed'}
+      <p>
+        Discard closes
+        <a href={status.pullRequest.url}>Draft PR #{status.pullRequest.number}</a> and deletes
+        <code>studio/article/{status.article.slug}</code>. <code>main</code> is unchanged.
+      </p>
+    {/if}
     <form method="POST" action="?/discard">
       <input type="hidden" name="expectedHeadSha" value={discardHeadSha} />
       <label for="discard-confirmation">

@@ -641,6 +641,32 @@ describe('StudioPublishPanel unpublish retry availability', () => {
     }
   });
 
+  it('offers Discard draft for a failed required check using the approved Draft PR head', () => {
+    const { body } = render(StudioPublishPanel, {
+      props: {
+        status: { kind: 'check_failed', article, pullRequest, failedCheck: { name: 'verify' } },
+      },
+    });
+
+    expect(body).toContain('action="?/discard"');
+    expect(body).toContain(`href="${pullRequest.url}"`);
+    expect(body).toContain(`value="${pullRequest.headSha}"`);
+    expect(body).toContain('<code>studio/article/tristan-da-cunha</code>');
+    expect(body).toContain('>Discard draft</button>');
+  });
+
+  it('offers Discard draft for a ready or checking approval', () => {
+    const statuses: StudioLifecycle[] = [
+      { kind: 'ready', article, pullRequest },
+      { kind: 'checking', article, pullRequest },
+    ];
+    for (const status of statuses) {
+      const { body } = render(StudioPublishPanel, { props: { status } });
+      expect(body).toContain('action="?/discard"');
+      expect(body).toContain('<code>studio/article/tristan-da-cunha</code>');
+    }
+  });
+
   it('keeps the retry safe: Publish stays limited to a revalidated draft in these states', () => {
     const { body } = render(StudioPublishPanel, {
       props: { status: { kind: 'ready', article, pullRequest } },

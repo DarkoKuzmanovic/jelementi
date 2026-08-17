@@ -184,10 +184,11 @@ export const actions: Actions = {
   },
 
   /**
-   * Discard closes the article's sole Draft PR and deletes only its Studio
-   * branch after the operator types the exact slug and submits the branch
-   * head they last saw. The branch is deleted only while its head still
-   * equals that expected head; `main` is never touched.
+   * Discard closes the article's sole open Draft PR — including a ready,
+   * checking, or check_failed approval — and deletes only its Studio branch
+   * after the operator types the exact slug and submits the branch head they
+   * last saw. The branch is deleted only while its head still equals that
+   * expected head; `main` is never touched.
    */
   discard: async (event) => {
     await requireStudioMutation({ request: event.request, platform: event.platform });

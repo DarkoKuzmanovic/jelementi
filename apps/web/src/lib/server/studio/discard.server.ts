@@ -16,17 +16,17 @@ export type StudioDiscardResult =
       phase: 'branch' | 'pull-request' | 'close-pull-request' | 'delete-branch';
       /**
        * 'topology' marks a GitHub-side state Discard cannot safely resolve
-       * on its own (more than one open PR, an open PR that is no longer a
-       * Draft PR, no active Draft PR at all) rather than a transient GitHub
-       * error.
+       * on its own (more than one open Draft PR, or no active Draft PR to close) rather
+       * than a transient GitHub error.
        */
       reason: 'github' | 'topology';
     };
 
 /**
  * Discard closes the article's sole open Draft PR and deletes only its
- * Studio branch — `main` is never touched. Everything is re-read fresh from
- * GitHub; nothing from a prior page load is trusted:
+ * Studio branch — `main` is never touched. This includes a ready Draft PR whose
+ * required check failed before auto-merge could fire. Everything is re-read
+ * fresh from GitHub; nothing from a prior page load is trusted:
  *
  *  1. the branch must still exist at exactly `expectedHeadSha` (the head the
  *     operator saw when they confirmed) — a moved head is a
@@ -37,7 +37,7 @@ export type StudioDiscardResult =
  *     head moved between that check and the DELETE itself is surfaced as a
  *     `discard_conflict` with the freshest observed head;
  *  4. a retry after a partial failure re-reads topology: an already-closed
- *     sole PR matching this branch name, base, and the branch's current head
+ *     sole Draft PR matching this branch name, base, and the branch's current head
  *     (unrelated historical closed PRs are ignored) resumes with just the
  *     branch deletion — no duplicate close, no second PR, no new writes.
  */
@@ -69,7 +69,6 @@ export async function discardStudioDraft(
     const candidate = openPulls[0];
     if (
       candidate === undefined ||
-      !candidate.draft ||
       candidate.headRef !== branchName ||
       candidate.baseRef !== 'main' ||
       candidate.headSha !== branch.value.sha
