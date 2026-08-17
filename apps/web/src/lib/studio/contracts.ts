@@ -135,12 +135,18 @@ export interface StudioCheckEvidence {
   url?: string;
 }
 
-/** Read-only projection of GitHub-derived state for one canonical article. */
+/**
+ * Read-only projection of GitHub-derived state for one canonical article or
+ * one active new-article draft (a studio branch whose slug has not merged to
+ * `main` yet, #39).
+ */
 export interface StudioArticleListEntry {
   slug: string;
   title: string;
-  canonicalStatus: StudioArticleStatus;
-  updatedAt: string;
+  /** Canonical status on `main`; absent for a new-article draft. */
+  canonicalStatus?: StudioArticleStatus;
+  /** Frontmatter `updatedAt`; absent when a new draft has no parseable committed file. */
+  updatedAt?: string;
   production: StudioProductionState;
   change: StudioChangeState;
   publicUrl?: string;
