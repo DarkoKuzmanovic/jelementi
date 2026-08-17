@@ -9,6 +9,7 @@ const routes = {
   categoryPath: '/categories/history',
   articleTitle: 'A Rock at the Edge of the World',
   categoryName: 'History',
+  richArticlePath: '/articles/tristan-da-cunha',
 };
 
 function html(body: string): WorkerHttpResponse {
@@ -111,6 +112,58 @@ describe('local Worker smoke verifier', () => {
     expect(requested).toContain('/search?query=tristan');
     expect(requested).toContain('/not-found');
     expect(child.signals).toEqual(['SIGTERM']);
+  });
+
+  it('does not demand Sources/Footnotes when the newest article is minimal (#47)', async () => {
+    const child = createFakeChild({ exitOnTerm: true });
+    const { fetch } = readerFetch();
+    const withMinimal = async (url: string) => {
+      if (new URL(url).pathname === '/articles/canary-minimal')
+        return html(`${noindex}<h1>Canary minimal</h1>`);
+      return fetch(url);
+    };
+
+    await expect(
+      verifyWorker({
+        rootDir: '/repo',
+        routes: {
+          ...routes,
+          articlePath: '/articles/canary-minimal',
+          articleTitle: 'Canary minimal',
+        },
+        port: 8787,
+        timeoutMs: 100,
+        fetch: withMinimal,
+        spawn: () => child,
+        now: counter(10),
+        sleep: async () => undefined,
+        staticAssetPath: '/_app/immutable/entry/start.js',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('still requires Sources/Footnotes on the rich fixture article page', async () => {
+    const child = createFakeChild({ exitOnTerm: true });
+    const { fetch } = readerFetch();
+    const withoutSections = async (url: string) => {
+      if (new URL(url).pathname === '/articles/tristan-da-cunha')
+        return html(`${noindex}<h1>A Rock at the Edge of the World</h1>`);
+      return fetch(url);
+    };
+
+    await expect(
+      verifyWorker({
+        rootDir: '/repo',
+        routes,
+        port: 8787,
+        timeoutMs: 100,
+        fetch: withoutSections,
+        spawn: () => child,
+        now: counter(10),
+        sleep: async () => undefined,
+        staticAssetPath: '/_app/immutable/entry/start.js',
+      }),
+    ).rejects.toThrow('Sources');
   });
 
   it('reaps the local Worker when readiness times out', async () => {

@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadMediaBaseUrl, validateContent } from './content';
+import { richContentSlug } from './verify-web';
 import { verifyPublishedMedia, type MediaFetch } from './media';
 
 const clientEntryPattern = /(?:\/_app\/immutable\/entry\/start|\bkit\.start\(\))/i;
@@ -20,6 +21,12 @@ export interface RemoteHttpResponse {
 export interface RemoteArticleRoute {
   path: string;
   title: string;
+  /**
+   * Marks the seeded rich fixture article (sources + footnotes). Only that
+   * page must render those sections; any other article may legally have
+   * neither (#47).
+   */
+  rich?: boolean;
 }
 
 export interface RemoteCategoryRoute {
@@ -183,6 +190,7 @@ export async function loadRemoteRoutes(rootDir: string): Promise<RemoteRoutes> {
   const articles = index.map((entry) => ({
     path: `/articles/${entry.slug}`,
     title: entry.title,
+    ...(entry.slug === richContentSlug ? { rich: true } : {}),
   }));
   const categoriesBySlug = new Map<string, RemoteCategoryRoute>();
   for (const entry of index) {
@@ -226,8 +234,10 @@ export async function verifyRemote({
       response.body.includes(article.title),
       `Missing article title on ${article.path}: ${article.title}.`,
     );
-    assert(response.body.includes('Sources'), `Missing Sources on ${article.path}.`);
-    assert(response.body.includes('Footnotes'), `Missing Footnotes on ${article.path}.`);
+    if (article.rich === true) {
+      assert(response.body.includes('Sources'), `Missing Sources on ${article.path}.`);
+      assert(response.body.includes('Footnotes'), `Missing Footnotes on ${article.path}.`);
+    }
   }
 
   for (const category of routes.categories) {
