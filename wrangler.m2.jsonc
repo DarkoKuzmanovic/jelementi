@@ -20,6 +20,14 @@
       "bucket_name": "jelementi-media",
     },
   ],
+  // Keep in sync with wrangler.jsonc: Studio production probes route through
+  // the Worker's self service binding (issue #56).
+  "services": [
+    {
+      "binding": "SELF",
+      "service": "jelementi-web",
+    },
+  ],
   "secrets": {
     "required": ["GITHUB_APP_PRIVATE_KEY"],
   },
