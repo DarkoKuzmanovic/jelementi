@@ -213,6 +213,10 @@ describe('loadStudioEditor', () => {
         slug: 'new-article',
         status: 'draft',
         updatedAt: '2026-08-20',
+        // The media pipeline only accepts versioned canonical keys
+        // (validateMediaKey, scripts/media.ts) — an unversioned default
+        // would make every new article unpublishable (#53).
+        cover: { src: 'articles/new-article/cover-v1.svg', alt: '' },
       });
       expect(result.value.body).toBe('');
       expect(result.value.slugEditable).toBe(true);
