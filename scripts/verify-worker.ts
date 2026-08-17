@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { richContentSlug } from './verify-web';
 
 const clientEntryPattern = /(?:\/_app\/immutable\/entry\/start|\bkit\.start\(\))/i;
 const noindexPattern = /<meta\s+name=["']robots["']\s+content=["']noindex["']/i;
@@ -23,6 +24,12 @@ export interface WorkerRoutes {
   categoryPath: string;
   articleTitle: string;
   categoryName: string;
+  /**
+   * Page of the seeded rich fixture article (sources + footnotes), when it
+   * is present in the generated index. The newest article is whatever the
+   * operator last published and may legally have neither (#47).
+   */
+  richArticlePath?: string;
 }
 
 export interface WorkerSourceFile {
@@ -243,8 +250,15 @@ export async function verifyWorker({
     assertHtml(article, routes.articlePath);
     assertNoHydration(article, routes.articlePath);
     assert(article.body.includes(routes.articleTitle), 'Missing representative article title.');
-    assert(article.body.includes('Sources'), 'Missing Sources on article page.');
-    assert(article.body.includes('Footnotes'), 'Missing Footnotes on article page.');
+    if (routes.richArticlePath !== undefined) {
+      const rich =
+        routes.richArticlePath === routes.articlePath
+          ? article
+          : await request(`${baseUrl}${routes.richArticlePath}`);
+      assertHtml(rich, routes.richArticlePath);
+      assert(rich.body.includes('Sources'), 'Missing Sources on rich article page.');
+      assert(rich.body.includes('Footnotes'), 'Missing Footnotes on rich article page.');
+    }
 
     const category = await request(`${baseUrl}${routes.categoryPath}`);
     assertHtml(category, routes.categoryPath);
@@ -313,11 +327,13 @@ async function loadRoutes(rootDir: string): Promise<WorkerRoutes> {
   const first = index[0];
   if (first === undefined)
     throw new Error('Generated index has no published articles for Worker verification.');
+  const rich = index.find((entry) => entry.slug === richContentSlug);
   return {
     articlePath: `/articles/${first.slug}`,
     categoryPath: `/categories/${first.categorySlug}`,
     articleTitle: first.title,
     categoryName: first.category,
+    ...(rich === undefined ? {} : { richArticlePath: `/articles/${rich.slug}` }),
   };
 }
 

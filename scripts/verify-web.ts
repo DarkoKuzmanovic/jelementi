@@ -46,7 +46,7 @@ interface GeneratedIndexEntry extends RenderedArticleExpectation {
 }
 
 /** The seeded fixture article known to exercise sources and footnotes. */
-const richContentSlug = 'tristan-da-cunha';
+export const richContentSlug = 'tristan-da-cunha';
 
 const fixtureExpectations: RenderedPageExpectations = {
   articles: [{ slug: 'tristan-da-cunha', title: 'A Rock at the Edge of the World' }],

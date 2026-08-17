@@ -16,6 +16,7 @@ const routes: RemoteRoutes = {
     {
       path: '/articles/tristan-da-cunha',
       title: 'The 250 People at the End of the World',
+      rich: true,
     },
   ],
   categories: [{ path: '/categories/history', name: 'History' }],
@@ -148,6 +149,66 @@ describe('remote production probe', () => {
     expect(requested).toContain('/not-found');
     expect(requested).toContain(assetPath);
     expect(mediaChecked).toBe(true);
+  });
+
+  it('does not demand Sources/Footnotes from a non-rich article page (#47)', async () => {
+    const { fetch } = readerFetch();
+    const withMinimal = async (url: string) => {
+      if (new URL(url).pathname === '/articles/canary-minimal') {
+        return {
+          status: 200,
+          body: `${noindex}<h1>Canary minimal</h1>`,
+          finalUrl: url,
+          headers: new Headers({ 'content-type': 'text/html' }),
+        };
+      }
+      return fetch(url);
+    };
+
+    await expect(
+      verifyRemote({
+        baseUrl: 'https://jelementi.quz.ma',
+        routes: {
+          ...routes,
+          articles: [
+            { path: '/articles/canary-minimal', title: 'Canary minimal' },
+            ...routes.articles,
+          ],
+        },
+        fetch: withMinimal,
+        sleep: async () => undefined,
+        now: counter(10),
+        timeoutMs: 100,
+        verifyMedia: async () => undefined,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('still requires Sources/Footnotes on the rich fixture article page', async () => {
+    const { fetch } = readerFetch();
+    const withoutSections = async (url: string) => {
+      if (new URL(url).pathname === '/articles/tristan-da-cunha') {
+        return {
+          status: 200,
+          body: `${noindex}<h1>The 250 People at the End of the World</h1>`,
+          finalUrl: url,
+          headers: new Headers({ 'content-type': 'text/html' }),
+        };
+      }
+      return fetch(url);
+    };
+
+    await expect(
+      verifyRemote({
+        baseUrl: 'https://jelementi.quz.ma',
+        routes,
+        fetch: withoutSections,
+        sleep: async () => undefined,
+        now: counter(10),
+        timeoutMs: 100,
+        verifyMedia: async () => undefined,
+      }),
+    ).rejects.toThrow('Sources');
   });
 
   it('fails closed when readiness never returns HTTP 200', async () => {
