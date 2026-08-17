@@ -29,6 +29,11 @@ const forbiddenClientCapabilities = [
     name: 'Studio server module',
     pattern: /(?:^|[\/.])server\/studio(?:[\/.]|$)|github-adapter|access-auth\.server/i,
   },
+  {
+    name: 'Studio acceptance fixture',
+    pattern:
+      /STUDIO_ACCEPTANCE_MODE|studio-acceptance-fixture-identity|acceptance-bootstrap\.server|x-studio-acceptance-identity/i,
+  },
 ] as const;
 
 export interface RenderedArticleExpectation {

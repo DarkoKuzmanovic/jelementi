@@ -55,6 +55,8 @@ describe('web smoke assertions', () => {
     ['Access secret', 'const assertion = "Cf-Access-Jwt-Assertion"'],
     ['content compiler dependency', 'const compiler = "@jelementi/content-compiler"'],
     ['Studio server module', 'import("../server/studio/lifecycle.server.js")'],
+    ['Studio acceptance fixture', 'const flag = "STUDIO_ACCEPTANCE_MODE"'],
+    ['Studio acceptance fixture', 'const header = "x-studio-acceptance-identity"'],
   ])('rejects %s from public reader client bundles', (capability, source) => {
     expect(() =>
       verifyPublicClientBundles([{ path: '_app/immutable/chunks/search.js', source }]),

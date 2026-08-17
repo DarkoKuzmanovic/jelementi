@@ -20,6 +20,16 @@ export type StudioServerEvent = Pick<RequestEvent, 'request' | 'platform'>;
 export type StudioOriginResult = { ok: true } | { ok: false; reason: StudioOriginFailureReason };
 
 /**
+ * Header + fixed token identifying the Studio browser acceptance seam's
+ * bounded test identity (#73). Not a secret — its only gate is the
+ * `STUDIO_ACCEPTANCE_MODE` runtime binding, which real production never
+ * defines. Exported so the acceptance bootstrap and the Playwright suite
+ * share one source of truth instead of duplicating the literal.
+ */
+export const STUDIO_ACCEPTANCE_IDENTITY_HEADER = 'x-studio-acceptance-identity';
+export const STUDIO_ACCEPTANCE_IDENTITY_TOKEN = 'studio-acceptance-fixture-identity-v1';
+
+/**
  * Explicit origin validation for JSON and other non-form requests.
  * SvelteKit's built-in CSRF check covers form submissions, but Studio's
  * future state-changing endpoints use JSON envelopes and must not rely on it.
@@ -49,6 +59,8 @@ export async function authorizeStudioRequest(
 ): Promise<StudioRequestResult> {
   const config = loadStudioConfig(env);
   if (!config.ok) return config;
+  const acceptance = acceptanceIdentity(request, env, config.value.access.allowedEmail);
+  if (acceptance !== undefined) return acceptance;
   return verifyAccess(request, config.value.access, options);
 }
 
@@ -67,7 +79,33 @@ export async function authorizeStudioMutation(
 
   const origin = checkStudioOrigin(request, config.value.productionOrigin);
   if (!origin.ok) return origin;
+  const acceptance = acceptanceIdentity(request, env, config.value.access.allowedEmail);
+  if (acceptance !== undefined) return acceptance;
   return verifyAccess(request, config.value.access, options);
+}
+
+/**
+ * The Studio browser acceptance seam's bounded test identity (#73). Real
+ * Cloudflare Access verification is entirely bypassed by design here —
+ * never partially — but ONLY when the runtime `env` explicitly carries
+ * `STUDIO_ACCEPTANCE_MODE: '1'`, a binding the real production Wrangler
+ * configuration never defines (mirrors ADR-0007's SELF-binding gate: no
+ * binding, no bypass). Every other request path is untouched; this
+ * function returns `undefined` immediately unless both the mode flag and
+ * the exact bounded fixture token are present, falling through to the
+ * ordinary `verifyAccess` call unchanged.
+ */
+function acceptanceIdentity(
+  request: Request,
+  env: WorkerEnv | undefined,
+  allowedEmail: string,
+): StudioAccessResult | undefined {
+  if ((env as Readonly<Record<string, unknown>> | undefined)?.STUDIO_ACCEPTANCE_MODE !== '1') {
+    return undefined;
+  }
+  const token = request.headers.get(STUDIO_ACCEPTANCE_IDENTITY_HEADER);
+  if (token !== STUDIO_ACCEPTANCE_IDENTITY_TOKEN) return undefined;
+  return { ok: true, email: allowedEmail };
 }
 
 /** Require a valid Studio identity or throw a generic sanitized denial. */

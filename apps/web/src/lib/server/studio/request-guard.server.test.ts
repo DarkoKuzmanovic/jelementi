@@ -5,6 +5,8 @@ import {
   checkStudioOrigin,
   requireStudioAccess,
   requireStudioMutation,
+  STUDIO_ACCEPTANCE_IDENTITY_HEADER,
+  STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
 } from './request-guard.server';
 
 const validEnv: WorkerEnv = {
@@ -24,9 +26,11 @@ const validEnv: WorkerEnv = {
 
 const productionOrigin = 'https://jelementi.quz.ma';
 
-function request(origin?: string): Request {
+function request(origin?: string, acceptanceToken?: string): Request {
   const headers = new Headers();
   if (origin !== undefined) headers.set('origin', origin);
+  if (acceptanceToken !== undefined)
+    headers.set(STUDIO_ACCEPTANCE_IDENTITY_HEADER, acceptanceToken);
   return new Request(`${productionOrigin}/studio`, { headers });
 }
 
@@ -113,5 +117,58 @@ describe('authorizeStudioMutation', () => {
       status: 403,
       body: { message: 'Studio request denied.' },
     });
+  });
+});
+
+/**
+ * The Studio browser acceptance seam's bounded test identity (#73). Every
+ * case here proves the bypass has zero effect unless `STUDIO_ACCEPTANCE_MODE`
+ * is exactly `'1'` — a binding real production never defines (ADR-0007-style
+ * fail-closed gate).
+ */
+describe('Studio acceptance identity bypass', () => {
+  const acceptanceEnv: WorkerEnv = { ...validEnv, STUDIO_ACCEPTANCE_MODE: '1' } as WorkerEnv;
+
+  it('grants the configured operator identity when the mode flag and exact token are both present', async () => {
+    await expect(
+      authorizeStudioRequest(request(undefined, STUDIO_ACCEPTANCE_IDENTITY_TOKEN), acceptanceEnv),
+    ).resolves.toEqual({ ok: true, email: validEnv.ALLOWED_OPERATOR_EMAIL });
+  });
+
+  it('grants identity for a same-origin mutation request too, after origin validation', async () => {
+    await expect(
+      authorizeStudioMutation(
+        request(productionOrigin, STUDIO_ACCEPTANCE_IDENTITY_TOKEN),
+        acceptanceEnv,
+      ),
+    ).resolves.toEqual({ ok: true, email: validEnv.ALLOWED_OPERATOR_EMAIL });
+  });
+
+  it('falls through to real Access verification when the mode flag is absent, even with the exact token', async () => {
+    await expect(
+      authorizeStudioRequest(request(undefined, STUDIO_ACCEPTANCE_IDENTITY_TOKEN), validEnv),
+    ).resolves.toEqual({ ok: false, reason: 'missing-assertion' });
+  });
+
+  it('falls through to real Access verification when the mode flag is present but the token is wrong', async () => {
+    await expect(
+      authorizeStudioRequest(request(undefined, 'not-the-fixture-token'), acceptanceEnv),
+    ).resolves.toEqual({ ok: false, reason: 'missing-assertion' });
+  });
+
+  it('falls through to real Access verification when the mode flag is present but no token header is sent', async () => {
+    await expect(authorizeStudioRequest(request(), acceptanceEnv)).resolves.toEqual({
+      ok: false,
+      reason: 'missing-assertion',
+    });
+  });
+
+  it('never bypasses origin validation for a mutation, even with a valid acceptance token', async () => {
+    await expect(
+      authorizeStudioMutation(
+        request('https://evil.example', STUDIO_ACCEPTANCE_IDENTITY_TOKEN),
+        acceptanceEnv,
+      ),
+    ).resolves.toEqual({ ok: false, reason: 'cross-origin' });
   });
 });

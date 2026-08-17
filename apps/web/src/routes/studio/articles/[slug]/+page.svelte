@@ -2,6 +2,10 @@
   import type { ActionData, PageData } from './$types';
   import StudioEditor from '../../../../lib/studio/StudioEditor.svelte';
   import StudioPublishPanel from '../../../../lib/studio/StudioPublishPanel.svelte';
+  import StudioLifecycleSummary from '../../../../lib/studio/StudioLifecycleSummary.svelte';
+  import StudioEvidenceDisclosure from '../../../../lib/studio/StudioEvidenceDisclosure.svelte';
+  import StudioStatusAnnouncer from '../../../../lib/studio/StudioStatusAnnouncer.svelte';
+  import { buildStudioWorkspaceProjection } from '../../../../lib/studio/workspace-projection';
   import type {
     StudioDraftReplacementActionData,
     StudioPreviewActionData,
@@ -48,7 +52,16 @@
   // loaded status until the page is reloaded. There is no background
   // polling — this is the only way `status` changes without a reload.
   const status = $derived(replacementAction?.status ?? refreshAction?.status ?? data.status);
+
+  // Server-authored composite view above `status`: this route never ships
+  // client JS (`csr = false`), so this is computed during SSR only, never
+  // in the browser. It composes the existing lifecycle result, it never
+  // replaces it (#73).
+  const workspace = $derived(buildStudioWorkspaceProjection(status, data.editor.concurrency));
 </script>
+
+<StudioStatusAnnouncer politeMessage={workspace.summary} />
+<StudioLifecycleSummary projection={workspace} />
 
 <StudioEditor
   editor={data.editor}
@@ -64,3 +77,5 @@
   unpublish={unpublishAction?.unpublish}
   discard={discardAction?.discard}
 />
+
+<StudioEvidenceDisclosure projection={workspace} />

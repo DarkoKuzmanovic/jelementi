@@ -18,7 +18,7 @@
     "verify:remote": "tsx scripts/verify-remote.ts",
     "media:upload": "tsx scripts/media-cli.ts upload",
     "media:verify": "tsx scripts/media-cli.ts verify",
-    "verify:deploy": "pnpm format && pnpm lint && pnpm typecheck && pnpm content:validate && pnpm test && pnpm build:web && pnpm verify:web && pnpm verify:wrangler && pnpm verify:worker && pnpm media:verify",
+    "verify:deploy": "pnpm format && pnpm lint && pnpm typecheck && pnpm content:validate && pnpm test && pnpm test:studio:browser && pnpm build:web && pnpm verify:web && pnpm verify:wrangler && pnpm verify:worker && pnpm media:verify",
     "content:validate": "tsx scripts/content-cli.ts validate",
     "content:build": "tsx scripts/content-cli.ts build",
     "content:watch": "tsx scripts/content-cli.ts watch",
@@ -26,11 +26,13 @@
     "lint": "eslint .",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:studio:browser": "playwright test -c apps/web/playwright.config.ts"
   },
   "devDependencies": {
     "@jelementi/article-model": "workspace:*",
     "@jelementi/content-compiler": "workspace:*",
+    "@playwright/test": "^1.62.1",
     "@types/node": "26.1.1",
     "eslint": "10.8.0",
     "eslint-config-prettier": "10.1.8",
