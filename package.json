@@ -27,7 +27,7 @@
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "test": "vitest run",
-    "test:studio:browser": "playwright install chromium && playwright test -c apps/web/playwright.config.ts"
+    "test:studio:browser": "tsx scripts/studio-browser-acceptance.ts"
   },
   "devDependencies": {
     "@jelementi/article-model": "workspace:*",
