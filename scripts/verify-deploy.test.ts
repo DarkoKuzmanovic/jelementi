@@ -40,4 +40,20 @@ describe('Wrangler M2 reader contract', () => {
   it('rejects a production route in the branch-upload config', () => {
     expect(() => verifyWranglerContract(contract, 'branch-upload')).toThrow('route-less');
   });
+
+  // The Studio acceptance identity bypass (#73) must never be reachable
+  // from a real deployment contract (ADR-0001).
+  it('rejects a wrangler config that defines STUDIO_ACCEPTANCE_MODE', () => {
+    const withAcceptanceMode = { ...contract, vars: { STUDIO_ACCEPTANCE_MODE: '1' } };
+    expect(() => verifyWranglerContract(withAcceptanceMode)).toThrow('STUDIO_ACCEPTANCE_MODE');
+    const { routes: _routes, ...branchUploadWithAcceptanceMode } = withAcceptanceMode;
+    expect(() => verifyWranglerContract(branchUploadWithAcceptanceMode, 'branch-upload')).toThrow(
+      'STUDIO_ACCEPTANCE_MODE',
+    );
+  });
+
+  it('accepts a contract with other production vars but no acceptance flag', () => {
+    const withVars = { ...contract, vars: { PRODUCTION_ORIGIN: 'https://jelementi.quz.ma' } };
+    expect(() => verifyWranglerContract(withVars)).not.toThrow();
+  });
 });

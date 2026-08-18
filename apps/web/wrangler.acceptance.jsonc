@@ -1,0 +1,36 @@
+{
+  // Fixture-only Wrangler configuration for the Studio browser acceptance
+  // seam (#73). Selected exclusively by `svelte.config.js` when
+  // `STUDIO_ACCEPTANCE_MODE=1`; the real deploy path never reads this file
+  // (scripts/verify-deploy.ts's `verifyWranglerContract()` only reads the
+  // root `wrangler.jsonc`). Every value below is a deterministic, non-secret
+  // fixture — never a real credential, never a real domain.
+  "compatibility_date": "2026-07-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    // Gates every acceptance-only bypass in the codebase (identity bypass in
+    // request-guard.server.ts, adapter substitution in
+    // acceptance-bootstrap.server.ts). Real production Wrangler
+    // configuration never defines this binding.
+    "STUDIO_ACCEPTANCE_MODE": "1",
+    "ACCESS_AUD": "studio-acceptance-fixture-audience",
+    "ACCESS_TEAM_DOMAIN": "https://studio-acceptance.invalid",
+    "ALLOWED_OPERATOR_EMAIL": "studio-acceptance@example.com",
+    "GITHUB_APP_CLIENT_ID": "studio-acceptance-fixture-client-id",
+    "GITHUB_APP_ID": "1",
+    "GITHUB_INSTALLATION_ID": "1",
+    "GITHUB_REPO_NAME": "studio-acceptance-fixture-repo",
+    "GITHUB_REPO_OWNER": "studio-acceptance-fixture-owner",
+    // Never a real key: the GitHub adapter is substituted for
+    // `FakeGithubAdapter` before any GitHub network call, so this value only
+    // needs to satisfy `config.server.ts`'s PEM-marker shape check.
+    "GITHUB_APP_PRIVATE_KEY": "-----BEGIN STUDIO ACCEPTANCE FIXTURE KEY-----",
+    // Must exactly match the loopback origin the acceptance dev server
+    // serves on (vite.config.ts's self-signed HTTPS loopback server) and
+    // that Playwright's `baseURL` navigates to \u2014 `authorizeStudioMutation`
+    // (request-guard.server.ts) rejects any other Origin as cross-origin
+    // before the acceptance identity bypass is even considered.
+    "PRODUCTION_ORIGIN": "https://127.0.0.1:4319",
+    "PUBLIC_MEDIA_BASE_URL": "https://media.studio-acceptance.invalid/",
+  },
+}

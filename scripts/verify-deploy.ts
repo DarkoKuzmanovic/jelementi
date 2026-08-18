@@ -15,6 +15,7 @@ interface WranglerConfig {
   };
   routes?: Array<{ pattern: string; custom_domain: boolean }>;
   r2_buckets: Array<{ binding: string; bucket_name: string }>;
+  vars?: Record<string, unknown>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,6 +64,19 @@ export function verifyWranglerContract(
     config.r2_buckets[0].bucket_name !== 'jelementi-media'
   ) {
     throw new Error('Reserved R2_MEDIA binding contract changed.');
+  }
+  // The Studio browser acceptance harness (#73) grants full Studio access to
+  // a fixed, non-secret request header when `STUDIO_ACCEPTANCE_MODE` is set
+  // (apps/web/src/lib/server/studio/request-guard.server.ts) — deliberately,
+  // for a loopback-only Playwright fixture, never for production (ADR-0001:
+  // "the same guard covers reads and writes" via full JWT verification).
+  // That variable must never be able to reach a real deployment contract:
+  // this is the structural, tested fail-closed proof, exactly like ADR-0007's
+  // SELF-binding requirement.
+  if (isRecord(config.vars) && 'STUDIO_ACCEPTANCE_MODE' in config.vars) {
+    throw new Error(
+      'wrangler config must never define STUDIO_ACCEPTANCE_MODE: it grants an unauthenticated Studio access bypass (ADR-0001) and belongs only to the acceptance-only apps/web/wrangler.acceptance.jsonc fixture.',
+    );
   }
 }
 

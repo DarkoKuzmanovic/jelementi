@@ -1,0 +1,156 @@
+/**
+ * Studio semantic design tokens (#73 presentation foundation).
+ *
+ * Scoped under `.studio-shell` — never applied globally — so the reader-
+ * facing site is untouched. Light values are the default; a
+ * `prefers-color-scheme: dark` media query swaps in the dark values.
+ * Component styling reads only the semantic custom properties below, never
+ * a raw color/spacing literal, so every Studio surface stays in the same
+ * palette and can be retuned in one place.
+ */
+
+.studio-shell {
+  /* Typography */
+  --studio-font-interface: system-ui, sans-serif;
+  --studio-font-editorial: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --studio-font-evidence: ui-monospace, monospace;
+  --studio-text-base: 16px;
+  --studio-line-height-body: 1.55;
+  --studio-text-compact: 14px;
+  --studio-text-card-title: 18px;
+  --studio-text-section-title: 24px;
+  --studio-text-page-title: 32px;
+
+  /* Spacing scale */
+  --studio-space-1: 4px;
+  --studio-space-2: 8px;
+  --studio-space-3: 12px;
+  --studio-space-4: 16px;
+  --studio-space-6: 24px;
+  --studio-space-8: 32px;
+  --studio-space-12: 48px;
+
+  /* Shape */
+  --studio-radius-control: 6px;
+  --studio-radius-panel: 10px;
+  --studio-radius-pill: 999px;
+  --studio-shadow-dialog: 0 12px 36px rgb(0 0 0 / 0.18);
+
+  /* Light theme tokens */
+  --studio-canvas: #f3f0e9;
+  --studio-panel: #fffef9;
+  --studio-surface-subtle: #ede9df;
+  --studio-surface-selected: #dce9e1;
+  --studio-text-primary: #20231f;
+  --studio-text-muted: #62675e;
+  --studio-border: #d9d4c8;
+  --studio-text-selected: #174230;
+  --studio-action-primary-bg: #215c44;
+  --studio-action-primary-fg: #ffffff;
+  --studio-action-primary-hover: #174230;
+  --studio-link: #315e73;
+  --studio-info-surface: #e7f1f5;
+  --studio-info-text: #264f61;
+  --studio-action-danger-bg: #8d2f27;
+  --studio-action-danger-fg: #ffffff;
+  --studio-action-danger-hover: #6f211b;
+  --studio-danger-surface: #fbe9e6;
+  --studio-danger-text: #7a281f;
+  --studio-disabled-bg: #d9d4c8;
+  --studio-disabled-text: #62675e;
+  --studio-focus: #2563eb;
+
+  background: var(--studio-canvas);
+  color: var(--studio-text-primary);
+  font-family: var(--studio-font-interface);
+  font-size: var(--studio-text-base);
+  line-height: var(--studio-line-height-body);
+}
+
+@media (prefers-color-scheme: dark) {
+  .studio-shell {
+    --studio-canvas: #121310;
+    --studio-panel: #1b1d19;
+    --studio-surface-subtle: #252821;
+    --studio-surface-selected: #294437;
+    --studio-text-primary: #f3f0e8;
+    --studio-text-muted: #b9b5ab;
+    --studio-border: #41443c;
+    --studio-text-selected: #d7f2e2;
+    --studio-action-primary-bg: #8bc7a7;
+    --studio-action-primary-fg: #0f2b1d;
+    --studio-action-primary-hover: #a7d8bd;
+    --studio-link: #9bc3d8;
+    --studio-info-surface: #20323a;
+    --studio-info-text: #d5eefb;
+    --studio-action-danger-bg: #ffb4ab;
+    --studio-action-danger-fg: #3f0a06;
+    --studio-action-danger-hover: #ffd2cc;
+    --studio-danger-surface: #4a211e;
+    --studio-danger-text: #ffdad5;
+    --studio-disabled-bg: #34372f;
+    --studio-disabled-text: #989b91;
+    --studio-focus: #93c5fd;
+  }
+}
+
+.studio-shell :focus-visible {
+  outline: 3px solid var(--studio-focus);
+  outline-offset: 3px;
+}
+
+.studio-shell h1 {
+  font-family: var(--studio-font-editorial);
+  font-size: var(--studio-text-page-title);
+}
+
+.studio-shell h2 {
+  font-family: var(--studio-font-editorial);
+  font-size: var(--studio-text-section-title);
+}
+
+.studio-shell h3 {
+  font-family: var(--studio-font-editorial);
+  font-size: var(--studio-text-card-title);
+}
+
+.studio-lifecycle-summary {
+  background: var(--studio-panel);
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-panel);
+  padding: var(--studio-space-4);
+}
+
+.studio-lifecycle-summary__axis {
+  display: flex;
+  gap: var(--studio-space-4);
+  margin-block: var(--studio-space-2);
+}
+
+.studio-lifecycle-summary__label {
+  border-radius: var(--studio-radius-pill);
+  padding: var(--studio-space-1) var(--studio-space-3);
+  background: var(--studio-surface-selected);
+  color: var(--studio-text-selected);
+  font-size: var(--studio-text-compact);
+}
+
+.studio-evidence-disclosure {
+  font-family: var(--studio-font-evidence);
+  font-size: var(--studio-text-compact);
+  background: var(--studio-surface-subtle);
+  border-radius: var(--studio-radius-control);
+  padding: var(--studio-space-3);
+}
+
+.studio-status-announcer-polite,
+.studio-status-announcer-assertive {
+  font-size: var(--studio-text-compact);
+}
+
+.studio-status-announcer-assertive:not(:empty) {
+  background: var(--studio-danger-surface);
+  color: var(--studio-danger-text);
+  border-radius: var(--studio-radius-control);
+  padding: var(--studio-space-2);
+}

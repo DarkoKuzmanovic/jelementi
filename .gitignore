@@ -16,6 +16,10 @@ generated/
 # Testing
 coverage/
 .vitest-cache/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # Cloudflare / Wrangler (Phase 2+)
 .wrangler/
