@@ -96,15 +96,19 @@ test.describe('deterministic fake probe transport', () => {
   }) => {
     await page.goto(`/studio/articles/${ARTICLE_SLUG}`);
 
-    // Wait for the POST response itself rather than a navigation event:
-    // since #77 opted this route into CSR, SvelteKit's hydrated router
-    // emits a same-document history update that `waitForNavigation` would
-    // resolve on with no response at all.
-    const responsePromise = page.waitForResponse(
-      (candidate) => candidate.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: 'Refresh' }).click();
-    const response = await responsePromise;
+    // waitForResponse rather than waitForNavigation: with the article route
+    // hydrated (csr = true for #77 validation targeting and the #76
+    // destructive confirmation dialog), SvelteKit's hydrated router emits a
+    // same-document history update that a racing waitForNavigation can
+    // resolve with no response at all.
+    const response = await Promise.all([
+      page.waitForResponse(
+        (candidate) =>
+          candidate.request().method() === 'POST' &&
+          candidate.url().includes(`/studio/articles/${ARTICLE_SLUG}`),
+      ),
+      page.getByRole('button', { name: 'Refresh' }).click(),
+    ]).then(([probe]) => probe);
 
     expect(response.status()).toBe(200);
     await expect(page.getByRole('heading', { name: ARTICLE_TITLE, level: 2 })).toBeVisible();

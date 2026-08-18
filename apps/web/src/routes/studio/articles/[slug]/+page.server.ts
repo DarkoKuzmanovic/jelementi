@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import {
   loadStudioEditorPage,
@@ -48,10 +48,12 @@ import type {
 import type { StudioLifecycle } from '../../../../lib/studio/contracts';
 
 export const prerender = false;
-// CSR is a progressive enhancement for #77's validation targeting: hydrated
-// issue links focus the exact metadata control or select the offending body
-// range in the textarea. Server-rendered anchor links (`#studio-field-*`,
-// `#studio-body`) keep working without JavaScript.
+// CSR is a progressive enhancement on this route for two features: #77's
+// validation targeting (hydrated issue links focus the exact metadata
+// control or select the offending body range) and #76's destructive
+// confirmation dialog (hydration swaps the inline forms for a modal).
+// Both stay fully usable without JavaScript: server-rendered anchor links
+// (`#studio-field-*`, `#studio-body`) and inline confirmation forms remain.
 export const csr = true;
 
 const MAX_SLUG_LENGTH = 100;
@@ -356,6 +358,25 @@ export const actions: Actions = {
     if (adapter === undefined) error(503, 'Studio discard unavailable.');
 
     const discard = await discardStudioDraft(adapter, event.params.slug, expectedHeadSha);
+    if (discard.kind === 'discarded') {
+      // A destructive success must land on a surviving resource that can
+      // truthfully render the outcome. When the discarded draft never
+      // reached canonical main, this article page itself is gone (its load
+      // would 404 and swallow the success), so land on the Flowboard with a
+      // closed, static outcome token instead. The decision rule is
+      // deliberately "inline only when presence is proven": on a transient
+      // read failure we cannot know whether this page survives, and the
+      // Flowboard notice stays truthful either way (it reports only what
+      // Discard did — PR closed, branch deleted, main untouched — and
+      // claims nothing about the article's published state).
+      const main = await adapter.getMainRef();
+      const canonical = main.ok
+        ? await adapter.getFileContent(main.value.sha, `content/articles/${event.params.slug}.md`)
+        : main;
+      if (!canonical.ok) {
+        redirect(303, '/studio?outcome=draft-discarded');
+      }
+    }
     const result: StudioDiscardActionData = { discard };
     return result;
   },

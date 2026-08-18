@@ -48,24 +48,31 @@ async function deriveFlowboard(
   return buildStudioFlowboard(result.value, checked);
 }
 
-export const load: PageServerLoad<{ flowboard: StudioFlowboardProjection }> = async ({
-  request,
-  platform,
-  locals,
-}) => {
+export const load: PageServerLoad<{
+  flowboard: StudioFlowboardProjection;
+  outcome?: 'draft-discarded';
+}> = async ({ request, platform, locals, url }) => {
   await requireStudioAccess({ request, platform });
 
   const adapter = (locals as StudioLocals).studioGithubAdapter;
   if (adapter === undefined) error(503, 'Studio article list unavailable.');
 
+  // Closed token set: only the exact static value a successful draft
+  // Discard redirects with is recognized; anything else is ignored. The
+  // notice copy is fixed — no user-controlled text is ever rendered.
+  const outcome =
+    url.searchParams.get('outcome') === 'draft-discarded'
+      ? ('draft-discarded' as const)
+      : undefined;
+
   if (
     isStudioAcceptanceMode(platform?.env) &&
     request.headers.get(STUDIO_ACCEPTANCE_FLOWBOARD_HEADER) === 'empty'
   ) {
-    return { flowboard: buildStudioFlowboard([]) };
+    return { flowboard: buildStudioFlowboard([]), outcome };
   }
 
-  return { flowboard: await deriveFlowboard(adapter, platform) };
+  return { flowboard: await deriveFlowboard(adapter, platform), outcome };
 };
 
 export const actions: Actions = {

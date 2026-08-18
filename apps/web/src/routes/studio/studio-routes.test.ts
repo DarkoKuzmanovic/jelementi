@@ -29,6 +29,7 @@ vi.mock('../../lib/server/studio/request-guard.server', () => ({
 
 import {
   actions as studioArticleActions,
+  csr as articleCsr,
   load as studioArticleLoad,
   prerender as articlePrerender,
 } from './articles/[slug]/+page.server';
@@ -101,6 +102,7 @@ function eventFor<T extends (...args: never[]) => unknown>(
     platform,
     params,
     locals,
+    url: new URL(request.url),
   } as unknown as Parameters<T>[0];
 }
 
@@ -109,11 +111,14 @@ describe('Studio route shell', () => {
     expect(studioArticleActions.replace).toBeTypeOf('function');
   });
 
-  it('keeps every Studio route dynamic while hydrating only the Flowboard controls', () => {
+  it('keeps every Studio route dynamic and hydrates Flowboard and the article editor', () => {
     expect(layoutPrerender).toBe(false);
     expect(studioPrerender).toBe(false);
     expect(studioCsr).toBe(true);
     expect(articlePrerender).toBe(false);
+    // The article route hydrates for the enhanced destructive confirmation
+    // dialog; the inline no-JS confirmation remains the SSR fallback.
+    expect(articleCsr).toBe(true);
   });
 
   it('independently authorizes the Studio layout, list, and article loads', async () => {
@@ -136,6 +141,26 @@ describe('Studio route shell', () => {
     );
 
     expect(requireStudioAccess).toHaveBeenCalledTimes(4);
+  });
+
+  it('recognizes only the exact draft-discarded outcome token on the Flowboard load', async () => {
+    const withOutcome = await studioLoad({
+      ...eventFor(studioLoad, {}, { studioGithubAdapter: studioAdapter }, { env: studioEnv }),
+      url: new URL('https://jelementi.quz.ma/studio?outcome=draft-discarded'),
+    } as unknown as Parameters<typeof studioLoad>[0]);
+    expect(withOutcome.outcome).toBe('draft-discarded');
+
+    const withUnknownToken = await studioLoad({
+      ...eventFor(studioLoad, {}, { studioGithubAdapter: studioAdapter }, { env: studioEnv }),
+      url: new URL('https://jelementi.quz.ma/studio?outcome=<script>alert(1)</script>'),
+    } as unknown as Parameters<typeof studioLoad>[0]);
+    expect(withUnknownToken.outcome).toBeUndefined();
+
+    const withoutOutcome = await studioLoad({
+      ...eventFor(studioLoad, {}, { studioGithubAdapter: studioAdapter }, { env: studioEnv }),
+      url: new URL('https://jelementi.quz.ma/studio'),
+    } as unknown as Parameters<typeof studioLoad>[0]);
+    expect(withoutOutcome.outcome).toBeUndefined();
   });
 
   it('returns the exhaustive server-assigned Flowboard from the protected list load', async () => {
@@ -360,6 +385,36 @@ function seedPublishedOnMain(adapter: FakeGithubAdapter): void {
 }
 
 describe('Studio unpublish & discard actions', () => {
+  it('never mutates GitHub from the article GET load', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const mutating = [
+      'closePullRequest',
+      'deleteBranch',
+      'createBranch',
+      'commitFile',
+      'createPullRequest',
+      'updatePullRequest',
+      'enableAutoMerge',
+    ] as const;
+    for (const method of mutating) {
+      vi.spyOn(adapter, method).mockImplementation((() => {
+        throw new Error(`GET load must not call ${method}`);
+      }) as never);
+    }
+
+    const result = await studioArticleLoad(
+      eventFor(
+        studioArticleLoad,
+        { slug: 'tristan-da-cunha' },
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+      ),
+    );
+
+    expect(result.status.kind).not.toBe('failed');
+  });
+
   it('runs the mutation guard before a typed-slug mismatch and never reaches GitHub', async () => {
     requireStudioMutation.mockClear();
     const adapter = githubBlockingAdapter();
@@ -454,7 +509,7 @@ describe('Studio unpublish & discard actions', () => {
     );
     if (saved.kind !== 'saved') throw new Error(`save failed: ${saved.kind}`);
 
-    const result = await studioArticleActions.discard?.({
+    const promise = studioArticleActions.discard?.({
       request: new Request('https://jelementi.quz.ma/studio/articles/' + draftSlug, {
         method: 'POST',
         body: new URLSearchParams({
@@ -466,12 +521,65 @@ describe('Studio unpublish & discard actions', () => {
       params: { slug: draftSlug },
       locals: { studioGithubAdapter: adapter },
     } as unknown as Parameters<NonNullable<typeof studioArticleActions.publish>>[0]);
+    const result = await promise?.catch(() => undefined);
+
+    // The draft never reached canonical main, so this article page can no
+    // longer render anything truthful — a successful Discard lands on the
+    // Flowboard with the closed outcome token instead.
+    expect(result).toBeUndefined();
+    await expect(promise).rejects.toMatchObject({
+      status: 303,
+      location: '/studio?outcome=draft-discarded',
+    });
+    const branch = await adapter.getBranch(`studio/article/${draftSlug}`);
+    expect(branch.ok).toBe(false);
+  });
+
+  it('renders the discarded outcome inline when the article is still published on main', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      'tristan-da-cunha',
+      {
+        metadata: {
+          title: 'The 250 People at the End of the World',
+          slug: 'tristan-da-cunha',
+          excerpt: 'A remote settlement, revised.',
+          publishedAt: '2026-07-26',
+          updatedAt: '2026-07-27',
+          status: 'published',
+          category: 'History',
+          tags: ['islands'],
+          author: 'Jelementi',
+          cover: { src: 'articles/tristan-da-cunha/cover.svg', alt: 'Island' },
+          references: [],
+        },
+        body: 'Revised body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
+    );
+    if (saved.kind !== 'saved') throw new Error(`save failed: ${saved.kind}`);
+
+    const result = await studioArticleActions.discard?.({
+      request: new Request('https://jelementi.quz.ma/studio/articles/tristan-da-cunha', {
+        method: 'POST',
+        body: new URLSearchParams({
+          confirmation: 'tristan-da-cunha',
+          expectedHeadSha: saved.concurrency.draftHeadSha as string,
+        }),
+      }),
+      platform: { env: studioEnv },
+      params: { slug: 'tristan-da-cunha' },
+      locals: { studioGithubAdapter: adapter },
+    } as unknown as Parameters<NonNullable<typeof studioArticleActions.publish>>[0]);
 
     expect(result).toMatchObject({
       discard: { kind: 'discarded', pullRequest: { number: saved.pullRequest.number } },
     });
-    const branch = await adapter.getBranch(`studio/article/${draftSlug}`);
-    expect(branch.ok).toBe(false);
   });
 });
 
