@@ -12,13 +12,25 @@
     save,
     replacement,
     formId = 'studio-article-form',
+    recoveryPresentation = 'inline',
   }: {
     editor: StudioEditorData;
     submitted?: StudioPreviewInput;
     save?: StudioSaveResult;
     replacement?: StudioDraftReplacementResult;
     formId?: string;
+    /**
+     * Where conflict/failure/replacement results are presented. 'inline'
+     * (default) keeps the original in-editor sections and replace button;
+     * 'external' hides them so a route-owned recovery panel (#77) can own
+     * that presentation without duplicating it. Saved and save_rejected
+     * confirmations always stay inline — they are editor feedback, not
+     * recovery.
+     */
+    recoveryPresentation?: 'inline' | 'external';
   } = $props();
+
+  const inlineRecovery = $derived(recoveryPresentation === 'inline');
 
   const visible = $derived(submitted ?? { metadata: editor.metadata, body: editor.body });
   const metadata = $derived(visible.metadata);
@@ -56,15 +68,21 @@
       <div class="studio-editor__field-grid">
         <label class="studio-editor__field-wide">
           Title
-          <input name="title" value={metadata.title} required />
+          <input id="studio-field-title" name="title" value={metadata.title} required />
         </label>
         <label>
           Slug
-          <input name="slug" value={metadata.slug} readonly={slugLocked} required />
+          <input
+            id="studio-field-slug"
+            name="slug"
+            value={metadata.slug}
+            readonly={slugLocked}
+            required
+          />
         </label>
         <label>
           Status
-          <select name="status" value={metadata.status}>
+          <select id="studio-field-status" name="status" value={metadata.status}>
             <option value="draft">Draft</option>
             <option value="published">Published</option>
             <option value="archived">Archived</option>
@@ -72,7 +90,9 @@
         </label>
         <label class="studio-editor__field-wide">
           Excerpt
-          <textarea name="excerpt" rows="3" required>{metadata.excerpt}</textarea>
+          <textarea id="studio-field-excerpt" name="excerpt" rows="3" required
+            >{metadata.excerpt}</textarea
+          >
         </label>
       </div>
     </section>
@@ -85,23 +105,27 @@
       <div class="studio-editor__field-grid">
         <label>
           Updated date
-          <input name="updatedAt" value={metadata.updatedAt} required />
+          <input id="studio-field-updatedAt" name="updatedAt" value={metadata.updatedAt} required />
         </label>
         <label>
           Published date
-          <input name="publishedAt" value={metadata.publishedAt ?? ''} />
+          <input
+            id="studio-field-publishedAt"
+            name="publishedAt"
+            value={metadata.publishedAt ?? ''}
+          />
         </label>
         <label>
           Category
-          <input name="category" value={metadata.category} required />
+          <input id="studio-field-category" name="category" value={metadata.category} required />
         </label>
         <label>
           Tags <span>(comma-separated)</span>
-          <input name="tags" value={metadata.tags.join(', ')} />
+          <input id="studio-field-tags" name="tags" value={metadata.tags.join(', ')} />
         </label>
         <label class="studio-editor__field-wide">
           Author
-          <input name="author" value={metadata.author} required />
+          <input id="studio-field-author" name="author" value={metadata.author} required />
         </label>
       </div>
 
@@ -110,11 +134,11 @@
         <div class="studio-editor__field-grid">
           <label>
             Media key
-            <input name="coverSrc" value={metadata.cover.src} required />
+            <input id="studio-field-coverSrc" name="coverSrc" value={metadata.cover.src} required />
           </label>
           <label>
             Alt text
-            <input name="coverAlt" value={metadata.cover.alt} />
+            <input id="studio-field-coverAlt" name="coverAlt" value={metadata.cover.alt} />
           </label>
         </div>
       </fieldset>
@@ -124,11 +148,12 @@
         <div class="studio-editor__field-grid">
           <label>
             Media key
-            <input name="audioSrc" value={metadata.audio?.src ?? ''} />
+            <input id="studio-field-audioSrc" name="audioSrc" value={metadata.audio?.src ?? ''} />
           </label>
           <label>
             Duration in seconds
             <input
+              id="studio-field-audioDurationSeconds"
               name="audioDurationSeconds"
               type="number"
               min="1"
@@ -138,7 +163,7 @@
         </div>
       </fieldset>
 
-      <fieldset>
+      <fieldset id="studio-field-references" tabindex="-1">
         <legend>References</legend>
         {#each metadata.references as reference, index (index)}
           <div class="studio-reference-fields">
@@ -202,7 +227,7 @@
     <div class="studio-editor__actions">
       <button type="submit">Preview</button>
       <button type="submit" formaction="?/save">Save draft</button>
-      {#if save?.kind === 'save_conflict' && save.replacementAvailable}
+      {#if inlineRecovery && save?.kind === 'save_conflict' && save.replacementAvailable}
         <button type="submit" formaction="?/replace">Replace stale Studio draft</button>
       {/if}
     </div>
@@ -210,7 +235,9 @@
 
   {#if save?.kind === 'saved'}
     <section aria-labelledby="save-result-heading">
-      <h3 id="save-result-heading">Studio draft saved</h3>
+      <h3 id="save-result-heading">
+        {save.compileIssues.length > 0 ? 'Saved — needs fixes' : 'Studio draft saved'}
+      </h3>
       <p>
         Committed to <code>studio/article/{metadata.slug}</code> and opened as
         <a href={save.pullRequest.url}>Draft PR #{save.pullRequest.number}</a>.
@@ -227,7 +254,7 @@
         </ul>
       {/if}
     </section>
-  {:else if save?.kind === 'save_conflict'}
+  {:else if inlineRecovery && save?.kind === 'save_conflict'}
     <section aria-labelledby="save-conflict-heading">
       <h3 id="save-conflict-heading">Save blocked: this draft moved on GitHub</h3>
       <p>
@@ -258,7 +285,7 @@
         {/each}
       </ul>
     </section>
-  {:else if save?.kind === 'save_failed'}
+  {:else if inlineRecovery && save?.kind === 'save_failed'}
     <section aria-labelledby="save-failed-heading">
       <h3 id="save-failed-heading">Save failed</h3>
       {#if save.reason === 'topology'}
@@ -278,63 +305,66 @@
     </section>
   {/if}
 
-  {#if replacement?.kind === 'replaced'}
-    <section aria-labelledby="replacement-result-heading">
-      <h3 id="replacement-result-heading">Studio draft replaced</h3>
-      <p>
-        The replacement is based on main <code>{replacement.concurrency.baseMainSha}</code> and has
-        a new <a href={replacement.pullRequest.url}>Draft PR #{replacement.pullRequest.number}</a>.
-        Review it and run Publish again; the previous approval was not carried forward.
-      </p>
-      {#if replacement.compileIssues.length > 0}
-        <p>The candidate was preserved, but the replacement is not publishable yet:</p>
-        <ul>
-          {#each replacement.compileIssues as issue, index (index)}
-            <li>{issue.code}: {issue.message}</li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
-  {:else if replacement}
-    <section aria-labelledby="replacement-failed-heading">
-      <h3 id="replacement-failed-heading">Draft replacement stopped</h3>
-      <p>
-        Phase <code>{replacement.phase}</code> stopped with <code>{replacement.reason}</code>. Your
-        candidate remains in the editor above. Inspect this evidence before retrying.
-      </p>
-      <dl>
-        {#if replacement.evidence.mainSha}
-          <dt>Main</dt>
-          <dd><code>{replacement.evidence.mainSha}</code></dd>
+  {#if inlineRecovery}
+    {#if replacement?.kind === 'replaced'}
+      <section aria-labelledby="replacement-result-heading">
+        <h3 id="replacement-result-heading">Studio draft replaced</h3>
+        <p>
+          The replacement is based on main <code>{replacement.concurrency.baseMainSha}</code> and
+          has a new
+          <a href={replacement.pullRequest.url}>Draft PR #{replacement.pullRequest.number}</a>.
+          Review it and run Publish again; the previous approval was not carried forward.
+        </p>
+        {#if replacement.compileIssues.length > 0}
+          <p>The candidate was preserved, but the replacement is not publishable yet:</p>
+          <ul>
+            {#each replacement.compileIssues as issue, index (index)}
+              <li>{issue.code}: {issue.message}</li>
+            {/each}
+          </ul>
         {/if}
-        {#if replacement.evidence.target}
-          <dt>Target</dt>
-          <dd>
-            <code>{replacement.evidence.target.path}</code>, loaded blob
-            <code>{replacement.evidence.target.loadedBlobSha ?? 'absent'}</code>, fresh blob
-            <code>{replacement.evidence.target.freshBlobSha ?? 'absent'}</code>
-          </dd>
-        {/if}
-        {#if replacement.evidence.branch}
-          <dt>Branch</dt>
-          <dd>
-            <a href={replacement.evidence.branch.url}>{replacement.evidence.branch.name}</a>
-            at <code>{replacement.evidence.branch.headSha}</code>
-          </dd>
-        {/if}
-        {#if replacement.evidence.pullRequest}
-          <dt>Pull request</dt>
-          <dd>
-            <a href={replacement.evidence.pullRequest.url}
-              >#{replacement.evidence.pullRequest.number}</a
-            >
-            ({replacement.evidence.pullRequest.state}, {replacement.evidence.pullRequest.draft
-              ? 'Draft'
-              : 'ready'})
-          </dd>
-        {/if}
-      </dl>
-    </section>
+      </section>
+    {:else if replacement}
+      <section aria-labelledby="replacement-failed-heading">
+        <h3 id="replacement-failed-heading">Draft replacement stopped</h3>
+        <p>
+          Phase <code>{replacement.phase}</code> stopped with <code>{replacement.reason}</code>.
+          Your candidate remains in the editor above. Inspect this evidence before retrying.
+        </p>
+        <dl>
+          {#if replacement.evidence.mainSha}
+            <dt>Main</dt>
+            <dd><code>{replacement.evidence.mainSha}</code></dd>
+          {/if}
+          {#if replacement.evidence.target}
+            <dt>Target</dt>
+            <dd>
+              <code>{replacement.evidence.target.path}</code>, loaded blob
+              <code>{replacement.evidence.target.loadedBlobSha ?? 'absent'}</code>, fresh blob
+              <code>{replacement.evidence.target.freshBlobSha ?? 'absent'}</code>
+            </dd>
+          {/if}
+          {#if replacement.evidence.branch}
+            <dt>Branch</dt>
+            <dd>
+              <a href={replacement.evidence.branch.url}>{replacement.evidence.branch.name}</a>
+              at <code>{replacement.evidence.branch.headSha}</code>
+            </dd>
+          {/if}
+          {#if replacement.evidence.pullRequest}
+            <dt>Pull request</dt>
+            <dd>
+              <a href={replacement.evidence.pullRequest.url}
+                >#{replacement.evidence.pullRequest.number}</a
+              >
+              ({replacement.evidence.pullRequest.state}, {replacement.evidence.pullRequest.draft
+                ? 'Draft'
+                : 'ready'})
+            </dd>
+          {/if}
+        </dl>
+      </section>
+    {/if}
   {/if}
 </section>
 

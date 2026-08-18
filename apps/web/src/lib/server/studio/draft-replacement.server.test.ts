@@ -324,21 +324,25 @@ describe('replaceStudioDraft', () => {
     expect(pulls.ok && pulls.value.filter((pull) => pull.state === 'open')).toHaveLength(1);
   });
 
-  it('returns the exact failed phase for a transport timeout at every protocol boundary', async () => {
-    const cases: Array<[StudioGithubOperation, string]> = [
-      ['get-main-ref', 'discover-main'],
-      ['get-branch', 'discover-branch'],
-      ['get-file-content', 'verify-target'],
-      ['list-article-files', 'verify-diff'],
-      ['list-pull-requests', 'discover-pull-request'],
-      ['close-pull-request', 'close-pull-request'],
-      ['delete-branch', 'delete-branch'],
-      ['create-branch', 'recreate-branch'],
-      ['commit-file', 'commit-candidate'],
-      ['create-pull-request', 'create-pull-request'],
+  it('returns the exact failed phase and server-proven mutation state at every protocol boundary', async () => {
+    // Structural proof of the mutation classification (#77): every phase
+    // before the first mutating call (close-pull-request) reports 'none';
+    // every phase at or after it reports 'partial', because the old Draft
+    // PR close may already have applied on GitHub.
+    const cases: Array<[StudioGithubOperation, string, 'none' | 'partial']> = [
+      ['get-main-ref', 'discover-main', 'none'],
+      ['get-branch', 'discover-branch', 'none'],
+      ['get-file-content', 'verify-target', 'none'],
+      ['list-article-files', 'verify-diff', 'none'],
+      ['list-pull-requests', 'discover-pull-request', 'none'],
+      ['close-pull-request', 'close-pull-request', 'partial'],
+      ['delete-branch', 'delete-branch', 'partial'],
+      ['create-branch', 'recreate-branch', 'partial'],
+      ['commit-file', 'commit-candidate', 'partial'],
+      ['create-pull-request', 'create-pull-request', 'partial'],
     ];
 
-    for (const [operation, phase] of cases) {
+    for (const [operation, phase, mutation] of cases) {
       const adapter = new FakeGithubAdapter(config);
       seedCanonical(adapter);
       const main = await adapter.getMainRef();
@@ -367,6 +371,7 @@ describe('replaceStudioDraft', () => {
         candidate,
         phase,
         reason: 'github',
+        mutation,
       });
     }
   });
@@ -405,6 +410,8 @@ describe('replaceStudioDraft', () => {
         candidate,
         phase: 'discover-pull-request',
         reason: 'topology',
+        // Discovered before closing anything — provably untouched.
+        mutation: 'none',
       });
       const pulls = await adapter.listPullRequests(branchName);
       expect(pulls.ok && pulls.value.every((pull) => pull.state === 'open')).toBe(true);
@@ -788,7 +795,12 @@ describe('replaceStudioDraft', () => {
     const interrupted = await replaceStudioDraft(adapter, slug, candidate, saved.concurrency, {
       mediaBaseUrl,
     });
-    expect(interrupted).toMatchObject({ kind: 'replacement_failed', phase: 'close-pull-request' });
+    expect(interrupted).toMatchObject({
+      kind: 'replacement_failed',
+      phase: 'close-pull-request',
+      // The close was issued and may have applied — never reported as untouched.
+      mutation: 'partial',
+    });
 
     const resumed = await replaceStudioDraft(adapter, slug, candidate, saved.concurrency, {
       mediaBaseUrl,
@@ -884,6 +896,7 @@ describe('replaceStudioDraft', () => {
       kind: 'replacement_failed',
       candidate,
       phase: 'delete-branch',
+      mutation: 'partial',
     });
 
     const resumed = await replaceStudioDraft(adapter, slug, candidate, saved.concurrency, {
@@ -922,6 +935,9 @@ describe('replaceStudioDraft', () => {
       candidate,
       phase: 'confirm-replacement',
       reason: 'not-eligible',
+      // Everything up to confirmation already ran — a late conflict must
+      // never present itself as an untouched draft.
+      mutation: 'partial',
       evidence: {
         mainSha: adapter.movedMainSha,
         target: { loadedBlobSha: 'b'.repeat(40), freshBlobSha: '9'.repeat(40) },

@@ -7,6 +7,9 @@
   import StudioLifecycleSummary from '../../../../lib/studio/StudioLifecycleSummary.svelte';
   import StudioEvidenceDisclosure from '../../../../lib/studio/StudioEvidenceDisclosure.svelte';
   import StudioStatusAnnouncer from '../../../../lib/studio/StudioStatusAnnouncer.svelte';
+  import StudioValidationSummary from '../../../../lib/studio/StudioValidationSummary.svelte';
+  import StudioRecoveryPanel from '../../../../lib/studio/StudioRecoveryPanel.svelte';
+  import { buildStudioRecoveryProjection } from '../../../../lib/studio/recovery-projection';
   import { buildStudioWorkspaceProjection } from '../../../../lib/studio/workspace-projection';
   import { studioEditorCandidateEquals } from '../../../../lib/studio/editorial-candidate';
   import type {
@@ -14,6 +17,7 @@
     StudioPreviewActionData,
     StudioSaveActionData,
   } from '../../../../lib/server/studio/editor-route.server';
+  import type { StudioValidationProjection } from '../../../../lib/server/studio/validation-projection.server';
   import type { StudioPublishActionData, StudioRefreshActionData } from './+page.server';
   import type { StudioUnpublishActionData, StudioDiscardActionData } from './+page.server';
 
@@ -24,11 +28,15 @@
       : undefined,
   );
   const saveAction = $derived(
-    form && typeof form === 'object' && 'save' in form ? (form as StudioSaveActionData) : undefined,
+    form && typeof form === 'object' && 'save' in form
+      ? (form as StudioSaveActionData & { validation?: StudioValidationProjection })
+      : undefined,
   );
   const replacementAction = $derived(
     form && typeof form === 'object' && 'replacement' in form
-      ? (form as StudioDraftReplacementActionData)
+      ? (form as StudioDraftReplacementActionData & {
+          validation?: StudioValidationProjection;
+        })
       : undefined,
   );
   const publishAction = $derived(
@@ -67,11 +75,29 @@
       !studioEditorCandidateEquals(submittedCandidate, data.editor),
   );
 
-  // Server-authored composite view above `status`: this route never ships
-  // client JS (`csr = false`), so this is computed during SSR only, never
-  // in the browser. It composes the existing lifecycle result, it never
-  // replaces it (#73).
+  // Server-authored composite view above `status`. This route now hydrates
+  // (`csr = true`, #77) so validation issue links can focus their target
+  // control and select body ranges; the projection itself still composes
+  // the existing lifecycle result, it never replaces it (#73).
   const workspace = $derived(buildStudioWorkspaceProjection(status, data.editor.concurrency));
+
+  // #77: validation comes from the server (action result first, else the
+  // load's committed-draft projection); recovery is derived from whichever
+  // operation result the form carries. Replacement wins over publish over
+  // save — the most recent authoritative operation owns the presentation.
+  const validation = $derived(
+    saveAction?.validation ??
+      replacementAction?.validation ??
+      publishAction?.validation ??
+      data.validation,
+  );
+  const recovery = $derived(
+    buildStudioRecoveryProjection({
+      save: saveAction?.save,
+      publish: publishAction?.publish,
+      replacement: replacementAction?.replacement,
+    }),
+  );
 </script>
 
 <StudioStatusAnnouncer politeMessage={workspace.summary} />
@@ -83,6 +109,7 @@
       submitted={submittedCandidate}
       save={saveAction?.save}
       replacement={replacementAction?.replacement}
+      recoveryPresentation="external"
     />
   {/snippet}
 
@@ -104,8 +131,10 @@
       {/if}
       <div id="validation-summary">
         <StudioLifecycleSummary projection={workspace} />
+        <StudioValidationSummary {validation} />
       </div>
       <div id="recovery">
+        <StudioRecoveryPanel {recovery} />
         <StudioPublishPanel
           {status}
           {candidateDirty}

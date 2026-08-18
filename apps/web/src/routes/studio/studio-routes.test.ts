@@ -7,6 +7,11 @@ import StudioEditor from '../../lib/studio/StudioEditor.svelte';
 import StudioPublishPanel from '../../lib/studio/StudioPublishPanel.svelte';
 import type { StudioGithubConfig } from '../../lib/server/studio/config.server';
 import type { StudioLifecycle, StudioMetadata } from '../../lib/studio/contracts';
+import {
+  STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+  STUDIO_ACCEPTANCE_RECOVERY_HEADER,
+  resolveStudioAcceptanceAdapter,
+} from '../../lib/server/studio/acceptance-bootstrap.server';
 
 const { requireStudioAccess, requireStudioMutation } = vi.hoisted(() => ({
   requireStudioAccess: vi.fn(async () => ({ ok: true as const, email: 'darko@example.com' })),
@@ -225,12 +230,14 @@ function actionEventFor(
   locals: Record<string, unknown>,
   platform: { env?: WorkerEnv } | undefined,
   formFields?: Record<string, string> | FormData,
+  headers?: Record<string, string>,
 ) {
   const actionRequest =
     formFields === undefined
-      ? new Request('https://jelementi.quz.ma/studio/articles/' + slug, { method: 'POST' })
+      ? new Request('https://jelementi.quz.ma/studio/articles/' + slug, { method: 'POST', headers })
       : new Request('https://jelementi.quz.ma/studio/articles/' + slug, {
           method: 'POST',
+          headers,
           body: formFields instanceof FormData ? formFields : new URLSearchParams(formFields),
         });
   return {
@@ -748,7 +755,13 @@ describe('StudioEditor Draft replacement offer', () => {
           kind: 'save_conflict',
           loaded: concurrency,
           current: { baseMainSha: 'd'.repeat(40), draftHeadSha: 'b'.repeat(40) },
-          replacementAvailable: true,
+          replacementAvailable: {
+            target: {
+              path: 'content/articles/example.md',
+              loadedBlobSha: '1'.repeat(40),
+              freshBlobSha: '1'.repeat(40),
+            },
+          },
         },
       },
     });
@@ -789,6 +802,7 @@ describe('StudioEditor Draft replacement offer', () => {
           candidate,
           phase: 'delete-branch',
           reason: 'github',
+          mutation: 'partial',
           evidence: {
             mainSha: 'd'.repeat(40),
             branch: {
@@ -874,5 +888,358 @@ describe('StudioPublishPanel unpublish retry availability', () => {
     // only a revalidated committed draft (`draft_valid`) enables it.
     expect(body).toContain('disabled=""');
     expect(body).toContain('Publish saved version');
+  });
+});
+
+describe('Studio recovery boundary (#77)', () => {
+  function editorForm(
+    article: StudioMetadata,
+    body: string,
+    concurrency: { baseMainSha: string; draftHeadSha?: string; expectedBlobSha?: string },
+  ): FormData {
+    const form = new FormData();
+    form.set('title', article.title);
+    form.set('slug', article.slug);
+    form.set('excerpt', article.excerpt);
+    form.set('publishedAt', article.publishedAt ?? '');
+    form.set('updatedAt', article.updatedAt);
+    form.set('status', article.status);
+    form.set('category', article.category);
+    form.set('tags', article.tags.join(', '));
+    form.set('author', article.author);
+    form.set('coverSrc', article.cover.src);
+    form.set('coverAlt', article.cover.alt);
+    form.set('audioSrc', article.audio?.src ?? '');
+    form.set('audioDurationSeconds', String(article.audio?.durationSeconds ?? ''));
+    form.append('referenceTitle', '');
+    form.append('referenceUrl', '');
+    form.append('referencePublisher', '');
+    form.append('referenceAccessedAt', '');
+    form.set('body', body);
+    form.set('baseMainSha', concurrency.baseMainSha);
+    if (concurrency.draftHeadSha !== undefined) {
+      form.set('draftHeadSha', concurrency.draftHeadSha);
+    }
+    if (concurrency.expectedBlobSha !== undefined) {
+      form.set('expectedBlobSha', concurrency.expectedBlobSha);
+    }
+    return form;
+  }
+
+  it('opts the article route into CSR for safe body-range focus targeting', async () => {
+    const { csr: articleCsr } = await import('./articles/[slug]/+page.server');
+    expect(articleCsr).toBe(true);
+  });
+
+  it('load attaches an actionable validation projection for an invalid committed draft', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const invalidSlug = 'invalid-committed';
+    const invalidMetadata: StudioMetadata = { ...draftMetadata, slug: invalidSlug };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const mainSha = main.value.sha;
+    const saved = await saveStudioDraft(
+      adapter,
+      invalidSlug,
+      {
+        metadata: invalidMetadata,
+        body: '# Unsupported heading',
+        concurrency: { baseMainSha: mainSha },
+      },
+      { mediaBaseUrl: 'https://media.jelementi.quz.ma/' },
+    );
+    expect(saved.kind).toBe('saved');
+
+    const result = await studioArticleLoad(
+      eventFor(
+        studioArticleLoad,
+        { slug: invalidSlug },
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+      ),
+    );
+
+    expect(result.status.kind).toBe('draft_invalid');
+    expect(result.validation).toBeDefined();
+    expect(result.validation?.count).toBeGreaterThan(0);
+    expect(result.validation?.severity).toBe('blocking');
+    expect(result.validation?.first.target.kind).toBe('body');
+    if (result.validation?.first.target.kind === 'body') {
+      expect(result.validation.first.target.controlId).toBe('studio-body');
+      expect(
+        result.editor.body.slice(
+          result.validation.first.target.selectionStart,
+          result.validation.first.target.selectionEnd,
+        ),
+      ).toBe('# Unsupported heading');
+    }
+  });
+
+  it('load attaches no validation projection for a valid committed draft', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const validSlug = 'valid-committed';
+    const validMetadata: StudioMetadata = { ...draftMetadata, slug: validSlug };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const mainSha = main.value.sha;
+    await saveStudioDraft(
+      adapter,
+      validSlug,
+      {
+        metadata: validMetadata,
+        body: 'A perfectly fine body.',
+        concurrency: { baseMainSha: mainSha },
+      },
+      { mediaBaseUrl: 'https://media.jelementi.quz.ma/' },
+    );
+
+    const result = await studioArticleLoad(
+      eventFor(
+        studioArticleLoad,
+        { slug: validSlug },
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+      ),
+    );
+
+    expect(result.status.kind).toBe('draft_valid');
+    expect(result.validation).toBeUndefined();
+  });
+
+  it('save attaches a validation projection targeting the body for an invalid saved draft', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const slug = 'save-invalid-draft';
+    const article: StudioMetadata = { ...draftMetadata, slug };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const mainSha = main.value.sha;
+
+    const result = (await studioArticleActions.save?.(
+      actionEventFor(
+        slug,
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        editorForm(article, '# Bad heading', { baseMainSha: mainSha }),
+      ),
+    )) as {
+      save: { kind: string };
+      validation?: { count: number; first: { target: { kind: string } } };
+    };
+
+    expect(result.save.kind).toBe('saved');
+    expect(result.validation).toBeDefined();
+    expect(result.validation?.first.target.kind).toBe('body');
+  });
+
+  it('save attaches no validation projection when the saved draft is valid', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const slug = 'save-valid-draft';
+    const article: StudioMetadata = { ...draftMetadata, slug };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const mainSha = main.value.sha;
+
+    const result = (await studioArticleActions.save?.(
+      actionEventFor(
+        slug,
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        editorForm(article, 'A fine body.', { baseMainSha: mainSha }),
+      ),
+    )) as { save: { kind: string }; validation?: unknown };
+
+    expect(result.save.kind).toBe('saved');
+    expect(result.validation).toBeUndefined();
+  });
+
+  it('replace attaches a validation projection when the replacement compiles with issues', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const slug = 'replace-with-issues';
+    const article: StudioMetadata = { ...draftMetadata, slug };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const mainSha = main.value.sha;
+    const saved = await saveStudioDraft(
+      adapter,
+      slug,
+      { metadata: article, body: 'Original body.', concurrency: { baseMainSha: mainSha } },
+      { mediaBaseUrl: 'https://media.jelementi.quz.ma/' },
+    );
+    expect(saved.kind).toBe('saved');
+    if (saved.kind !== 'saved') return;
+    adapter.advanceMain();
+
+    const result = (await studioArticleActions.replace?.(
+      actionEventFor(
+        slug,
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        editorForm(article, '# Invalid replacement body', saved.concurrency),
+      ),
+    )) as {
+      replacement: { kind: string };
+      validation?: { first: { target: { kind: string } } };
+    };
+
+    expect(result.replacement.kind).toBe('replaced');
+    expect(result.validation).toBeDefined();
+    expect(result.validation?.first.target.kind).toBe('body');
+  });
+
+  it('replace reports a post-mutation partial failure with the server-proven mutation state', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const slug = 'replace-partial-failure';
+    const article: StudioMetadata = { ...draftMetadata, slug };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      slug,
+      { metadata: article, body: 'Original body.', concurrency: { baseMainSha: main.value.sha } },
+      { mediaBaseUrl: 'https://media.jelementi.quz.ma/' },
+    );
+    expect(saved.kind).toBe('saved');
+    if (saved.kind !== 'saved') return;
+    adapter.advanceMain();
+    // The delete of the stale branch fails AFTER the old Draft PR was
+    // already closed — the post-mutation partial state (#77).
+    adapter.failNextOperation('delete-branch');
+
+    const result = (await studioArticleActions.replace?.(
+      actionEventFor(
+        slug,
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        editorForm(article, 'Candidate body.', saved.concurrency),
+      ),
+    )) as {
+      replacement: { kind: string; phase?: string; mutation?: string };
+    };
+
+    expect(result.replacement.kind).toBe('replacement_failed');
+    expect(result.replacement.phase).toBe('delete-branch');
+    expect(result.replacement.mutation).toBe('partial');
+    const pulls = await adapter.listPullRequests(`studio/article/${slug}`);
+    if (!pulls.ok) throw new Error('pulls unreadable');
+    // The old Draft PR really was closed before the failure — the truthful
+    // partial-state presentation is not hypothetical.
+    expect(pulls.value.filter((pull) => pull.state === 'open')).toHaveLength(0);
+  });
+
+  it('publish attaches a validation projection only for real compile issues, not unsaved-changes rejections', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const slug = 'publish-unsaved';
+    const article: StudioMetadata = { ...publishableMetadata, slug };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const mainSha = main.value.sha;
+    const saved = await saveStudioDraft(
+      adapter,
+      slug,
+      { metadata: article, body: 'Saved body.', concurrency: { baseMainSha: mainSha } },
+      { mediaBaseUrl: 'https://media.jelementi.quz.ma/' },
+    );
+    expect(saved.kind).toBe('saved');
+    if (saved.kind !== 'saved') return;
+
+    const result = (await studioArticleActions.publish?.(
+      actionEventFor(
+        slug,
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        publishForm(
+          article,
+          'Different unsaved body.',
+          saved.concurrency,
+          saved.concurrency.draftHeadSha as string,
+        ),
+      ),
+    )) as { publish: { kind: string }; validation?: unknown };
+
+    expect(result.publish.kind).toBe('publish_rejected');
+    expect(result.validation).toBeUndefined();
+  });
+
+  it('acceptance recovery header drives a real save conflict with a replacement offer, then a real replacement', async () => {
+    const env = { ...studioEnv, STUDIO_ACCEPTANCE_MODE: '1' } as WorkerEnv;
+    const adapter = await resolveStudioAcceptanceAdapter(env);
+    const loaded = await studioArticleLoad(
+      eventFor(
+        studioArticleLoad,
+        { slug: STUDIO_ACCEPTANCE_ARTICLE_SLUG },
+        { studioGithubAdapter: adapter },
+        { env },
+      ),
+    );
+    const headers = { [STUDIO_ACCEPTANCE_RECOVERY_HEADER]: 'main-moved' };
+
+    const conflicted = (await studioArticleActions.save?.(
+      actionEventFor(
+        STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+        { studioGithubAdapter: adapter },
+        { env },
+        editorForm(loaded.editor.metadata, loaded.editor.body, loaded.editor.concurrency),
+        headers,
+      ),
+    )) as {
+      save: {
+        kind: string;
+        replacementAvailable?: {
+          target: { path: string; loadedBlobSha?: string; freshBlobSha?: string };
+        };
+      };
+    };
+
+    expect(conflicted.save.kind).toBe('save_conflict');
+    // The offer always carries the server-read eligibility evidence: the
+    // article blob on loaded main and on fresh main, proven identical (both
+    // absent here — this acceptance article exists only as a draft).
+    const offer = conflicted.save.replacementAvailable;
+    expect(offer).toBeDefined();
+    expect(offer?.target.path).toBe(`content/articles/${STUDIO_ACCEPTANCE_ARTICLE_SLUG}.md`);
+    expect(offer?.target.freshBlobSha).toBe(offer?.target.loadedBlobSha);
+
+    // The same header rides on the follow-up Replace submission (Playwright
+    // sets extra headers per context) — replacement re-reads fresh main and
+    // still succeeds through the real domain function.
+    const replaced = (await studioArticleActions.replace?.(
+      actionEventFor(
+        STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+        { studioGithubAdapter: adapter },
+        { env },
+        editorForm(loaded.editor.metadata, loaded.editor.body, loaded.editor.concurrency),
+        headers,
+      ),
+    )) as { replacement: { kind: string } };
+
+    expect(replaced.replacement.kind).toBe('replaced');
+  });
+
+  it('the recovery header changes nothing outside acceptance mode', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    seedPublishedOnMain(adapter);
+    const slug = 'header-outside-acceptance';
+    const article: StudioMetadata = { ...draftMetadata, slug };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+
+    const result = (await studioArticleActions.save?.(
+      actionEventFor(
+        slug,
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        editorForm(article, 'A fine body.', { baseMainSha: main.value.sha }),
+        { [STUDIO_ACCEPTANCE_RECOVERY_HEADER]: 'main-moved' },
+      ),
+    )) as { save: { kind: string } };
+
+    expect(result.save.kind).toBe('saved');
   });
 });
