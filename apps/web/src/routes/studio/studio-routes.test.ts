@@ -32,7 +32,12 @@ import {
   load as newArticleLoad,
   prerender as newArticlePrerender,
 } from './articles/new/+page.server';
-import { load as studioLoad, prerender as studioPrerender } from './+page.server';
+import {
+  actions as studioHomeActions,
+  csr as studioCsr,
+  load as studioLoad,
+  prerender as studioPrerender,
+} from './+page.server';
 
 const request = new Request('https://jelementi.quz.ma/studio');
 const studioEnv: WorkerEnv = {
@@ -99,9 +104,10 @@ describe('Studio route shell', () => {
     expect(studioArticleActions.replace).toBeTypeOf('function');
   });
 
-  it('keeps every Studio route dynamic and server-rendered', () => {
+  it('keeps every Studio route dynamic while hydrating only the Flowboard controls', () => {
     expect(layoutPrerender).toBe(false);
     expect(studioPrerender).toBe(false);
+    expect(studioCsr).toBe(true);
     expect(articlePrerender).toBe(false);
   });
 
@@ -127,19 +133,47 @@ describe('Studio route shell', () => {
     expect(requireStudioAccess).toHaveBeenCalledTimes(4);
   });
 
-  it('returns GitHub-derived article rows from the protected list load', async () => {
+  it('returns the exhaustive server-assigned Flowboard from the protected list load', async () => {
     const result = await studioLoad(
       eventFor(studioLoad, {}, { studioGithubAdapter: studioAdapter }, { env: studioEnv }),
     );
 
-    expect(result.articles).toEqual([
+    expect(result.flowboard.totalCount).toBe(1);
+    expect(result.flowboard.columns.library).toEqual([
       expect.objectContaining({
         slug: 'tristan-da-cunha',
-        canonicalStatus: 'published',
-        production: 'pending_deployment',
-        change: 'none',
+        column: 'library',
+        projection: expect.objectContaining({
+          publishedVersion: { label: 'Updating the site' },
+          workingChange: { label: 'No changes in progress' },
+        }),
       }),
     ]);
+  });
+
+  it('Check status re-derives the complete Flowboard and probes only the requested article', async () => {
+    requireStudioMutation.mockClear();
+    const selfFetch = vi.fn(
+      async (_input: RequestInfo | URL) => new Response('not found', { status: 404 }),
+    );
+    const form = new URLSearchParams({ slug: 'tristan-da-cunha' });
+    const result = await studioHomeActions.check?.({
+      request: new Request('https://jelementi.quz.ma/studio?/check', {
+        method: 'POST',
+        body: form,
+      }),
+      platform: { env: { ...studioEnv, SELF: { fetch: selfFetch } } },
+      params: {},
+      locals: { studioGithubAdapter: studioAdapter },
+    } as unknown as Parameters<NonNullable<typeof studioHomeActions.check>>[0]);
+
+    expect(requireStudioMutation).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      flowboard: { totalCount: 1 },
+      checkedSlug: 'tristan-da-cunha',
+    });
+    const probedPaths = selfFetch.mock.calls.map(([input]) => new URL(String(input)).pathname);
+    expect(new Set(probedPaths)).toEqual(new Set(['/articles/tristan-da-cunha', '/index.json']));
   });
 
   it('returns the requested article slug only after authorization', async () => {

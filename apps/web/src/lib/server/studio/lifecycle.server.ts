@@ -53,6 +53,8 @@ export type StudioArticleListResult =
 
 export interface StudioArticleListOptions {
   productionOrigin: string;
+  /** Explicit compiler media base. Routes always pass configured production input. */
+  mediaBaseUrl?: string;
   checkName?: string;
 }
 
@@ -103,6 +105,11 @@ export async function deriveStudioArticleList(
 
   const branchesBySlug = new Map<string, StudioBranch>();
   const draftOnlySlugs: string[] = [];
+  // A malformed or duplicate row means repository-wide branch enumeration
+  // itself is ambiguous: there is no safe article identity to attach a local
+  // fallback to. That remains the spec's global-enumeration failure. Once a
+  // valid slug is known, every branch/file/PR/check/compile failure below is
+  // contained to that article as Status unavailable.
   for (const branch of branches.value) {
     const match = STUDIO_BRANCH_PATTERN.exec(branch.name);
     const slug = match?.[1];
@@ -118,29 +125,43 @@ export async function deriveStudioArticleList(
   const rows: StudioArticleListEntry[] = [];
   for (const [slug, article] of canonical) {
     const branch = branchesBySlug.get(slug);
-    const draft = await deriveDraftState(
-      adapter,
-      slug,
-      article,
-      branch,
-      options.checkName ?? CHECK_NAME,
-    );
-    if (!draft.ok) return draft;
+    const [draft, committed] = await Promise.all([
+      deriveDraftState(adapter, slug, article, branch, options.checkName ?? CHECK_NAME),
+      branch === undefined
+        ? Promise.resolve(undefined)
+        : inspectCommittedDraft(
+            adapter,
+            branch,
+            article.filePath,
+            options.mediaBaseUrl ?? 'https://media.studio.invalid/',
+          ),
+    ]);
+    const observationFailure = !draft.ok
+      ? { phase: draft.failure.phase, reason: draft.failure.reason }
+      : committed?.failure;
     rows.push({
       slug,
       title: article.frontmatter.title,
       canonicalStatus: article.frontmatter.status,
       updatedAt: article.frontmatter.updatedAt,
       production: productionState(article.frontmatter.status),
-      change: draft.change,
+      change: draft.ok ? draft.change : branch === undefined ? 'none' : 'draft',
+      mainSha: main.value.sha,
+      ...(branch === undefined
+        ? {}
+        : {
+            branch: toBranchRef(branch),
+            draftValidity: draft.ok ? committed?.validity : ('unavailable' as const),
+          }),
+      ...(committed?.issues === undefined ? {} : { compileIssues: committed.issues }),
+      ...(observationFailure === undefined ? {} : { failure: observationFailure }),
       ...(article.frontmatter.status === 'published'
         ? { publicUrl: `${options.productionOrigin.replace(/\/$/, '')}/articles/${slug}` }
         : {}),
-      ...(branch === undefined ? {} : { branch: toBranchRef(branch) }),
-      ...(draft.pullRequest === undefined
+      ...(!draft.ok || draft.pullRequest === undefined
         ? {}
         : { pullRequest: toPullRequestRef(draft.pullRequest) }),
-      ...(draft.check === undefined ? {} : { check: toCheckEvidence(draft.check) }),
+      ...(!draft.ok || draft.check === undefined ? {} : { check: toCheckEvidence(draft.check) }),
     });
   }
 
@@ -148,46 +169,87 @@ export async function deriveStudioArticleList(
     const branch = branchesBySlug.get(slug);
     if (branch === undefined) continue;
     const filePath = `content/articles/${slug}.md`;
-    const file = await adapter.getFileContent(branch.sha, filePath);
-    let draftFrontmatter: ArticleSourceFrontmatter | undefined;
-    if (file.ok) {
-      try {
-        draftFrontmatter = parseArticleSource(file.value.content, filePath).frontmatter;
-      } catch {
-        // Invalid content is legal on draft branches (spec: invalid commits
-        // are permitted there, never on `main`); fall back to a slug-titled
-        // row rather than failing the whole list.
-      }
-    } else if (file.failure.reason !== 'not-found') {
-      // `not-found` is the documented interrupted-save state (#16): the
-      // branch exists but the first commit never landed. Anything else is a
-      // real GitHub read failure.
-      return githubFailure('branches', file);
-    }
-    const draft = await deriveDraftState(
-      adapter,
-      slug,
-      { filePath },
-      branch,
-      options.checkName ?? CHECK_NAME,
-    );
-    if (!draft.ok) return draft;
+    const [draft, committed] = await Promise.all([
+      deriveDraftState(adapter, slug, { filePath }, branch, options.checkName ?? CHECK_NAME),
+      inspectCommittedDraft(
+        adapter,
+        branch,
+        filePath,
+        options.mediaBaseUrl ?? 'https://media.studio.invalid/',
+      ),
+    ]);
+    const observationFailure = !draft.ok
+      ? { phase: draft.failure.phase, reason: draft.failure.reason }
+      : committed.failure;
     rows.push({
       slug,
-      title: draftFrontmatter?.title ?? slug,
+      title: committed.frontmatter?.title ?? slug,
       production: 'absent',
-      change: draft.change,
-      ...(draftFrontmatter === undefined ? {} : { updatedAt: draftFrontmatter.updatedAt }),
+      change: draft.ok ? draft.change : 'draft',
+      mainSha: main.value.sha,
+      draftValidity: draft.ok ? committed.validity : 'unavailable',
+      ...(committed.frontmatter === undefined
+        ? {}
+        : { updatedAt: committed.frontmatter.updatedAt }),
+      ...(committed.issues === undefined ? {} : { compileIssues: committed.issues }),
+      ...(observationFailure === undefined ? {} : { failure: observationFailure }),
       branch: toBranchRef(branch),
-      ...(draft.pullRequest === undefined
+      ...(!draft.ok || draft.pullRequest === undefined
         ? {}
         : { pullRequest: toPullRequestRef(draft.pullRequest) }),
-      ...(draft.check === undefined ? {} : { check: toCheckEvidence(draft.check) }),
+      ...(!draft.ok || draft.check === undefined ? {} : { check: toCheckEvidence(draft.check) }),
     });
   }
 
   rows.sort((left, right) => left.slug.localeCompare(right.slug));
   return { ok: true, value: rows };
+}
+
+interface CommittedDraftInspection {
+  validity: 'valid' | 'invalid' | 'unavailable';
+  frontmatter?: ArticleSourceFrontmatter;
+  issues?: StudioCompileIssue[];
+  failure?: { phase: 'branch' | 'compile'; reason: 'github' | 'validation' };
+}
+
+async function inspectCommittedDraft(
+  adapter: GithubReadAdapter,
+  branch: StudioBranch,
+  filePath: string,
+  mediaBaseUrl: string,
+): Promise<CommittedDraftInspection> {
+  const file = await adapter.getFileContent(branch.sha, filePath);
+  if (!file.ok) {
+    if (file.failure.reason === 'not-found') {
+      return { validity: 'invalid', issues: [missingDraftFileIssue(filePath)] };
+    }
+    return { validity: 'unavailable', failure: { phase: 'branch', reason: 'github' } };
+  }
+
+  let frontmatter: ArticleSourceFrontmatter | undefined;
+  try {
+    frontmatter = parseArticleSource(file.value.content, filePath).frontmatter;
+  } catch {
+    // The compiler below owns the source-located issue returned to Studio.
+  }
+
+  try {
+    compileArticle({ markdown: file.value.content, sourcePath: filePath, mediaBaseUrl });
+    return { validity: 'valid', ...(frontmatter === undefined ? {} : { frontmatter }) };
+  } catch (cause) {
+    if (cause instanceof ContentCompileError) {
+      return {
+        validity: 'invalid',
+        ...(frontmatter === undefined ? {} : { frontmatter }),
+        issues: [...cause.issues],
+      };
+    }
+    return {
+      validity: 'unavailable',
+      ...(frontmatter === undefined ? {} : { frontmatter }),
+      failure: { phase: 'compile', reason: 'validation' },
+    };
+  }
 }
 
 async function deriveDraftState(

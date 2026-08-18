@@ -231,6 +231,37 @@ describe('deriveStudioArticleList', () => {
     }
   });
 
+  it('keeps one article visible when its required check cannot be read', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedPublishedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    await adapter.createBranch('studio/article/tristan-da-cunha', main.value.sha);
+    const created = await adapter.createPullRequest({
+      title: 'Update article',
+      body: 'Studio draft',
+      head: 'studio/article/tristan-da-cunha',
+      base: 'main',
+      draft: true,
+    });
+    if (!created.ok) throw new Error('pull request missing');
+    await adapter.updatePullRequest(created.value.number, { draft: false });
+    adapter.setFailureOperation('get-check-run');
+
+    const result = await deriveStudioArticleList(adapter, {
+      productionOrigin: 'https://jelementi.quz.ma',
+      mediaBaseUrl: 'https://media.jelementi.quz.ma/',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]).toMatchObject({
+        draftValidity: 'unavailable',
+        failure: { phase: 'check', reason: 'github' },
+      });
+    }
+  });
+
   it('lists a new-article draft branch with no committed file as a slug-titled draft row', async () => {
     const adapter = new FakeGithubAdapter(config);
     seedPublishedArticle(adapter);
@@ -351,7 +382,7 @@ describe('deriveStudioArticleList', () => {
     });
   });
 
-  it('fails closed when reading a new-article draft file fails on GitHub', async () => {
+  it('keeps a new-article draft visible when its committed file cannot be read', async () => {
     const adapter = new FakeGithubAdapter(config);
     seedPublishedArticle(adapter);
     adapter.seedBranch('studio/article/not-on-main', 'c'.repeat(40));
@@ -359,41 +390,50 @@ describe('deriveStudioArticleList', () => {
 
     const result = await deriveStudioArticleList(adapter, {
       productionOrigin: 'https://jelementi.quz.ma',
+      mediaBaseUrl: 'https://media.jelementi.quz.ma/',
     });
 
-    expect(result).toEqual({
-      ok: false,
-      failure: { phase: 'branches', reason: 'github' },
-    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.find((row) => row.slug === 'not-on-main')).toMatchObject({
+        draftValidity: 'unavailable',
+        failure: { phase: 'branch', reason: 'github' },
+      });
+    }
   });
 
-  it('fails closed when an open pull request head differs from the observed branch head', async () => {
+  it('classifies committed draft validity without dropping invalid work', async () => {
     const adapter = new FakeGithubAdapter(config);
     seedPublishedArticle(adapter);
     const main = await adapter.getMainRef();
     if (!main.ok) throw new Error('main missing');
-    await adapter.createBranch('studio/article/tristan-da-cunha', main.value.sha);
-    const created = await adapter.createPullRequest({
-      title: 'Update article',
-      body: 'Studio draft',
-      head: 'studio/article/tristan-da-cunha',
-      base: 'main',
-      draft: true,
-    });
-    if (!created.ok) throw new Error('pull request missing');
-    adapter.seedBranch('studio/article/tristan-da-cunha', 'c'.repeat(40));
+    const branch = await adapter.createBranch('studio/article/tristan-da-cunha', main.value.sha);
+    if (!branch.ok) throw new Error('branch missing');
+    adapter.seedBranch(branch.value.name, 'd'.repeat(40));
+    adapter.seedFile(
+      branch.value.name,
+      'content/articles/tristan-da-cunha.md',
+      'not an article at all',
+      'c'.repeat(64),
+    );
 
     const result = await deriveStudioArticleList(adapter, {
       productionOrigin: 'https://jelementi.quz.ma',
+      mediaBaseUrl: 'https://media.jelementi.quz.ma/',
     });
 
-    expect(result).toEqual({
-      ok: false,
-      failure: { phase: 'pull-request', reason: 'topology' },
-    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]).toMatchObject({
+        draftValidity: 'invalid',
+        compileIssues: [
+          expect.objectContaining({ sourcePath: 'content/articles/tristan-da-cunha.md' }),
+        ],
+      });
+    }
   });
 
-  it('fails closed when more than one open pull request is observed for a branch', async () => {
+  it('keeps one article visible when its pull-request topology is ambiguous', async () => {
     const adapter = new FakeGithubAdapter(config);
     seedPublishedArticle(adapter);
     const main = await adapter.getMainRef();
@@ -414,12 +454,16 @@ describe('deriveStudioArticleList', () => {
 
     const result = await deriveStudioArticleList(adapter, {
       productionOrigin: 'https://jelementi.quz.ma',
+      mediaBaseUrl: 'https://media.jelementi.quz.ma/',
     });
 
-    expect(result).toEqual({
-      ok: false,
-      failure: { phase: 'pull-request', reason: 'topology' },
-    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]).toMatchObject({
+        draftValidity: 'unavailable',
+        failure: { phase: 'pull-request', reason: 'topology' },
+      });
+    }
   });
 });
 

@@ -120,6 +120,14 @@ export const STUDIO_CHANGE_STATES = [
 ] as const;
 export type StudioChangeState = (typeof STUDIO_CHANGE_STATES)[number];
 
+export const STUDIO_DRAFT_VALIDITIES = ['valid', 'invalid', 'unavailable'] as const;
+export type StudioDraftValidity = (typeof STUDIO_DRAFT_VALIDITIES)[number];
+
+export interface StudioArticleListFailureEvidence {
+  phase: 'branch' | 'pull-request' | 'check' | 'compile';
+  reason: 'github' | 'topology' | 'validation';
+}
+
 export interface StudioCheckEvidence {
   name: string;
   status: 'queued' | 'in_progress' | 'completed';
@@ -149,6 +157,14 @@ export interface StudioArticleListEntry {
   updatedAt?: string;
   production: StudioProductionState;
   change: StudioChangeState;
+  /** Immutable `main` observation used as bounded Flowboard concurrency evidence. */
+  mainSha: string;
+  /** Present whenever an active Studio branch exists. */
+  draftValidity?: StudioDraftValidity;
+  /** Bounded compiler issues for an invalid committed draft. */
+  compileIssues?: StudioCompileIssue[];
+  /** Article-local observation failure; the complete list remains available. */
+  failure?: StudioArticleListFailureEvidence;
   publicUrl?: string;
   branch?: StudioBranchRef;
   pullRequest?: StudioPullRequestRef;
