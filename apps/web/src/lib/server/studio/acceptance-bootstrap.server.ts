@@ -11,15 +11,25 @@
  * the seeded state obeys the exact same topology rules production does.
  */
 
+import { compileArticle, serializeArticleSource } from '@jelementi/content-compiler';
+import { articleContentFingerprint, categorySlug } from '@jelementi/article-model';
 import { saveStudioDraft } from './editor.server';
 import { FakeGithubAdapter } from './github-adapter.fake';
 import type { GithubAdapter } from './github-adapter';
 import type { StudioGithubConfig } from './config.server';
 import type { StudioMetadata } from '../../studio/contracts';
 
-/** The one representative saved-and-ready article the #73 seam renders. */
+/** The representative saved-and-ready article the #73 seam renders. */
 export const STUDIO_ACCEPTANCE_ARTICLE_SLUG = 'lighthouse-watch';
 export const STUDIO_ACCEPTANCE_ARTICLE_TITLE = 'The Lighthouse Watch';
+
+/** Additional deterministic Flowboard fixtures owned by #74. */
+export const STUDIO_ACCEPTANCE_INVALID_SLUG = 'weather-notes';
+export const STUDIO_ACCEPTANCE_FAILED_SLUG = 'failed-crossing';
+export const STUDIO_ACCEPTANCE_APPROVED_SLUG = 'approved-passage';
+export const STUDIO_ACCEPTANCE_CHECKING_SLUG = 'checking-tide';
+export const STUDIO_ACCEPTANCE_LIVE_SLUG = 'verified-harbor';
+export const STUDIO_ACCEPTANCE_FLOWBOARD_HEADER = 'x-studio-acceptance-flowboard';
 
 const FIXTURE_GITHUB_CONFIG: Omit<StudioGithubConfig, 'owner' | 'repo'> = {
   appId: '1',
@@ -29,6 +39,43 @@ const FIXTURE_GITHUB_CONFIG: Omit<StudioGithubConfig, 'owner' | 'repo'> = {
 };
 
 const FIXTURE_MEDIA_BASE_URL = 'https://media.studio-acceptance.invalid/';
+
+const liveMetadata: StudioMetadata = {
+  title: 'The Verified Harbor',
+  slug: STUDIO_ACCEPTANCE_LIVE_SLUG,
+  excerpt: 'A canonical article with deterministic production evidence.',
+  status: 'published',
+  publishedAt: '2026-01-01',
+  updatedAt: '2026-01-02',
+  category: 'Fixtures',
+  tags: ['acceptance'],
+  author: 'Studio Acceptance',
+  cover: { src: 'articles/verified-harbor/cover.svg', alt: 'A sheltered harbor.' },
+  references: [],
+};
+const liveSource = serializeArticleSource({
+  frontmatter: liveMetadata,
+  body: 'A deterministic published paragraph for the Flowboard Live fixture.',
+});
+const liveDocument = compileArticle({
+  markdown: liveSource,
+  sourcePath: `content/articles/${STUDIO_ACCEPTANCE_LIVE_SLUG}.md`,
+  mediaBaseUrl: FIXTURE_MEDIA_BASE_URL,
+}).document;
+const liveFingerprintPromise = articleContentFingerprint(liveDocument);
+const liveIndexEvidence = {
+  slug: liveDocument.slug,
+  title: liveDocument.title,
+  excerpt: liveDocument.excerpt,
+  publishedAt: liveDocument.publishedAt as string,
+  updatedAt: liveDocument.updatedAt,
+  category: liveDocument.category,
+  categorySlug: categorySlug(liveDocument.category),
+  tags: liveDocument.tags,
+  author: liveDocument.author,
+  cover: liveDocument.cover,
+  readingTimeMinutes: liveDocument.readingTimeMinutes,
+};
 
 export function isStudioAcceptanceMode(env: WorkerEnv | undefined): boolean {
   return (env as Readonly<Record<string, unknown>> | undefined)?.STUDIO_ACCEPTANCE_MODE === '1';
@@ -55,6 +102,38 @@ export function resolveStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAd
   return built;
 }
 
+async function seedApprovedChange(
+  adapter: FakeGithubAdapter,
+  mainSha: string,
+  baseMetadata: StudioMetadata,
+  slug: string,
+  title: string,
+): Promise<number> {
+  const saved = await saveStudioDraft(
+    adapter,
+    slug,
+    {
+      metadata: {
+        ...baseMetadata,
+        title,
+        slug,
+        cover: { src: `articles/${slug}/cover.svg`, alt: `${title} fixture.` },
+      },
+      body: `A valid approved acceptance change for ${title}.`,
+      concurrency: { baseMainSha: mainSha },
+    },
+    { mediaBaseUrl: FIXTURE_MEDIA_BASE_URL },
+  );
+  if (saved.kind !== 'saved') {
+    throw new Error(`Studio acceptance bootstrap failed to seed ${slug} (${saved.kind}).`);
+  }
+  const approved = await adapter.updatePullRequest(saved.pullRequest.number, { draft: false });
+  if (!approved.ok) {
+    throw new Error(`Studio acceptance bootstrap failed to approve ${slug}.`);
+  }
+  return saved.pullRequest.number;
+}
+
 async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapter> {
   const config: StudioGithubConfig = {
     ...FIXTURE_GITHUB_CONFIG,
@@ -62,6 +141,13 @@ async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapt
     repo: readEnvString(env, 'GITHUB_REPO_NAME', 'studio-acceptance-fixture-repo'),
   };
   const adapter = new FakeGithubAdapter(config);
+
+  adapter.seedFile(
+    'main',
+    `content/articles/${STUDIO_ACCEPTANCE_LIVE_SLUG}.md`,
+    liveSource,
+    'd'.repeat(64),
+  );
 
   const main = await adapter.getMainRef();
   if (!main.ok) {
@@ -97,6 +183,61 @@ async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapt
     );
   }
 
+  const invalid = await saveStudioDraft(
+    adapter,
+    STUDIO_ACCEPTANCE_INVALID_SLUG,
+    {
+      metadata: {
+        ...metadata,
+        title: 'Weather Notes',
+        slug: STUDIO_ACCEPTANCE_INVALID_SLUG,
+        cover: { src: 'articles/weather-notes/cover.svg', alt: 'Weather notes.' },
+      },
+      body: '# Unsupported acceptance heading',
+      concurrency: { baseMainSha: main.value.sha },
+    },
+    { mediaBaseUrl: FIXTURE_MEDIA_BASE_URL },
+  );
+  if (invalid.kind !== 'saved') {
+    throw new Error(`Studio acceptance bootstrap failed to seed invalid work (${invalid.kind}).`);
+  }
+
+  const failedPullNumber = await seedApprovedChange(
+    adapter,
+    main.value.sha,
+    metadata,
+    STUDIO_ACCEPTANCE_FAILED_SLUG,
+    'Failed Crossing',
+  );
+  adapter.seedCheckRun(failedPullNumber, {
+    name: 'verify',
+    status: 'completed',
+    conclusion: 'failure',
+    url: 'https://github.com/studio-acceptance-fixture/checks/failed-crossing',
+  });
+
+  await seedApprovedChange(
+    adapter,
+    main.value.sha,
+    metadata,
+    STUDIO_ACCEPTANCE_APPROVED_SLUG,
+    'Approved Passage',
+  );
+
+  const checkingPullNumber = await seedApprovedChange(
+    adapter,
+    main.value.sha,
+    metadata,
+    STUDIO_ACCEPTANCE_CHECKING_SLUG,
+    'Checking Tide',
+  );
+  adapter.seedCheckRun(checkingPullNumber, {
+    name: 'verify',
+    status: 'in_progress',
+    conclusion: null,
+    url: 'https://github.com/studio-acceptance-fixture/checks/checking-tide',
+  });
+
   return adapter;
 }
 
@@ -120,10 +261,21 @@ async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapt
  * already treats a 404 as "not yet propagated", never an error.
  */
 export async function studioAcceptanceProbeFetch(
-  _input: RequestInfo | URL,
+  input: RequestInfo | URL,
   _init?: RequestInit,
 ): Promise<Response> {
-  return new Response('Studio acceptance fixture: no production content exists yet.', {
+  const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
+  if (url.pathname === `/articles/${STUDIO_ACCEPTANCE_LIVE_SLUG}`) {
+    const liveFingerprint = await liveFingerprintPromise;
+    return new Response(`<meta name="jelementi-content-version" content="${liveFingerprint}" />`, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+    });
+  }
+  if (url.pathname === '/index.json') {
+    return Response.json([liveIndexEvidence]);
+  }
+  return new Response('Studio acceptance fixture: no matching production content exists.', {
     status: 404,
   });
 }

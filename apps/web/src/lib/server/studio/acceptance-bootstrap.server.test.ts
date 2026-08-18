@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import { deriveStudioArticleStatus } from './lifecycle.server';
 import {
   STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+  STUDIO_ACCEPTANCE_LIVE_SLUG,
   injectStudioAcceptanceSelfBinding,
   isStudioAcceptanceMode,
   resolveStudioAcceptanceAdapter,
@@ -40,6 +42,17 @@ describe('resolveStudioAcceptanceAdapter', () => {
     if (pullRequests.ok) expect(pullRequests.value).toHaveLength(1);
   });
 
+  it('reconciles the deterministic Live fixture through the real status projection', async () => {
+    const adapter = await resolveStudioAcceptanceAdapter(envWith({}));
+    const status = await deriveStudioArticleStatus(adapter, STUDIO_ACCEPTANCE_LIVE_SLUG, {
+      productionOrigin: 'https://studio-acceptance.invalid',
+      mediaBaseUrl: 'https://media.studio-acceptance.invalid/',
+      includeProbe: true,
+      probeOptions: { fetch: studioAcceptanceProbeFetch, maxAttempts: 1 },
+    });
+    expect(status).toMatchObject({ ok: true, value: { kind: 'live' } });
+  });
+
   it('resolves the same adapter for the same env object identity (one seed per runtime env)', async () => {
     const env = envWith({});
     const first = await resolveStudioAcceptanceAdapter(env);
@@ -55,15 +68,26 @@ describe('resolveStudioAcceptanceAdapter', () => {
 });
 
 describe('studioAcceptanceProbeFetch', () => {
-  it('always returns a deterministic 404, regardless of the probed URL', async () => {
+  it('returns deterministic matching article and index evidence for the Live fixture', async () => {
     const articleResponse = await studioAcceptanceProbeFetch(
-      'https://studio-acceptance.invalid/articles/lighthouse-watch',
+      `https://studio-acceptance.invalid/articles/${STUDIO_ACCEPTANCE_LIVE_SLUG}`,
     );
     const indexResponse = await studioAcceptanceProbeFetch(
       'https://studio-acceptance.invalid/index.json',
     );
-    expect(articleResponse.status).toBe(404);
-    expect(indexResponse.status).toBe(404);
+    expect(articleResponse.status).toBe(200);
+    expect(await articleResponse.text()).toContain('jelementi-content-version');
+    expect(indexResponse.status).toBe(200);
+    expect(await indexResponse.json()).toEqual([
+      expect.objectContaining({ slug: STUDIO_ACCEPTANCE_LIVE_SLUG }),
+    ]);
+  });
+
+  it('keeps an unmerged fixture absent from the fake production surface', async () => {
+    const response = await studioAcceptanceProbeFetch(
+      'https://studio-acceptance.invalid/articles/lighthouse-watch',
+    );
+    expect(response.status).toBe(404);
   });
 });
 
