@@ -59,7 +59,7 @@ test.describe('Danger zone placement', () => {
     await openDangerZone(page);
     await expect(page.getByText('separate from ordinary writing')).toBeVisible();
     await expect(
-      page.getByText('Readers may continue to see this article', { exact: false }),
+      page.getByText('Readers may continue to see this article', { exact: false }).first(),
     ).toBeVisible();
     if (javaScriptEnabled) {
       await expect(page.getByRole('button', { name: 'Unpublish…', exact: true })).toBeVisible();
@@ -219,7 +219,7 @@ test.describe('Discard journey', () => {
     await page.goto(`/studio/articles/${slug}`);
     await openDangerZone(page);
     await expect(
-      page.getByText('Discard closes only the sole exact unmerged Draft PR', { exact: false }),
+      page.getByText('Discard closes only the sole exact unmerged Draft PR', { exact: false }).first(),
     ).toBeVisible();
     await confirmDestructive(page, hasJs, {
       opener: 'Discard draft…',
