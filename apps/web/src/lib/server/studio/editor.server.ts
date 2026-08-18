@@ -267,6 +267,50 @@ export function previewStudioArticle(
   }
 }
 
+export type StudioPublishCandidateVerification =
+  | { kind: 'candidate_matches' }
+  | { kind: 'candidate_rejected' }
+  | { kind: 'candidate_conflict'; currentHeadSha: string | null }
+  | { kind: 'candidate_failed' };
+
+/**
+ * Proves that Publish's submitted bounded candidate is exactly the committed
+ * draft the operator is approving. This is a read-only route preflight above
+ * `publishStudioDraft`: the Publish service still performs its own fresh,
+ * exact-head revalidation before any readiness mutation.
+ */
+export async function verifyStudioPublishCandidate(
+  adapter: GithubReadAdapter,
+  slug: string,
+  expectedHeadSha: string,
+  candidate: StudioPreviewInput,
+): Promise<StudioPublishCandidateVerification> {
+  const branch = await adapter.getBranch(`studio/article/${slug}`);
+  if (!branch.ok) {
+    return branch.failure.reason === 'not-found'
+      ? { kind: 'candidate_conflict', currentHeadSha: null }
+      : { kind: 'candidate_failed' };
+  }
+  if (branch.value.sha !== expectedHeadSha) {
+    return { kind: 'candidate_conflict', currentHeadSha: branch.value.sha };
+  }
+
+  const file = await adapter.getFileContent(expectedHeadSha, `content/articles/${slug}.md`);
+  if (!file.ok) {
+    return file.failure.reason === 'not-found'
+      ? { kind: 'candidate_conflict', currentHeadSha: branch.value.sha }
+      : { kind: 'candidate_failed' };
+  }
+
+  const submittedSource = serializeArticleSource({
+    frontmatter: candidate.metadata,
+    body: candidate.body,
+  });
+  return submittedSource === file.value.content
+    ? { kind: 'candidate_matches' }
+    : { kind: 'candidate_rejected' };
+}
+
 /** A saved branch head or blob is the immutable-slug boundary. */
 export function isStudioSlugEditable(evidence: StudioConcurrencyEvidence): boolean {
   return evidence.draftHeadSha === undefined && evidence.expectedBlobSha === undefined;

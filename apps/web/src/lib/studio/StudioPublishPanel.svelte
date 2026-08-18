@@ -9,17 +9,30 @@
     publish,
     unpublish,
     discard,
+    editorFormId = 'studio-article-form',
+    candidateDirty = false,
   }: {
     status: StudioLifecycle;
     publish?: StudioPublishResult;
     unpublish?: StudioUnpublishResult;
     discard?: StudioDiscardResult;
+    editorFormId?: string;
+    candidateDirty?: boolean;
   } = $props();
 
   // Publish is only offered for a revalidated, still-open draft (story 14).
   // Every other kind is either already approved, already merged, or has no
   // committed blob to approve.
-  const canPublish = $derived(status.kind === 'draft_valid');
+  const canPublish = $derived(status.kind === 'draft_valid' && !candidateDirty);
+  const publishReason = $derived(
+    candidateDirty
+      ? 'Save the current form before publishing.'
+      : status.kind === 'draft_valid'
+        ? 'Available for this valid saved version. The server rejects a newer or malformed form.'
+        : status.kind === 'draft_invalid'
+          ? 'Fix the reported issues before publishing, then save the corrected form.'
+          : 'Publish is available only for a valid saved Studio draft.',
+  );
 
   // Unpublish archives a published article on main. `live`,
   // `pending_deployment`, and `merged` are the ordinary published states;
@@ -60,8 +73,8 @@
   );
 </script>
 
-<section aria-labelledby="studio-status-heading">
-  <h3 id="studio-status-heading">Publish status</h3>
+<section class="studio-publication-actions" aria-labelledby="studio-status-heading">
+  <h3 id="studio-status-heading">Publication actions</h3>
 
   {#if status.kind === 'draft_invalid'}
     <p>
@@ -137,41 +150,63 @@
     <p>Nothing is currently in flight for this article.</p>
   {/if}
 
-  <form method="POST" action="?/publish">
-    {#if status.kind === 'draft_valid'}
-      <input type="hidden" name="expectedHeadSha" value={status.branch.headSha} />
-    {/if}
-    <button type="submit" disabled={!canPublish}>Publish</button>
-  </form>
-  <form method="POST" action="?/refresh">
-    <button type="submit">Refresh</button>
-  </form>
+  <div class="studio-publication-actions__primary" aria-label="Publication controls">
+    <button
+      type="submit"
+      form={editorFormId}
+      formaction="?/publish"
+      name="expectedHeadSha"
+      value={status.kind === 'draft_valid' ? status.branch.headSha : ''}
+      disabled={!canPublish}
+      aria-describedby="studio-publish-eligibility"
+    >
+      Publish saved version
+    </button>
+    <form method="POST" action="?/refresh">
+      <button type="submit" aria-label="Check status — refresh evidence">Check status</button>
+    </form>
+  </div>
+  <p id="studio-publish-eligibility">
+    <strong>Publish eligibility:</strong>
+    {publishReason}
+  </p>
 
-  {#if canUnpublish}
-    <form method="POST" action="?/unpublish">
-      <label for="unpublish-confirmation">
-        Type <code>{status.article.slug}</code> to archive this article
-      </label>
-      <input id="unpublish-confirmation" name="confirmation" autocomplete="off" />
-      <button type="submit">Unpublish</button>
-    </form>
-  {/if}
-  {#if canDiscard}
-    {#if status.kind === 'ready' || status.kind === 'checking' || status.kind === 'check_failed'}
-      <p>
-        Discard closes
-        <a href={status.pullRequest.url}>Draft PR #{status.pullRequest.number}</a> and deletes
-        <code>studio/article/{status.article.slug}</code>. <code>main</code> is unchanged.
-      </p>
-    {/if}
-    <form method="POST" action="?/discard">
-      <input type="hidden" name="expectedHeadSha" value={discardHeadSha} />
-      <label for="discard-confirmation">
-        Type <code>{status.article.slug}</code> to discard this draft
-      </label>
-      <input id="discard-confirmation" name="confirmation" autocomplete="off" />
-      <button type="submit">Discard draft</button>
-    </form>
+  {#if canUnpublish || canDiscard}
+    <details class="studio-danger-zone">
+      <summary>Danger zone</summary>
+      <p>These actions are separate from ordinary writing and re-check fresh server evidence.</p>
+      {#if canUnpublish}
+        <form method="POST" action="?/unpublish">
+          <p>
+            Unpublish starts an archive change. Readers may continue to see this article until Check
+            status verifies its public absence.
+          </p>
+          <label for="unpublish-confirmation">
+            Type <code>{status.article.slug}</code> to archive this article
+          </label>
+          <input id="unpublish-confirmation" name="confirmation" autocomplete="off" />
+          <button type="submit">Unpublish</button>
+        </form>
+      {/if}
+      {#if canDiscard}
+        <p>
+          Discard closes only this Draft PR and deletes only
+          <code>studio/article/{status.article.slug}</code>. <code>main</code> and any published article
+          remain unchanged.
+        </p>
+        {#if status.kind === 'ready' || status.kind === 'checking' || status.kind === 'check_failed'}
+          <p><a href={status.pullRequest.url}>Draft PR #{status.pullRequest.number}</a></p>
+        {/if}
+        <form method="POST" action="?/discard">
+          <input type="hidden" name="expectedHeadSha" value={discardHeadSha} />
+          <label for="discard-confirmation">
+            Type <code>{status.article.slug}</code> to discard this draft
+          </label>
+          <input id="discard-confirmation" name="confirmation" autocomplete="off" />
+          <button type="submit">Discard draft</button>
+        </form>
+      {/if}
+    </details>
   {/if}
 
   {#if publish?.kind === 'published'}
@@ -198,7 +233,11 @@
     </section>
   {:else if publish?.kind === 'publish_rejected'}
     <section aria-labelledby="publish-rejected-heading">
-      <h4 id="publish-rejected-heading">Publish rejected: the committed draft does not compile</h4>
+      <h4 id="publish-rejected-heading">
+        {publish.compileIssues.some((issue) => issue.code === 'UNSAVED_EDITOR_CHANGES')
+          ? 'Save the current form before publishing'
+          : 'Publish rejected: the committed draft does not compile'}
+      </h4>
       <ul>
         {#each publish.compileIssues as issue, index (index)}
           <li>
@@ -229,7 +268,7 @@
       <p>
         Archive commit {unpublish.commitSha} is on
         <a href={unpublish.pullRequest.url}>Pull request #{unpublish.pullRequest.number}</a>,
-        flipped ready with auto-merge bound to that exact head. Use Refresh once the merge has
+        flipped ready with auto-merge bound to that exact head. Use Check status once the merge has
         deployed to confirm the article is absent from production.
       </p>
     </section>
@@ -327,3 +366,86 @@
     </section>
   {/if}
 </section>
+
+<style>
+  .studio-publication-actions {
+    display: grid;
+    gap: var(--studio-space-3);
+    margin-top: var(--studio-space-3);
+    background: var(--studio-panel);
+    border: 1px solid var(--studio-border);
+    border-radius: var(--studio-radius-panel);
+    padding: var(--studio-space-4);
+  }
+
+  .studio-publication-actions__primary {
+    display: grid;
+    gap: var(--studio-space-2);
+  }
+
+  .studio-publication-actions__primary form {
+    display: contents;
+  }
+
+  .studio-publication-actions button {
+    width: 100%;
+    border: 1px solid var(--studio-action-primary-bg);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-2) var(--studio-space-3);
+    background: var(--studio-action-primary-bg);
+    color: var(--studio-action-primary-fg);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .studio-publication-actions button:hover:not(:disabled) {
+    background: var(--studio-action-primary-hover);
+  }
+
+  .studio-publication-actions button:disabled {
+    border-color: var(--studio-disabled-bg);
+    background: var(--studio-disabled-bg);
+    color: var(--studio-disabled-text);
+    cursor: not-allowed;
+  }
+
+  .studio-publication-actions input {
+    box-sizing: border-box;
+    width: 100%;
+    background: var(--studio-panel);
+    color: var(--studio-text-primary);
+    border: 1px solid var(--studio-border);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-2);
+    font: inherit;
+  }
+
+  .studio-publication-actions label,
+  .studio-danger-zone form {
+    display: grid;
+    gap: var(--studio-space-2);
+  }
+
+  .studio-danger-zone {
+    background: var(--studio-danger-surface);
+    color: var(--studio-danger-text);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-3);
+  }
+
+  .studio-danger-zone summary {
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .studio-danger-zone button {
+    border-color: var(--studio-action-danger-bg);
+    background: var(--studio-action-danger-bg);
+    color: var(--studio-action-danger-fg);
+  }
+
+  .studio-danger-zone button:hover:not(:disabled) {
+    background: var(--studio-action-danger-hover);
+  }
+</style>

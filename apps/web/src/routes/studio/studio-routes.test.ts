@@ -190,14 +190,14 @@ function actionEventFor(
   slug: string,
   locals: Record<string, unknown>,
   platform: { env?: WorkerEnv } | undefined,
-  formFields?: Record<string, string>,
+  formFields?: Record<string, string> | FormData,
 ) {
   const actionRequest =
     formFields === undefined
       ? new Request('https://jelementi.quz.ma/studio/articles/' + slug, { method: 'POST' })
       : new Request('https://jelementi.quz.ma/studio/articles/' + slug, {
           method: 'POST',
-          body: new URLSearchParams(formFields),
+          body: formFields instanceof FormData ? formFields : new URLSearchParams(formFields),
         });
   return {
     request: actionRequest,
@@ -228,6 +228,48 @@ const publishableMetadata: StudioMetadata = {
   status: 'published',
   publishedAt: '2026-08-01',
 };
+
+function publishForm(
+  article: StudioMetadata,
+  body: string,
+  concurrency: { baseMainSha: string; draftHeadSha?: string; expectedBlobSha?: string },
+  expectedHeadSha: string,
+): FormData {
+  const form = new FormData();
+  form.set('title', article.title);
+  form.set('slug', article.slug);
+  form.set('excerpt', article.excerpt);
+  form.set('publishedAt', article.publishedAt ?? '');
+  form.set('updatedAt', article.updatedAt);
+  form.set('status', article.status);
+  form.set('category', article.category);
+  form.set('tags', article.tags.join(', '));
+  form.set('author', article.author);
+  form.set('coverSrc', article.cover.src);
+  form.set('coverAlt', article.cover.alt);
+  form.set('audioSrc', article.audio?.src ?? '');
+  form.set('audioDurationSeconds', String(article.audio?.durationSeconds ?? ''));
+  for (const reference of article.references) {
+    form.append('referenceTitle', reference.title);
+    form.append('referenceUrl', reference.url);
+    form.append('referencePublisher', reference.publisher ?? '');
+    form.append('referenceAccessedAt', reference.accessedAt ?? '');
+  }
+  form.append('referenceTitle', '');
+  form.append('referenceUrl', '');
+  form.append('referencePublisher', '');
+  form.append('referenceAccessedAt', '');
+  form.set('body', body);
+  form.set('baseMainSha', concurrency.baseMainSha);
+  if (concurrency.draftHeadSha !== undefined) {
+    form.set('draftHeadSha', concurrency.draftHeadSha);
+  }
+  if (concurrency.expectedBlobSha !== undefined) {
+    form.set('expectedBlobSha', concurrency.expectedBlobSha);
+  }
+  form.set('expectedHeadSha', expectedHeadSha);
+  return form;
+}
 
 function githubBlockingAdapter(): FakeGithubAdapter {
   const adapter = new FakeGithubAdapter(githubConfig);
@@ -419,7 +461,76 @@ describe('Studio publish & refresh actions', () => {
     expect(requireStudioMutation).toHaveBeenCalledTimes(1);
   });
 
-  it('publishes a saved draft: revalidates, flips ready, and enables auto-merge for the expected head', async () => {
+  it('rejects and preserves a populated malformed candidate before any GitHub read or publish mutation', async () => {
+    const adapter = githubBlockingAdapter();
+    const form = publishForm(
+      publishableMetadata,
+      'Populated malformed candidate.',
+      { baseMainSha: 'not-a-sha' },
+      'a'.repeat(40),
+    );
+    const result = await studioArticleActions.publish?.(
+      actionEventFor(draftSlug, { studioGithubAdapter: adapter }, { env: studioEnv }, form),
+    );
+
+    expect(result).toMatchObject({
+      publish: {
+        kind: 'publish_rejected',
+        compileIssues: [{ code: 'UNSAVED_EDITOR_CHANGES' }],
+      },
+      editor: {
+        metadata: { title: publishableMetadata.title, slug: draftSlug },
+        body: 'Populated malformed candidate.',
+      },
+    });
+  });
+
+  it('rejects newer unsaved form content before the exact-head Publish service mutates GitHub', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      draftSlug,
+      {
+        metadata: publishableMetadata,
+        body: 'Saved body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
+    );
+    if (saved.kind !== 'saved' || saved.concurrency.draftHeadSha === undefined) {
+      throw new Error('save failed');
+    }
+    const updatePullRequest = vi.spyOn(adapter, 'updatePullRequest');
+    const enableAutoMerge = vi.spyOn(adapter, 'enableAutoMerge');
+
+    const result = await studioArticleActions.publish?.(
+      actionEventFor(
+        draftSlug,
+        { studioGithubAdapter: adapter },
+        { env: studioEnv },
+        publishForm(
+          publishableMetadata,
+          'Newer unsaved body.',
+          saved.concurrency,
+          saved.concurrency.draftHeadSha,
+        ),
+      ),
+    );
+
+    expect(result).toMatchObject({
+      publish: {
+        kind: 'publish_rejected',
+        compileIssues: [{ code: 'UNSAVED_EDITOR_CHANGES' }],
+      },
+      editor: { body: 'Newer unsaved body.' },
+    });
+    expect(updatePullRequest).not.toHaveBeenCalled();
+    expect(enableAutoMerge).not.toHaveBeenCalled();
+  });
+
+  it('publishes a byte-identical saved draft: revalidates, flips ready, and enables auto-merge for the expected head', async () => {
     const adapter = new FakeGithubAdapter(githubConfig);
     const main = await adapter.getMainRef();
     if (!main.ok) throw new Error('main missing');
@@ -435,15 +546,21 @@ describe('Studio publish & refresh actions', () => {
     );
     if (saved.kind !== 'saved') throw new Error(`save failed: ${saved.kind}`);
 
+    const productionFetch = vi.fn(async () => new Response(null, { status: 200 }));
     const result = await (async () => {
-      vi.stubGlobal('fetch', async () => new Response(null, { status: 200 }));
+      vi.stubGlobal('fetch', productionFetch);
       try {
         return await studioArticleActions.publish?.(
           actionEventFor(
             draftSlug,
             { studioGithubAdapter: adapter },
             { env: studioEnv },
-            { expectedHeadSha: saved.concurrency.draftHeadSha as string },
+            publishForm(
+              publishableMetadata,
+              'Saved body.',
+              saved.concurrency,
+              saved.concurrency.draftHeadSha as string,
+            ),
           ),
         );
       } finally {
@@ -454,6 +571,47 @@ describe('Studio publish & refresh actions', () => {
     expect(result).toMatchObject({
       publish: { kind: 'published', pullRequest: { number: saved.pullRequest.number } },
     });
+    expect(productionFetch).toHaveBeenCalled();
+  });
+
+  it('injects the bounded deterministic media transport only in exact acceptance mode', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      draftSlug,
+      {
+        metadata: publishableMetadata,
+        body: 'Acceptance body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: 'https://media.studio-acceptance.invalid/' },
+    );
+    if (saved.kind !== 'saved' || saved.concurrency.draftHeadSha === undefined) {
+      throw new Error('save failed');
+    }
+    const acceptanceEnv = {
+      ...studioEnv,
+      STUDIO_ACCEPTANCE_MODE: '1',
+      PUBLIC_MEDIA_BASE_URL: 'https://media.studio-acceptance.invalid/',
+    } as unknown as WorkerEnv;
+
+    const result = await studioArticleActions.publish?.(
+      actionEventFor(
+        draftSlug,
+        { studioGithubAdapter: adapter },
+        { env: acceptanceEnv },
+        publishForm(
+          publishableMetadata,
+          'Acceptance body.',
+          saved.concurrency,
+          saved.concurrency.draftHeadSha,
+        ),
+      ),
+    );
+
+    expect(result).toMatchObject({ publish: { kind: 'published' } });
   });
 
   it('refreshes status via requireStudioMutation without background polling', async () => {
@@ -680,6 +838,7 @@ describe('StudioPublishPanel unpublish retry availability', () => {
     });
     // The ready/checking/check_failed retry path must never widen Publish:
     // only a revalidated committed draft (`draft_valid`) enables it.
-    expect(body).toContain('<button type="submit" disabled="">Publish</button>');
+    expect(body).toContain('disabled=""');
+    expect(body).toContain('Publish saved version');
   });
 });
