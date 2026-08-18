@@ -45,7 +45,12 @@ import type {
   GithubPublishAdapter,
   GithubReadAdapter,
 } from '../../../../lib/server/studio/github-adapter';
-import type { StudioLifecycle } from '../../../../lib/studio/contracts';
+import type { StudioConcurrencyEvidence, StudioLifecycle } from '../../../../lib/studio/contracts';
+import {
+  buildStudioActionEnvelope,
+  type StudioActionEnvelope,
+} from '../../../../lib/studio/action-envelope';
+import { buildStudioWorkspaceProjection } from '../../../../lib/studio/workspace-projection';
 
 export const prerender = false;
 // CSR is a progressive enhancement on this route for two features: #77's
@@ -68,6 +73,15 @@ export interface StudioPublishActionData {
 
 export interface StudioRefreshActionData {
   status: StudioLifecycle;
+  /**
+   * Shared decoded action-response envelope for the article Check status
+   * (#78). Carries the refreshed workspace projection so the enhanced
+   * client can update the publication/evidence/concurrency regions in
+   * place; full-navigation rendering consumes the same envelope — only
+   * delivery differs. Absent when no bounded concurrency evidence can be
+   * composed (the page then renders the plain `status` result as before).
+   */
+  envelope?: StudioActionEnvelope;
 }
 
 export interface StudioUnpublishActionData {
@@ -300,7 +314,23 @@ export const actions: Actions = {
       probeOptions: { fetch: probeFetch },
     });
     if (!status.ok) error(503, 'Studio status unavailable.');
-    const result: StudioRefreshActionData = { status: status.value };
+
+    // Enhanced Check carries the loaded concurrency and bounded correlation
+    // ids. An ordinary legacy/full-navigation submission may have no body;
+    // it keeps the existing `status` result and simply omits the envelope.
+    const form = await optionalFormData(event.request);
+    const concurrency = formConcurrency(form);
+    const envelope =
+      concurrency === undefined
+        ? undefined
+        : buildStudioActionEnvelope(envelopeIds(form, 'refresh'), {
+            kind: 'check_status',
+            workspace: buildStudioWorkspaceProjection(status.value, concurrency),
+          });
+    const result: StudioRefreshActionData = {
+      status: status.value,
+      ...(envelope ? { envelope } : {}),
+    };
     return result;
   },
 
@@ -374,7 +404,10 @@ export const actions: Actions = {
         ? await adapter.getFileContent(main.value.sha, `content/articles/${event.params.slug}.md`)
         : main;
       if (!canonical.ok) {
-        redirect(303, '/studio?outcome=draft-discarded');
+        redirect(
+          303,
+          `/studio?outcome=draft-discarded&discarded=${encodeURIComponent(event.params.slug)}`,
+        );
       }
     }
     const result: StudioDiscardActionData = { discard };
@@ -420,4 +453,54 @@ function eventForEditorRoute(event: {
 
 function isStudioSlug(value: string): boolean {
   return value.length <= MAX_SLUG_LENGTH && SLUG_PATTERN.test(value);
+}
+
+const SHA_PATTERN_REFRESH = /^[0-9a-f]{40,64}$/i;
+const ENVELOPE_ID_PATTERN = /^[A-Za-z0-9._-]{1,200}$/;
+
+async function optionalFormData(request: Request): Promise<FormData> {
+  const contentType = request.headers.get('content-type') ?? '';
+  if (
+    !contentType.startsWith('multipart/form-data') &&
+    !contentType.startsWith('application/x-www-form-urlencoded')
+  ) {
+    return new FormData();
+  }
+  return request.formData();
+}
+
+function envelopeIds(
+  form: FormData,
+  fallback: string,
+): { operationId: string; submittedSnapshotId: string } {
+  const bounded = (name: string): string | undefined => {
+    const value = form.get(name);
+    return typeof value === 'string' && ENVELOPE_ID_PATTERN.test(value) ? value : undefined;
+  };
+  return {
+    operationId: bounded('enhancementOperationId') ?? `${fallback}-${Date.now()}`,
+    submittedSnapshotId: bounded('submittedSnapshotId') ?? `${fallback}-snapshot-${Date.now()}`,
+  };
+}
+
+/**
+ * Bounded concurrency echo from the Check status form's hidden fields
+ * (#78). The client submits the loaded evidence; the server uses it ONLY
+ * to compose the display projection — it never trusts it as authority.
+ * Returns undefined when the form carries no valid bounded evidence.
+ */
+function formConcurrency(form: FormData): StudioConcurrencyEvidence | undefined {
+  const bounded = (name: string): string | undefined => {
+    const value = form.get(name);
+    return typeof value === 'string' && SHA_PATTERN_REFRESH.test(value) ? value : undefined;
+  };
+  const baseMainSha = bounded('baseMainSha');
+  if (baseMainSha === undefined) return undefined;
+  const draftHeadSha = bounded('draftHeadSha');
+  const expectedBlobSha = bounded('expectedBlobSha');
+  return {
+    baseMainSha,
+    ...(draftHeadSha === undefined ? {} : { draftHeadSha }),
+    ...(expectedBlobSha === undefined ? {} : { expectedBlobSha }),
+  };
 }

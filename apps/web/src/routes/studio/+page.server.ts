@@ -18,13 +18,35 @@ import {
   buildStudioFlowboard,
   type StudioFlowboardProjection,
 } from '../../lib/studio/flowboard-projection';
+import {
+  buildStudioFlowboardCheckEnvelope,
+  type StudioFlowboardCheckEnvelope,
+} from '../../lib/studio/flowboard-envelope';
 import type { StudioLifecycle } from '../../lib/studio/contracts';
 
 export const prerender = false;
 export const csr = true;
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const ID_PATTERN = /^[A-Za-z0-9._-]{1,200}$/;
 type StudioLocals = { studioGithubAdapter?: GithubReadAdapter };
+
+/**
+ * Bounded correlation ids for the Flowboard Check status envelope (#78).
+ * The enhanced client submits them as hidden fields; full navigation falls
+ * back to bounded server-derived ids. Correlation tokens only — the server
+ * never trusts them.
+ */
+function envelopeIds(form: FormData): { operationId: string; submittedSnapshotId: string } {
+  const bounded = (value: FormDataEntryValue | null): string | undefined => {
+    if (typeof value !== 'string' || value.length === 0 || value.length > 200) return undefined;
+    return ID_PATTERN.test(value) ? value : undefined;
+  };
+  return {
+    operationId: bounded(form.get('enhancementOperationId')) ?? `check-${Date.now()}`,
+    submittedSnapshotId: bounded(form.get('submittedSnapshotId')) ?? `check-snapshot-${Date.now()}`,
+  };
+}
 
 function loadConfig(platform: App.Platform | undefined) {
   try {
@@ -51,6 +73,7 @@ async function deriveFlowboard(
 export const load: PageServerLoad<{
   flowboard: StudioFlowboardProjection;
   outcome?: 'draft-discarded';
+  discardedSlug?: string;
 }> = async ({ request, platform, locals, url }) => {
   await requireStudioAccess({ request, platform });
 
@@ -64,15 +87,24 @@ export const load: PageServerLoad<{
     url.searchParams.get('outcome') === 'draft-discarded'
       ? ('draft-discarded' as const)
       : undefined;
+  const discarded = url.searchParams.get('discarded');
+  const discardedSlug =
+    outcome !== undefined && discarded !== null && SLUG_PATTERN.test(discarded)
+      ? discarded
+      : undefined;
+  const outcomeData = {
+    ...(outcome === undefined ? {} : { outcome }),
+    ...(discardedSlug === undefined ? {} : { discardedSlug }),
+  };
 
   if (
     isStudioAcceptanceMode(platform?.env) &&
     request.headers.get(STUDIO_ACCEPTANCE_FLOWBOARD_HEADER) === 'empty'
   ) {
-    return { flowboard: buildStudioFlowboard([]), outcome };
+    return { flowboard: buildStudioFlowboard([]), ...outcomeData };
   }
 
-  return { flowboard: await deriveFlowboard(adapter, platform), outcome };
+  return { flowboard: await deriveFlowboard(adapter, platform), ...outcomeData };
 };
 
 export const actions: Actions = {
@@ -104,6 +136,11 @@ export const actions: Actions = {
       event.platform,
       status.ok ? status.value : undefined,
     );
-    return { flowboard, checkedSlug: slug };
+    const envelope: StudioFlowboardCheckEnvelope = buildStudioFlowboardCheckEnvelope(
+      envelopeIds(form),
+      slug,
+      flowboard,
+    );
+    return { flowboard, checkedSlug: slug, envelope };
   },
 };

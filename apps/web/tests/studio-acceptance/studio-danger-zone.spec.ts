@@ -3,6 +3,7 @@ import {
   STUDIO_ACCEPTANCE_IDENTITY_HEADER,
   STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
 } from '../../src/lib/server/studio/request-guard.server';
+import { expectFirstSaveLanded, waitForStudioHydration } from './helpers';
 
 // The one article seeded as published on canonical main. Every journey in
 // this spec restores it (Unpublish's archive PR is discarded through the UI)
@@ -205,6 +206,7 @@ test.describe('Discard journey', () => {
     const title = `Danger discard ${suffix}`;
 
     await page.goto('/studio/articles/new');
+    await waitForStudioHydration(page, testInfo);
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill(title);
     await page.getByRole('textbox', { name: 'Slug', exact: true }).fill(slug);
     await page.getByRole('textbox', { name: 'Excerpt', exact: true }).fill('A throwaway draft.');
@@ -212,7 +214,7 @@ test.describe('Discard journey', () => {
     await page.getByText('More metadata', { exact: false }).click();
     await page.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Throwaway cover.');
     await page.getByRole('button', { name: 'Save draft' }).click();
-    await expect(page.getByRole('heading', { name: 'Studio draft saved' })).toBeVisible();
+    await expectFirstSaveLanded(page, slug, testInfo);
 
     await page.goto(`/studio/articles/${slug}`);
     await openDangerZone(page);
@@ -228,7 +230,9 @@ test.describe('Discard journey', () => {
 
     // The article resource is gone, so the success lands on the Flowboard
     // with the closed outcome token and a truthful notice.
-    await expect(page).toHaveURL(/\/studio\?outcome=draft-discarded$/);
+    await expect(page).toHaveURL(
+      new RegExp(`/studio\\?outcome=draft-discarded&discarded=${slug}$`),
+    );
     await expect(page.getByRole('heading', { name: 'Draft discarded' })).toBeVisible();
     await expect(page.getByText('Draft PR was closed', { exact: false })).toBeVisible();
     await expect(page.getByText('No published article changed', { exact: false })).toBeVisible();

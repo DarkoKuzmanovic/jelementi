@@ -7,6 +7,8 @@ import StudioEditor from '../../lib/studio/StudioEditor.svelte';
 import StudioPublishPanel from '../../lib/studio/StudioPublishPanel.svelte';
 import type { StudioGithubConfig } from '../../lib/server/studio/config.server';
 import type { StudioLifecycle, StudioMetadata } from '../../lib/studio/contracts';
+import { decodeStudioActionEnvelope } from '../../lib/studio/action-envelope';
+import { decodeStudioFlowboardCheckEnvelope } from '../../lib/studio/flowboard-envelope';
 import {
   STUDIO_ACCEPTANCE_ARTICLE_SLUG,
   STUDIO_ACCEPTANCE_RECOVERY_HEADER,
@@ -33,8 +35,13 @@ import {
   load as studioArticleLoad,
   prerender as articlePrerender,
 } from './articles/[slug]/+page.server';
-import { load as studioLayoutLoad, prerender as layoutPrerender } from './+layout.server';
 import {
+  csr as layoutCsr,
+  load as studioLayoutLoad,
+  prerender as layoutPrerender,
+} from './+layout.server';
+import {
+  csr as newArticleCsr,
   load as newArticleLoad,
   prerender as newArticlePrerender,
 } from './articles/new/+page.server';
@@ -111,10 +118,13 @@ describe('Studio route shell', () => {
     expect(studioArticleActions.replace).toBeTypeOf('function');
   });
 
-  it('keeps every Studio route dynamic and hydrates Flowboard and the article editor', () => {
+  it('keeps Studio dynamic and hydrates only Flowboard and named article pages', () => {
     expect(layoutPrerender).toBe(false);
+    expect(layoutCsr).toBe(false);
     expect(studioPrerender).toBe(false);
     expect(studioCsr).toBe(true);
+    expect(newArticlePrerender).toBe(false);
+    expect(newArticleCsr).toBe(true);
     expect(articlePrerender).toBe(false);
     // The article route hydrates for the enhanced destructive confirmation
     // dialog; the inline no-JS confirmation remains the SSR fallback.
@@ -146,9 +156,12 @@ describe('Studio route shell', () => {
   it('recognizes only the exact draft-discarded outcome token on the Flowboard load', async () => {
     const withOutcome = await studioLoad({
       ...eventFor(studioLoad, {}, { studioGithubAdapter: studioAdapter }, { env: studioEnv }),
-      url: new URL('https://jelementi.quz.ma/studio?outcome=draft-discarded'),
+      url: new URL(
+        'https://jelementi.quz.ma/studio?outcome=draft-discarded&discarded=a-draft-article',
+      ),
     } as unknown as Parameters<typeof studioLoad>[0]);
     expect(withOutcome.outcome).toBe('draft-discarded');
+    expect(withOutcome.discardedSlug).toBe('a-draft-article');
 
     const withUnknownToken = await studioLoad({
       ...eventFor(studioLoad, {}, { studioGithubAdapter: studioAdapter }, { env: studioEnv }),
@@ -186,7 +199,11 @@ describe('Studio route shell', () => {
     const selfFetch = vi.fn(
       async (_input: RequestInfo | URL) => new Response('not found', { status: 404 }),
     );
-    const form = new URLSearchParams({ slug: 'tristan-da-cunha' });
+    const form = new URLSearchParams({
+      slug: 'tristan-da-cunha',
+      enhancementOperationId: 'flowboard-check-op',
+      submittedSnapshotId: 'flowboard-check-snapshot',
+    });
     const result = await studioHomeActions.check?.({
       request: new Request('https://jelementi.quz.ma/studio?/check', {
         method: 'POST',
@@ -201,6 +218,15 @@ describe('Studio route shell', () => {
     expect(result).toMatchObject({
       flowboard: { totalCount: 1 },
       checkedSlug: 'tristan-da-cunha',
+    });
+    expect(decodeStudioFlowboardCheckEnvelope(result?.envelope)).toMatchObject({
+      ok: true,
+      value: {
+        operationId: 'flowboard-check-op',
+        submittedSnapshotId: 'flowboard-check-snapshot',
+        checkedSlug: 'tristan-da-cunha',
+        flowboard: { totalCount: 1 },
+      },
     });
     const probedPaths = selfFetch.mock.calls.map(([input]) => new URL(String(input)).pathname);
     expect(new Set(probedPaths)).toEqual(new Set(['/articles/tristan-da-cunha', '/index.json']));
@@ -529,7 +555,7 @@ describe('Studio unpublish & discard actions', () => {
     expect(result).toBeUndefined();
     await expect(promise).rejects.toMatchObject({
       status: 303,
-      location: '/studio?outcome=draft-discarded',
+      location: '/studio?outcome=draft-discarded&discarded=a-draft-article',
     });
     const branch = await adapter.getBranch(`studio/article/${draftSlug}`);
     expect(branch.ok).toBe(false);
@@ -768,7 +794,7 @@ describe('Studio publish & refresh actions', () => {
     const adapter = new FakeGithubAdapter(githubConfig);
     const main = await adapter.getMainRef();
     if (!main.ok) throw new Error('main missing');
-    await saveStudioDraft(
+    const saved = await saveStudioDraft(
       adapter,
       draftSlug,
       {
@@ -779,14 +805,35 @@ describe('Studio publish & refresh actions', () => {
       { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
     );
 
+    if (saved.kind !== 'saved') throw new Error('save failed');
     const selfFetch = vi.fn(async () => new Response('unused', { status: 404 }));
     const env = { ...studioEnv, SELF: { fetch: selfFetch } } as unknown as WorkerEnv;
     const result = await studioArticleActions.refresh?.(
-      actionEventFor(draftSlug, { studioGithubAdapter: adapter }, { env }),
+      actionEventFor(
+        draftSlug,
+        { studioGithubAdapter: adapter },
+        { env },
+        {
+          baseMainSha: saved.concurrency.baseMainSha,
+          draftHeadSha: saved.concurrency.draftHeadSha ?? '',
+          expectedBlobSha: saved.concurrency.expectedBlobSha ?? '',
+          enhancementOperationId: 'article-check-op',
+          submittedSnapshotId: 'article-check-snapshot',
+        },
+      ),
     );
 
     expect(requireStudioMutation).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({ status: { kind: 'draft_valid' } });
+    expect(decodeStudioActionEnvelope(result?.envelope)).toMatchObject({
+      ok: true,
+      value: {
+        kind: 'check_status',
+        operationId: 'article-check-op',
+        submittedSnapshotId: 'article-check-snapshot',
+        workspace: { concurrency: saved.concurrency },
+      },
+    });
   });
 
   it('refresh routes production probes exclusively through the SELF service binding (issue #56)', async () => {

@@ -3,6 +3,7 @@ import {
   STUDIO_ACCEPTANCE_IDENTITY_HEADER,
   STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
 } from '../../src/lib/server/studio/request-guard.server';
+import { expectFirstSaveLanded, waitForStudioHydration } from './helpers';
 
 const FLOWBOARD_SCENARIO_HEADER = 'x-studio-acceptance-flowboard';
 const READY_SLUG = 'lighthouse-watch';
@@ -43,6 +44,7 @@ async function createRegressionDraft(page: Page, testInfo: TestInfo): Promise<st
   const suffix = testInfo.project.name === 'studio-no-js' ? 'no-js' : 'js';
   const slug = `flowboard-created-${suffix}`;
   await page.goto('/studio/articles/new');
+  await waitForStudioHydration(page, testInfo);
   await page
     .getByRole('textbox', { name: 'Title', exact: true })
     .fill(`Flowboard created ${suffix}`);
@@ -56,7 +58,7 @@ async function createRegressionDraft(page: Page, testInfo: TestInfo): Promise<st
   await page.getByText('More metadata', { exact: false }).click();
   await page.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Acceptance cover.');
   await page.getByRole('button', { name: 'Save draft' }).click();
-  await expect(page.getByRole('heading', { name: 'Studio draft saved' })).toBeVisible();
+  await expectFirstSaveLanded(page, slug, testInfo);
   return slug;
 }
 

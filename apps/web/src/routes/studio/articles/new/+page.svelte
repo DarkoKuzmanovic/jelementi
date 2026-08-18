@@ -1,9 +1,26 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { deserialize as deserializeFromApp } from '$app/forms';
   import type { ActionData, PageData } from './$types';
   import StudioEditor from '../../../../lib/studio/StudioEditor.svelte';
   import StudioEditorialDesk from '../../../../lib/studio/StudioEditorialDesk.svelte';
   import StudioPreviewPane from '../../../../lib/studio/StudioPreviewPane.svelte';
+  import StudioStatusAnnouncer from '../../../../lib/studio/StudioStatusAnnouncer.svelte';
+  import StudioRecoveryCopyPanel from '../../../../lib/studio/StudioRecoveryCopyPanel.svelte';
   import StudioNewArticlePublicationCenter from '../../../../lib/studio/StudioNewArticlePublicationCenter.svelte';
+  import {
+    studioRecoveryKey,
+    STUDIO_RECOVERY_NEW_IDENTITY,
+    type StudioRecoveryStore,
+  } from '../../../../lib/studio/enhancement-recovery';
+  import type { StudioRecoveryTracker } from '../../../../lib/studio/studio-enhancement-controller';
+  import {
+    buildEditorControllerOptions,
+    installStudioEnhancement,
+    toStudioActionResponse,
+    type StudioRawActionResponse,
+  } from '../../../../lib/studio/studio-enhancement-page';
+  import type { StudioPreviewResult } from '../../../../lib/studio/contracts';
   import type {
     StudioPreviewActionData,
     StudioSaveActionData,
@@ -18,7 +35,108 @@
   const saveAction = $derived(
     form && typeof form === 'object' && 'save' in form ? (form as StudioSaveActionData) : undefined,
   );
+
+  // #78 enhanced regions. Only these result regions update in place; form
+  // values are never replaced by an authoritative response. Recovery-copy
+  // state is owned by StudioRecoveryCopyPanel (its own reactive scope), so
+  // keystrokes never re-render the editor form.
+  let previewOverride = $state<StudioPreviewResult | undefined>(undefined);
+  let politeOverride = $state('');
+  let assertiveMessage = $state('');
+  let disabledMessage = $state('');
+  let completionUnknown = $state('');
+  let recoveryDeps:
+    | {
+        store: StudioRecoveryStore;
+        tracker: StudioRecoveryTracker;
+        key: string;
+        clearRecord(): void;
+      }
+    | undefined;
+
+  onMount(() => {
+    const formEl = document.getElementById('studio-article-form') as HTMLFormElement | null;
+    if (formEl === null) return;
+
+    const cleanup = installStudioEnhancement(
+      formEl,
+      buildEditorControllerOptions(formEl, {
+        deserialize: (text) =>
+          toStudioActionResponse(deserializeFromApp(text) as unknown as StudioRawActionResponse),
+        announcePolite: (message) => {
+          politeOverride = message;
+        },
+        announceAssertive: (message) => {
+          assertiveMessage = message;
+        },
+        onCompletionUnknown: () => {
+          completionUnknown =
+            'Completion unknown — your work is preserved. Nothing was retried automatically; use the full-page form if needed.';
+        },
+        onStateChanged: (state) => {
+          disabledMessage = state.disabled
+            ? 'Enhanced submission is disabled for this form for this session; the full-page form still works.'
+            : '';
+        },
+        onRedirect: (location) => {
+          window.location.assign(location);
+        },
+        onActionEnvelope: (envelope, actionData, liveMatches) => {
+          if (envelope.kind === 'preview') {
+            previewOverride = envelope.preview;
+            return;
+          }
+          if (envelope.kind !== 'save') return;
+          if (envelope.save.kind === 'saved') {
+            const acceptedSlug =
+              typeof actionData === 'object' &&
+              actionData !== null &&
+              'acceptedSlug' in actionData &&
+              typeof (actionData as { acceptedSlug?: unknown }).acceptedSlug === 'string'
+                ? (actionData as { acceptedSlug: string }).acceptedSlug
+                : undefined;
+            // Save clears only the submitted snapshot: when the live form
+            // still equals the submitted candidate, the matching `new`
+            // recovery record is cleared. Newer typing stays recoverable.
+            if (liveMatches) {
+              recoveryDeps?.clearRecord();
+            }
+            if (acceptedSlug !== undefined) {
+              // First successful Save: the server accepts the slug and the
+              // workspace moves to the established route. Migrate only the
+              // matching `new` recovery record (newer typing, if any) to the
+              // accepted slug's key, then navigate — slug authority stays
+              // entirely server-side.
+              if (!liveMatches && recoveryDeps !== undefined) {
+                recoveryDeps.tracker.flush();
+                const record = recoveryDeps.store.read(recoveryDeps.key);
+                if (record !== undefined) {
+                  recoveryDeps.store.write(studioRecoveryKey(acceptedSlug), record);
+                  recoveryDeps.store.clear(recoveryDeps.key);
+                }
+              }
+              window.location.replace(`/studio/articles/${acceptedSlug}`);
+            }
+          }
+        },
+      }),
+      {},
+    );
+
+    return () => {
+      cleanup.destroy();
+    };
+  });
 </script>
+
+<StudioStatusAnnouncer politeMessage={politeOverride} {assertiveMessage} />
+
+{#if completionUnknown}
+  <p class="studio-enhancement-notice" role="status">{completionUnknown}</p>
+{/if}
+{#if disabledMessage}
+  <p class="studio-enhancement-notice" role="status">{disabledMessage}</p>
+{/if}
 
 <StudioEditorialDesk>
   {#snippet editor()}
@@ -30,10 +148,29 @@
   {/snippet}
 
   {#snippet preview()}
-    <StudioPreviewPane preview={previewAction?.preview} />
+    <StudioPreviewPane preview={previewOverride ?? previewAction?.preview} />
   {/snippet}
 
   {#snippet publication()}
     <StudioNewArticlePublicationCenter concurrency={data.editor.concurrency} />
+    <StudioRecoveryCopyPanel
+      identity={STUDIO_RECOVERY_NEW_IDENTITY}
+      loadedConcurrency={data.editor.concurrency}
+      onRestored={() => {
+        politeOverride = 'Recovery copy restored.';
+      }}
+      onReady={(deps) => {
+        recoveryDeps = deps;
+      }}
+    />
   {/snippet}
 </StudioEditorialDesk>
+
+<style>
+  .studio-enhancement-notice {
+    background: var(--studio-info-surface);
+    color: var(--studio-info-text);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-3);
+  }
+</style>

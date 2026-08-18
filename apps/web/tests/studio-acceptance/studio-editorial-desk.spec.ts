@@ -3,6 +3,7 @@ import {
   STUDIO_ACCEPTANCE_IDENTITY_HEADER,
   STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
 } from '../../src/lib/server/studio/request-guard.server';
+import { expectFirstSaveLanded, waitForStudioHydration } from './helpers';
 
 const ARTICLE_SLUG = 'lighthouse-watch';
 const ARTICLE_TITLE = 'The Lighthouse Watch';
@@ -130,6 +131,7 @@ test.describe('Editorial desk server baseline', () => {
     const slug = `editorial-journey-${suffix}`;
 
     await page.goto('/studio/articles/new');
+    await waitForStudioHydration(page, testInfo);
     await page
       .getByRole('textbox', { name: 'Title', exact: true })
       .fill(`Editorial journey ${suffix}`);
@@ -145,7 +147,7 @@ test.describe('Editorial desk server baseline', () => {
     await page.getByRole('textbox', { name: 'Published date', exact: true }).fill('2026-08-18');
     await page.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Acceptance cover.');
     await page.getByRole('button', { name: 'Save draft' }).click();
-    await expect(page.getByRole('heading', { name: 'Studio draft saved' })).toBeVisible();
+    await expectFirstSaveLanded(page, slug, testInfo);
 
     await page.goto(`/studio/articles/${slug}`);
     await expect(page.getByText('Ready to publish', { exact: true })).toBeVisible();
