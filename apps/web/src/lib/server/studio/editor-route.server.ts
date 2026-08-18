@@ -167,6 +167,8 @@ export async function replaceStudioEditorAction(
         candidate: reconstructed,
         phase: 'decode-request',
         reason: 'validation',
+        // Rejected before any GitHub call — provably nothing was mutated.
+        mutation: 'none',
         evidence: {},
       },
       editor: reconstructed,

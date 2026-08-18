@@ -31,6 +31,18 @@ export const STUDIO_ACCEPTANCE_CHECKING_SLUG = 'checking-tide';
 export const STUDIO_ACCEPTANCE_LIVE_SLUG = 'verified-harbor';
 export const STUDIO_ACCEPTANCE_FLOWBOARD_HEADER = 'x-studio-acceptance-flowboard';
 
+/**
+ * Deterministic recovery-scenario trigger owned by #77. A Playwright test
+ * sets this header on a Studio mutation to make the shared fake-GitHub
+ * world change out from under the operator *before* the real domain
+ * function runs — exactly the way a concurrent session or an outage would.
+ * The domain functions themselves are never faked or branched: they observe
+ * the mutated world and produce the real `save_conflict` /
+ * `publish_conflict` / `save_failed` results the recovery presentation
+ * exists for.
+ */
+export const STUDIO_ACCEPTANCE_RECOVERY_HEADER = 'x-studio-acceptance-recovery';
+
 const FIXTURE_GITHUB_CONFIG: Omit<StudioGithubConfig, 'owner' | 'repo'> = {
   appId: '1',
   clientId: 'studio-acceptance-fixture-client-id',
@@ -239,6 +251,81 @@ async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapt
   });
 
   return adapter;
+}
+
+/**
+ * Applies a #77 recovery scenario requested via
+ * `STUDIO_ACCEPTANCE_RECOVERY_HEADER` by mutating the shared acceptance
+ * fake-GitHub world. Wired only into the existing-article mutation actions
+ * (`save`, `replace`, `publish`), and a no-op unless acceptance mode is
+ * active — production never defines the gating binding, and a stray header
+ * on a real deployment changes nothing.
+ *
+ * Scenarios (header value):
+ * - `main-moved`   — advances `main` by one unrelated commit, so a save
+ *   whose loaded evidence predates it fails closed as `save_conflict`
+ *   (with `replacementAvailable` when the real eligibility gate passes).
+ *   Idempotent per request: a header that also rides on the follow-up
+ *   Replace submission just moves `main` again, which replacement
+ *   tolerates by construction (it re-reads fresh `main`).
+ * - `draft-moved`  — lands one further commit on the article's own draft
+ *   branch (a concurrent session's save), so an exact-head Publish fails
+ *   closed as `publish_conflict`.
+ * - `save-offline` — makes exactly the NEXT `get-main-ref` call fail with
+ *   a transport failure (one-shot), so the targeted Save reports
+ *   `save_failed` while the follow-up page load still renders.
+ * - `replace-late-offline` — advances `main` by one unrelated commit AND
+ *   makes exactly the NEXT `delete-branch` call fail with a transport
+ *   failure (one-shot), so a targeted Replace verifies eligibility against
+ *   the just-moved `main`, closes the old Draft PR, and then stops at the
+ *   `delete-branch` phase — the post-mutation partial replacement state
+ *   (#77). The main move is part of the scenario because a post-conflict
+ *   page re-render refreshes the form's concurrency evidence: without a
+ *   further move the replacement would stop pre-mutation as `not-eligible`
+ *   and the armed failure would leak to an unrelated later operation.
+ *
+ * Unknown or absent header values change nothing.
+ */
+export async function applyStudioAcceptanceRecoveryScenario(
+  request: Request,
+  env: WorkerEnv | undefined,
+  slug: string,
+): Promise<void> {
+  if (!isStudioAcceptanceMode(env)) return;
+  const scenario = request.headers.get(STUDIO_ACCEPTANCE_RECOVERY_HEADER);
+  if (scenario === null) return;
+  const adapter = await resolveStudioAcceptanceAdapter(env as WorkerEnv);
+  if (!(adapter instanceof FakeGithubAdapter)) return;
+  switch (scenario) {
+    case 'main-moved': {
+      adapter.advanceMain();
+      return;
+    }
+    case 'draft-moved': {
+      const branchName = `studio/article/${slug}`;
+      const branch = await adapter.getBranch(branchName);
+      if (!branch.ok) return;
+      await adapter.commitFile({
+        branch: branchName,
+        path: `content/articles/${slug}.md`,
+        content: `Moved by a concurrent session for the ${slug} recovery scenario.`,
+        message: `Studio: save draft for ${slug}`,
+        expectedHeadSha: branch.value.sha,
+      });
+      return;
+    }
+    case 'save-offline': {
+      adapter.failNextOperation('get-main-ref');
+      return;
+    }
+    case 'replace-late-offline': {
+      adapter.advanceMain();
+      adapter.failNextOperation('delete-branch');
+      return;
+    }
+    default:
+      return;
+  }
 }
 
 /**

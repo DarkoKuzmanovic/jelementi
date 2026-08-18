@@ -42,6 +42,18 @@ export type StudioDraftReplacementPhase =
   | 'confirm-replacement'
   | 'revalidate';
 
+/**
+ * Server-proven mutation state carried with every stopped replacement.
+ * 'none': this attempt issued no mutating GitHub call and detected no
+ * partially replaced draft — the old Draft PR and draft branch are exactly
+ * as the operator loaded them. 'partial': a mutating call was issued (it may
+ * or may not have applied on GitHub) or a partially replaced draft from an
+ * earlier attempt was detected — the old Draft PR may be closed and the
+ * draft branch deleted, recreated, or re-committed with the candidate.
+ * Presentation must never claim "nothing was touched" for 'partial'.
+ */
+export type StudioDraftReplacementMutation = 'none' | 'partial';
+
 export interface StudioDraftReplacementEvidence {
   mainSha?: string;
   target?: { path: string; loadedBlobSha?: string; freshBlobSha?: string };
@@ -63,6 +75,7 @@ export type StudioDraftReplacementResult =
       candidate: StudioDraftCandidate;
       phase: StudioDraftReplacementPhase;
       reason: 'not-eligible' | 'moved-head' | 'merged' | 'topology';
+      mutation: StudioDraftReplacementMutation;
       evidence: StudioDraftReplacementEvidence;
     }
   | {
@@ -70,15 +83,32 @@ export type StudioDraftReplacementResult =
       candidate: StudioDraftCandidate;
       phase: StudioDraftReplacementPhase;
       reason: 'github' | 'topology' | 'validation';
+      mutation: StudioDraftReplacementMutation;
       evidence: StudioDraftReplacementEvidence;
     };
 
-export async function isStudioDraftReplacementEligible(
+/**
+ * Sanitized fresh evidence read while proving replacement eligibility. The
+ * `save_conflict` result carries it so the replacement offer is never
+ * presented without the loaded-versus-fresh article comparison the server
+ * actually read — the client never re-reads or infers it.
+ */
+export interface StudioDraftReplacementOffer {
+  target: { path: string; loadedBlobSha?: string; freshBlobSha?: string };
+}
+
+/**
+ * Proves replacement eligibility against fresh GitHub reads and returns the
+ * sanitized target evidence read during that proof, or `undefined` when any
+ * precondition fails or any read fails (fail closed — no offer without
+ * evidence).
+ */
+export async function verifyStudioDraftReplacementEligibility(
   adapter: GithubReadAdapter,
   slug: string,
   loaded: StudioConcurrencyEvidence,
-): Promise<boolean> {
-  if (loaded.draftHeadSha === undefined) return false;
+): Promise<StudioDraftReplacementOffer | undefined> {
+  if (loaded.draftHeadSha === undefined) return undefined;
   const branchName = `studio/article/${slug}`;
   const path = `content/articles/${slug}.md`;
   const [main, branch] = await Promise.all([adapter.getMainRef(), adapter.getBranch(branchName)]);
@@ -88,7 +118,7 @@ export async function isStudioDraftReplacementEligible(
     main.value.sha === loaded.baseMainSha ||
     branch.value.sha !== loaded.draftHeadSha
   ) {
-    return false;
+    return undefined;
   }
   const [loadedTarget, freshTarget, loadedFiles, branchFiles, pulls] = await Promise.all([
     optionalFile(adapter, loaded.baseMainSha, path),
@@ -106,18 +136,19 @@ export async function isStudioDraftReplacementEligible(
     !sameFile(loadedTarget.value, freshTarget.value) ||
     !changesExactlyPath(loadedFiles.value, branchFiles.value, path)
   ) {
-    return false;
+    return undefined;
   }
   const openPulls = pulls.value.filter((pull) => pull.state === 'open');
   const pull = openPulls[0];
-  return (
+  const eligible =
     openPulls.length === 1 &&
     pull !== undefined &&
     pull.draft &&
     pull.headRef === branchName &&
     pull.baseRef === 'main' &&
-    pull.headSha === branch.value.sha
-  );
+    pull.headSha === branch.value.sha;
+  if (!eligible) return undefined;
+  return { target: targetEvidence(path, loadedTarget.value, freshTarget.value) };
 }
 
 /**
@@ -136,7 +167,7 @@ export async function replaceStudioDraft(
   const evidence: StudioDraftReplacementEvidence = {};
 
   const main = await adapter.getMainRef();
-  if (!main.ok) return failed(candidate, 'discover-main', 'github', evidence);
+  if (!main.ok) return failed(candidate, 'discover-main', 'github', evidence, 'none');
   evidence.mainSha = main.value.sha;
 
   const branchResult = await adapter.getBranch(branchName);
@@ -152,12 +183,12 @@ export async function replaceStudioDraft(
         evidence,
       );
     }
-    return failed(candidate, 'discover-branch', 'github', evidence);
+    return failed(candidate, 'discover-branch', 'github', evidence, 'none');
   }
   const branch = branchResult.value;
   evidence.branch = branchEvidence(branch);
   if (loaded.draftHeadSha === undefined) {
-    return conflict(candidate, 'verify-loaded-head', 'moved-head', evidence);
+    return conflict(candidate, 'verify-loaded-head', 'moved-head', evidence, 'none');
   }
   if (branch.sha !== loaded.draftHeadSha) {
     if (branch.sha === main.value.sha) {
@@ -200,60 +231,60 @@ export async function replaceStudioDraft(
         candidateFile.value,
       );
     }
-    return conflict(candidate, 'verify-loaded-head', 'moved-head', evidence);
+    return conflict(candidate, 'verify-loaded-head', 'moved-head', evidence, 'none');
   }
   if (main.value.sha === loaded.baseMainSha) {
-    return conflict(candidate, 'verify-target', 'not-eligible', evidence);
+    return conflict(candidate, 'verify-target', 'not-eligible', evidence, 'none');
   }
 
   const loadedTarget = await optionalFile(adapter, loaded.baseMainSha, path);
-  if (!loadedTarget.ok) return failed(candidate, 'verify-target', 'github', evidence);
+  if (!loadedTarget.ok) return failed(candidate, 'verify-target', 'github', evidence, 'none');
   const freshTarget = await optionalFile(adapter, main.value.sha, path);
-  if (!freshTarget.ok) return failed(candidate, 'verify-target', 'github', evidence);
+  if (!freshTarget.ok) return failed(candidate, 'verify-target', 'github', evidence, 'none');
   evidence.target = targetEvidence(path, loadedTarget.value, freshTarget.value);
   if (!sameFile(loadedTarget.value, freshTarget.value)) {
-    return conflict(candidate, 'verify-target', 'not-eligible', evidence);
+    return conflict(candidate, 'verify-target', 'not-eligible', evidence, 'none');
   }
 
   const loadedFiles = await adapter.listArticleFiles(loaded.baseMainSha);
   const branchFiles = await adapter.listArticleFiles(branch.sha);
   if (!loadedFiles.ok || !branchFiles.ok) {
-    return failed(candidate, 'verify-diff', 'github', evidence);
+    return failed(candidate, 'verify-diff', 'github', evidence, 'none');
   }
   if (!changesExactlyPath(loadedFiles.value, branchFiles.value, path)) {
-    return conflict(candidate, 'verify-diff', 'not-eligible', evidence);
+    return conflict(candidate, 'verify-diff', 'not-eligible', evidence, 'none');
   }
 
   const pulls = await adapter.listPullRequests(branchName);
-  if (!pulls.ok) return failed(candidate, 'discover-pull-request', 'github', evidence);
+  if (!pulls.ok) return failed(candidate, 'discover-pull-request', 'github', evidence, 'none');
   const matchingPulls = pulls.value.filter(
     (pull) => pull.headRef === branchName && pull.baseRef === 'main' && pull.headSha === branch.sha,
   );
   const oldPull = matchingPulls[0];
   if (matchingPulls.length !== 1 || oldPull === undefined) {
-    return conflict(candidate, 'discover-pull-request', 'topology', evidence);
+    return conflict(candidate, 'discover-pull-request', 'topology', evidence, 'none');
   }
   evidence.pullRequest = pullEvidence(oldPull);
   if (oldPull.state === 'merged') {
-    return conflict(candidate, 'discover-pull-request', 'merged', evidence);
+    return conflict(candidate, 'discover-pull-request', 'merged', evidence, 'none');
   }
 
   let confirmedOldPull = oldPull;
   if (oldPull.state === 'open') {
     if (!oldPull.draft) {
-      return conflict(candidate, 'discover-pull-request', 'topology', evidence);
+      return conflict(candidate, 'discover-pull-request', 'topology', evidence, 'none');
     }
     const closed = await adapter.closePullRequest(oldPull.number);
-    if (!closed.ok) return failed(candidate, 'close-pull-request', 'github', evidence);
+    if (!closed.ok) return failed(candidate, 'close-pull-request', 'github', evidence, 'partial');
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const confirmedPulls = await adapter.listPullRequests(branchName);
       if (!confirmedPulls.ok) {
-        return failed(candidate, 'confirm-pull-request', 'github', evidence);
+        return failed(candidate, 'confirm-pull-request', 'github', evidence, 'partial');
       }
       const rediscovered = confirmedPulls.value.find((pull) => pull.number === oldPull.number);
       if (rediscovered === undefined) {
-        return conflict(candidate, 'confirm-pull-request', 'topology', evidence);
+        return conflict(candidate, 'confirm-pull-request', 'topology', evidence, 'partial');
       }
       confirmedOldPull = rediscovered;
       if (rediscovered.state === 'closed' || rediscovered.state === 'merged') break;
@@ -261,10 +292,10 @@ export async function replaceStudioDraft(
   }
   if (confirmedOldPull.state === 'merged') {
     evidence.pullRequest = pullEvidence(confirmedOldPull);
-    return conflict(candidate, 'confirm-pull-request', 'merged', evidence);
+    return conflict(candidate, 'confirm-pull-request', 'merged', evidence, 'partial');
   }
   if (confirmedOldPull.state !== 'closed') {
-    return conflict(candidate, 'confirm-pull-request', 'topology', evidence);
+    return conflict(candidate, 'confirm-pull-request', 'topology', evidence, 'partial');
   }
   evidence.pullRequest = pullEvidence(confirmedOldPull);
 
@@ -273,9 +304,9 @@ export async function replaceStudioDraft(
     if (deleted.failure.reason === 'conflict') {
       const refreshed = await adapter.getBranch(branchName);
       if (refreshed.ok) evidence.branch = branchEvidence(refreshed.value);
-      return conflict(candidate, 'delete-branch', 'moved-head', evidence);
+      return conflict(candidate, 'delete-branch', 'moved-head', evidence, 'partial');
     }
-    return failed(candidate, 'delete-branch', 'github', evidence);
+    return failed(candidate, 'delete-branch', 'github', evidence, 'partial');
   }
   delete evidence.branch;
   return completeReplacement(adapter, slug, candidate, main.value.sha, options, evidence);
@@ -295,7 +326,13 @@ async function resumeAfterDeletedBranch(
   const branchName = `studio/article/${slug}`;
   const path = `content/articles/${slug}.md`;
   if (loaded.draftHeadSha === undefined || mainSha === loaded.baseMainSha) {
-    return conflict(candidate, 'verify-loaded-head', 'moved-head', evidence);
+    return conflict(
+      candidate,
+      'verify-loaded-head',
+      'moved-head',
+      evidence,
+      loaded.draftHeadSha === undefined ? 'none' : 'partial',
+    );
   }
   const [loadedTarget, freshTarget, loadedFiles, oldDraftFiles, pulls] = await Promise.all([
     optionalFile(adapter, loaded.baseMainSha, path),
@@ -305,18 +342,18 @@ async function resumeAfterDeletedBranch(
     adapter.listPullRequests(branchName),
   ]);
   if (!loadedTarget.ok || !freshTarget.ok) {
-    return failed(candidate, 'verify-target', 'github', evidence);
+    return failed(candidate, 'verify-target', 'github', evidence, 'partial');
   }
   if (!loadedFiles.ok || !oldDraftFiles.ok) {
-    return failed(candidate, 'verify-diff', 'github', evidence);
+    return failed(candidate, 'verify-diff', 'github', evidence, 'partial');
   }
-  if (!pulls.ok) return failed(candidate, 'confirm-pull-request', 'github', evidence);
+  if (!pulls.ok) return failed(candidate, 'confirm-pull-request', 'github', evidence, 'partial');
   evidence.target = targetEvidence(path, loadedTarget.value, freshTarget.value);
   if (!sameFile(loadedTarget.value, freshTarget.value)) {
-    return conflict(candidate, 'verify-target', 'not-eligible', evidence);
+    return conflict(candidate, 'verify-target', 'not-eligible', evidence, 'partial');
   }
   if (!changesExactlyPath(loadedFiles.value, oldDraftFiles.value, path)) {
-    return conflict(candidate, 'verify-diff', 'not-eligible', evidence);
+    return conflict(candidate, 'verify-diff', 'not-eligible', evidence, 'partial');
   }
   const priorPulls = pulls.value.filter(
     (pull) =>
@@ -326,17 +363,17 @@ async function resumeAfterDeletedBranch(
   );
   const priorPull = priorPulls[0];
   if (priorPulls.length !== 1 || priorPull === undefined) {
-    return conflict(candidate, 'confirm-pull-request', 'topology', evidence);
+    return conflict(candidate, 'confirm-pull-request', 'topology', evidence, 'partial');
   }
   evidence.pullRequest = pullEvidence(priorPull);
   if (priorPull.state === 'merged') {
-    return conflict(candidate, 'confirm-pull-request', 'merged', evidence);
+    return conflict(candidate, 'confirm-pull-request', 'merged', evidence, 'partial');
   }
   if (!priorPull.draft) {
-    return conflict(candidate, 'confirm-pull-request', 'topology', evidence);
+    return conflict(candidate, 'confirm-pull-request', 'topology', evidence, 'partial');
   }
   if (priorPull.state !== 'closed') {
-    return conflict(candidate, 'confirm-pull-request', 'topology', evidence);
+    return conflict(candidate, 'confirm-pull-request', 'topology', evidence, 'partial');
   }
   return completeReplacement(
     adapter,
@@ -365,7 +402,7 @@ async function completeReplacement(
   let branch = existingBranch;
   if (branch === undefined) {
     const recreated = await adapter.createBranch(branchName, mainSha);
-    if (!recreated.ok) return failed(candidate, 'recreate-branch', 'github', evidence);
+    if (!recreated.ok) return failed(candidate, 'recreate-branch', 'github', evidence, 'partial');
     branch = recreated.value;
   }
   evidence.branch = branchEvidence(branch);
@@ -391,14 +428,15 @@ async function completeReplacement(
       if (committed.failure.reason === 'conflict') {
         const refreshed = await adapter.getBranch(branchName);
         if (refreshed.ok) evidence.branch = branchEvidence(refreshed.value);
-        return conflict(candidate, 'commit-candidate', 'moved-head', evidence);
+        return conflict(candidate, 'commit-candidate', 'moved-head', evidence, 'partial');
       }
-      return failed(candidate, 'commit-candidate', 'github', evidence);
+      return failed(candidate, 'commit-candidate', 'github', evidence, 'partial');
     }
   }
 
   const existingPulls = await adapter.listPullRequests(branchName);
-  if (!existingPulls.ok) return failed(candidate, 'create-pull-request', 'github', evidence);
+  if (!existingPulls.ok)
+    return failed(candidate, 'create-pull-request', 'github', evidence, 'partial');
   const existingMatches = matchingOpenDrafts(
     existingPulls.value,
     branchName,
@@ -409,7 +447,7 @@ async function completeReplacement(
   );
   let createdPull = existingMatches[0];
   if (existingMatches.length > 1 || otherOpenPulls.length > 0) {
-    return failed(candidate, 'create-pull-request', 'topology', evidence);
+    return failed(candidate, 'create-pull-request', 'topology', evidence, 'partial');
   }
   if (createdPull === undefined) {
     const createdPullResult = await adapter.createPullRequest({
@@ -424,7 +462,7 @@ async function completeReplacement(
     } else if (createdPullResult.failure.reason === 'transport') {
       const rediscovered = await adapter.listPullRequests(branchName);
       if (!rediscovered.ok) {
-        return failed(candidate, 'create-pull-request', 'github', evidence);
+        return failed(candidate, 'create-pull-request', 'github', evidence, 'partial');
       }
       const matching = matchingOpenDrafts(
         rediscovered.value,
@@ -433,22 +471,24 @@ async function completeReplacement(
       );
       const rediscoveredPull = matching[0];
       if (matching.length === 0) {
-        return failed(candidate, 'create-pull-request', 'github', evidence);
+        return failed(candidate, 'create-pull-request', 'github', evidence, 'partial');
       }
       if (matching.length !== 1 || rediscoveredPull === undefined) {
-        return failed(candidate, 'create-pull-request', 'topology', evidence);
+        return failed(candidate, 'create-pull-request', 'topology', evidence, 'partial');
       }
       createdPull = rediscoveredPull;
     } else {
-      return failed(candidate, 'create-pull-request', 'github', evidence);
+      return failed(candidate, 'create-pull-request', 'github', evidence, 'partial');
     }
   }
   evidence.pullRequest = pullEvidence(createdPull);
 
   const confirmedMain = await adapter.getMainRef();
-  if (!confirmedMain.ok) return failed(candidate, 'confirm-replacement', 'github', evidence);
+  if (!confirmedMain.ok)
+    return failed(candidate, 'confirm-replacement', 'github', evidence, 'partial');
   const confirmedTarget = await optionalFile(adapter, confirmedMain.value.sha, path);
-  if (!confirmedTarget.ok) return failed(candidate, 'confirm-replacement', 'github', evidence);
+  if (!confirmedTarget.ok)
+    return failed(candidate, 'confirm-replacement', 'github', evidence, 'partial');
   const loadedBlobSha = evidence.target?.loadedBlobSha;
   evidence.mainSha = confirmedMain.value.sha;
   evidence.target = {
@@ -457,7 +497,7 @@ async function completeReplacement(
     ...(confirmedTarget.value === undefined ? {} : { freshBlobSha: confirmedTarget.value.blobSha }),
   };
   if (confirmedMain.value.sha !== mainSha || confirmedTarget.value?.blobSha !== loadedBlobSha) {
-    return conflict(candidate, 'confirm-replacement', 'not-eligible', evidence);
+    return conflict(candidate, 'confirm-replacement', 'not-eligible', evidence, 'partial');
   }
 
   const [confirmedBranch, confirmedFile, replacementPulls, mainFiles, branchFiles] =
@@ -475,7 +515,7 @@ async function completeReplacement(
     !mainFiles.ok ||
     !branchFiles.ok
   ) {
-    return failed(candidate, 'confirm-replacement', 'github', evidence);
+    return failed(candidate, 'confirm-replacement', 'github', evidence, 'partial');
   }
   evidence.branch = branchEvidence(confirmedBranch.value);
   const openReplacementPulls = replacementPulls.value.filter((pull) => pull.state === 'open');
@@ -492,7 +532,7 @@ async function completeReplacement(
     !replacementPull.draft ||
     replacementPull.headSha !== committed.value.commitSha
   ) {
-    return conflict(candidate, 'confirm-replacement', 'topology', evidence);
+    return conflict(candidate, 'confirm-replacement', 'topology', evidence, 'partial');
   }
 
   const compileIssues = compileCandidate(confirmedFile.value.content, path, options.mediaBaseUrl);
@@ -605,8 +645,16 @@ function conflict(
   phase: StudioDraftReplacementPhase,
   reason: Extract<StudioDraftReplacementResult, { kind: 'replacement_conflict' }>['reason'],
   evidence: StudioDraftReplacementEvidence,
+  mutation: StudioDraftReplacementMutation,
 ): StudioDraftReplacementResult {
-  return { kind: 'replacement_conflict', candidate, phase, reason, evidence: { ...evidence } };
+  return {
+    kind: 'replacement_conflict',
+    candidate,
+    phase,
+    reason,
+    mutation,
+    evidence: { ...evidence },
+  };
 }
 
 function failed(
@@ -614,6 +662,14 @@ function failed(
   phase: StudioDraftReplacementPhase,
   reason: Extract<StudioDraftReplacementResult, { kind: 'replacement_failed' }>['reason'],
   evidence: StudioDraftReplacementEvidence,
+  mutation: StudioDraftReplacementMutation,
 ): StudioDraftReplacementResult {
-  return { kind: 'replacement_failed', candidate, phase, reason, evidence: { ...evidence } };
+  return {
+    kind: 'replacement_failed',
+    candidate,
+    phase,
+    reason,
+    mutation,
+    evidence: { ...evidence },
+  };
 }

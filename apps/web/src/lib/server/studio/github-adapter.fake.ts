@@ -93,12 +93,29 @@ export class FakeGithubAdapter implements GithubAdapter {
     if (this.options.unauthorized) return this.failure<T>(operation, 'auth');
     if (this.options.rateLimited) return this.failure<T>(operation, 'rate-limit');
     if (this.options.failureOperation === operation) return this.failure<T>(operation, 'transport');
+    if (this.nextFailureOperation === operation) {
+      this.nextFailureOperation = undefined;
+      return this.failure<T>(operation, 'transport');
+    }
     return undefined;
   }
 
   /** Test helper (not part of the adapter seam). */
   setFailureOperation(operation: StudioGithubOperation | undefined): void {
     this.options.failureOperation = operation;
+  }
+
+  private nextFailureOperation: StudioGithubOperation | undefined;
+
+  /**
+   * Test helper (not part of the adapter seam): fails exactly the NEXT call
+   * of one operation with a transport failure, then self-clears. Used by the
+   * acceptance recovery seam so an injected fault hits the targeted mutation
+   * once without also failing the follow-up page load that renders the
+   * recovery presentation.
+   */
+  failNextOperation(operation: StudioGithubOperation | undefined): void {
+    this.nextFailureOperation = operation;
   }
 
   async getBranch(name: string): Promise<GithubAdapterResult<StudioBranch>> {

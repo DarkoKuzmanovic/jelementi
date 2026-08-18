@@ -685,7 +685,56 @@ describe('saveStudioDraft', () => {
       kind: 'save_conflict',
       loaded: first.concurrency,
       current: { baseMainSha: freshMainSha, draftHeadSha: first.concurrency.draftHeadSha },
-      replacementAvailable: true,
+      // The offer carries the sanitized evidence the eligibility proof just
+      // read: the article blob at loaded main and at fresh main, identical.
+      replacementAvailable: {
+        target: {
+          path: `content/articles/${slug}.md`,
+          loadedBlobSha: 'b'.repeat(40),
+          freshBlobSha: 'b'.repeat(40),
+        },
+      },
+    });
+  });
+
+  it('withholds the replacement offer when the eligibility evidence cannot be read', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    adapter.seedFile(
+      'main',
+      `content/articles/${slug}.md`,
+      serializeArticleSource({ frontmatter: metadata, body: 'Canonical body.' }),
+      'b'.repeat(40),
+    );
+    const first = await saveStudioDraft(
+      adapter,
+      slug,
+      {
+        metadata,
+        body: 'Original draft.',
+        concurrency: { baseMainSha: main.value.sha, expectedBlobSha: 'b'.repeat(40) },
+      },
+      previewOptions,
+    );
+    if (first.kind !== 'saved') throw new Error('first save failed');
+    const freshMainSha = adapter.advanceMain();
+
+    // The eligibility proof needs the article blob reads; when one fails the
+    // save still reports the conflict but fails closed on the offer — no
+    // evidence, no replacement button.
+    adapter.failNextOperation('get-file-content');
+    const result = await saveStudioDraft(
+      adapter,
+      slug,
+      { metadata, body: 'Preserved candidate.', concurrency: first.concurrency },
+      previewOptions,
+    );
+
+    expect(result).toEqual({
+      kind: 'save_conflict',
+      loaded: first.concurrency,
+      current: { baseMainSha: freshMainSha, draftHeadSha: first.concurrency.draftHeadSha },
     });
   });
 

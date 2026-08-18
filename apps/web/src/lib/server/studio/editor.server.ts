@@ -14,7 +14,8 @@ import type {
   StudioMetadata,
   StudioPreviewResult,
 } from '../../studio/contracts';
-import { isStudioDraftReplacementEligible } from './draft-replacement.server';
+import { verifyStudioDraftReplacementEligibility } from './draft-replacement.server';
+import type { StudioDraftReplacementOffer } from './draft-replacement.server';
 import type { GithubReadAdapter, GithubSaveAdapter } from './github-adapter';
 
 const MAX_EDITOR_BODY_DISPLAY = 2_000_000;
@@ -341,7 +342,12 @@ export type StudioSaveResult =
       kind: 'save_conflict';
       loaded: StudioConcurrencyEvidence;
       current: StudioConcurrencyEvidence;
-      replacementAvailable?: true;
+      /**
+       * Present only when the server just proved replacement eligibility;
+       * carries the sanitized fresh evidence read during that proof so the
+       * replacement offer is never presented without it.
+       */
+      replacementAvailable?: StudioDraftReplacementOffer;
     }
   | {
       kind: 'save_failed';
@@ -455,7 +461,7 @@ export async function saveStudioDraft(
   } else if (branch === undefined || branch.sha !== input.concurrency.draftHeadSha) {
     return { kind: 'save_conflict', loaded: input.concurrency, current: currentEvidence() };
   } else if (main.value.sha !== input.concurrency.baseMainSha) {
-    const replacementAvailable = await isStudioDraftReplacementEligible(
+    const replacementAvailable = await verifyStudioDraftReplacementEligibility(
       adapter,
       slug,
       input.concurrency,
@@ -464,7 +470,7 @@ export async function saveStudioDraft(
       kind: 'save_conflict',
       loaded: input.concurrency,
       current: currentEvidence(),
-      ...(replacementAvailable ? { replacementAvailable: true as const } : {}),
+      ...(replacementAvailable !== undefined ? { replacementAvailable } : {}),
     };
   }
 

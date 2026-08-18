@@ -5,8 +5,14 @@ import {
   previewStudioEditorAction,
   replaceStudioEditorAction,
   saveStudioEditorAction,
+  type StudioDraftReplacementActionData,
   type StudioEditorRouteEvent,
+  type StudioSaveActionData,
 } from '../../../../lib/server/studio/editor-route.server';
+import {
+  buildStudioValidationProjection,
+  type StudioValidationProjection,
+} from '../../../../lib/server/studio/validation-projection.server';
 import {
   decodeStudioFormData,
   reconstructStudioPreviewInput,
@@ -15,7 +21,10 @@ import {
   type StudioPreviewInput,
 } from '../../../../lib/server/studio/editor.server';
 import { getStudioConfig } from '../../../../lib/server/studio/config.server';
-import { isStudioAcceptanceMode } from '../../../../lib/server/studio/acceptance-bootstrap.server';
+import {
+  applyStudioAcceptanceRecoveryScenario,
+  isStudioAcceptanceMode,
+} from '../../../../lib/server/studio/acceptance-bootstrap.server';
 import { studioEditorialAcceptanceMediaFetch } from '../../../../lib/server/studio/editorial-acceptance-media.server';
 import { deriveStudioArticleStatus } from '../../../../lib/server/studio/lifecycle.server';
 import {
@@ -39,7 +48,11 @@ import type {
 import type { StudioLifecycle } from '../../../../lib/studio/contracts';
 
 export const prerender = false;
-export const csr = false;
+// CSR is a progressive enhancement for #77's validation targeting: hydrated
+// issue links focus the exact metadata control or select the offending body
+// range in the textarea. Server-rendered anchor links (`#studio-field-*`,
+// `#studio-body`) keep working without JavaScript.
+export const csr = true;
 
 const MAX_SLUG_LENGTH = 100;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -48,6 +61,7 @@ const SHA_PATTERN = /^[0-9a-f]{40,64}$/i;
 export interface StudioPublishActionData {
   publish: StudioPublishResult;
   editor?: StudioPreviewInput;
+  validation?: StudioValidationProjection;
 }
 
 export interface StudioRefreshActionData {
@@ -68,9 +82,11 @@ export interface StudioDiscardActionData {
  * (`includeProbe: false`); only the explicit `refresh` action re-runs
  * probes. Never background polling (spec).
  */
-export const load: PageServerLoad<{ editor: StudioEditorData; status: StudioLifecycle }> = async (
-  event,
-) => {
+export const load: PageServerLoad<{
+  editor: StudioEditorData;
+  status: StudioLifecycle;
+  validation?: StudioValidationProjection;
+}> = async (event) => {
   const routeEvent = eventForEditorRoute(event);
   const editor = await loadStudioEditorPage(routeEvent, event.params.slug);
 
@@ -85,13 +101,79 @@ export const load: PageServerLoad<{ editor: StudioEditorData; status: StudioLife
   });
   if (!status.ok) error(503, 'Studio status unavailable.');
 
-  return { ...editor, status: status.value };
+  // A committed-but-invalid draft surfaces its actionable validation
+  // projection on plain load, not only after a Save (#77 AC1): the editor
+  // shows the committed candidate, so targets computed against it are exact.
+  const validation =
+    status.value.kind === 'draft_invalid'
+      ? buildStudioValidationProjection(status.value.issues, {
+          metadata: editor.editor.metadata,
+          body: editor.editor.body,
+        })
+      : undefined;
+
+  return { ...editor, status: status.value, ...(validation ? { validation } : {}) };
 };
+
+/**
+ * Attaches the #77 validation projection to a save result. Only results
+ * that carry compiler issues AND a bounded candidate can be targeted; the
+ * projection maps each issue to a metadata control or body range of that
+ * exact candidate.
+ */
+function withSaveValidation(
+  result: StudioSaveActionData,
+): StudioSaveActionData & { validation?: StudioValidationProjection } {
+  const issues =
+    result.save.kind === 'saved' || result.save.kind === 'save_rejected'
+      ? result.save.compileIssues
+      : [];
+  if (issues.length === 0 || result.editor === undefined) {
+    return result;
+  }
+  const validation = buildStudioValidationProjection(issues, result.editor);
+  return validation ? { ...result, validation } : result;
+}
+
+function withReplacementValidation(
+  result: StudioDraftReplacementActionData,
+): StudioDraftReplacementActionData & { validation?: StudioValidationProjection } {
+  if (result.replacement.kind !== 'replaced' || result.replacement.compileIssues.length === 0) {
+    return result;
+  }
+  const validation = buildStudioValidationProjection(
+    result.replacement.compileIssues,
+    result.editor,
+  );
+  return validation ? { ...result, validation } : result;
+}
 
 export const actions: Actions = {
   preview: (event) => previewStudioEditorAction(eventForEditorRoute(event), event.params.slug),
-  save: (event) => saveStudioEditorAction(eventForEditorRoute(event), event.params.slug),
-  replace: (event) => replaceStudioEditorAction(eventForEditorRoute(event), event.params.slug),
+  // The acceptance recovery scenario (a no-op outside acceptance mode)
+  // mutates only the deterministic fake-GitHub world before the real
+  // domain function observes it — the save/replace/publish code paths
+  // themselves have no acceptance branch.
+  save: async (event) => {
+    await applyStudioAcceptanceRecoveryScenario(
+      event.request,
+      event.platform?.env,
+      event.params.slug,
+    );
+    return withSaveValidation(
+      await saveStudioEditorAction(eventForEditorRoute(event), event.params.slug),
+    );
+  },
+  replace: async (event) => {
+    await applyStudioAcceptanceRecoveryScenario(
+      event.request,
+      event.platform?.env,
+      event.params.slug,
+    );
+    return withReplacementValidation(
+      await replaceStudioEditorAction(eventForEditorRoute(event), event.params.slug),
+    );
+  },
 
   /**
    * Publish saved version submits the complete bounded editor candidate as
@@ -108,6 +190,11 @@ export const actions: Actions = {
       .studioGithubAdapter;
     if (adapter === undefined) error(503, 'Studio publish unavailable.');
     const config = loadConfig(event.platform, 'Studio publish unavailable.');
+    await applyStudioAcceptanceRecoveryScenario(
+      event.request,
+      event.platform?.env,
+      event.params.slug,
+    );
 
     const form = await event.request.formData();
     const expectedHeadSha = form.get('expectedHeadSha');
@@ -156,7 +243,22 @@ export const actions: Actions = {
         ? { fetch: studioEditorialAcceptanceMediaFetch }
         : {}),
     });
-    const result: StudioPublishActionData = { publish, editor: submitted };
+    // Revalidation rejections carry real compiler issues worth targeting;
+    // UNSAVED_EDITOR_CHANGES is a workflow rejection owned by the recovery
+    // presentation, not a validation issue against a form control.
+    const compileIssues =
+      publish.kind === 'publish_rejected'
+        ? publish.compileIssues.filter((issue) => issue.code !== 'UNSAVED_EDITOR_CHANGES')
+        : [];
+    const validation =
+      compileIssues.length > 0
+        ? buildStudioValidationProjection(compileIssues, submitted)
+        : undefined;
+    const result: StudioPublishActionData = {
+      publish,
+      editor: submitted,
+      ...(validation ? { validation } : {}),
+    };
     return result;
   },
 

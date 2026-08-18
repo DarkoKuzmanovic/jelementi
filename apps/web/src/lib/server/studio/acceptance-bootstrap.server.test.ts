@@ -3,6 +3,8 @@ import { deriveStudioArticleStatus } from './lifecycle.server';
 import {
   STUDIO_ACCEPTANCE_ARTICLE_SLUG,
   STUDIO_ACCEPTANCE_LIVE_SLUG,
+  STUDIO_ACCEPTANCE_RECOVERY_HEADER,
+  applyStudioAcceptanceRecoveryScenario,
   injectStudioAcceptanceSelfBinding,
   isStudioAcceptanceMode,
   resolveStudioAcceptanceAdapter,
@@ -88,6 +90,134 @@ describe('studioAcceptanceProbeFetch', () => {
       'https://studio-acceptance.invalid/articles/lighthouse-watch',
     );
     expect(response.status).toBe(404);
+  });
+});
+
+describe('applyStudioAcceptanceRecoveryScenario', () => {
+  const acceptanceEnv = () => envWith({ STUDIO_ACCEPTANCE_MODE: '1' });
+  const request = (scenario?: string) =>
+    new Request('https://studio-acceptance.invalid/studio/articles/x', {
+      headers: scenario === undefined ? {} : { [STUDIO_ACCEPTANCE_RECOVERY_HEADER]: scenario },
+    });
+  const mainSha = async (adapter: Awaited<ReturnType<typeof resolveStudioAcceptanceAdapter>>) => {
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    return main.value.sha;
+  };
+
+  it('is a no-op outside acceptance mode even with the header present', async () => {
+    const env = envWith({});
+    const adapter = await resolveStudioAcceptanceAdapter(env);
+    const before = await mainSha(adapter);
+
+    await applyStudioAcceptanceRecoveryScenario(
+      request('main-moved'),
+      env,
+      STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+    );
+
+    expect(await mainSha(adapter)).toBe(before);
+  });
+
+  it('changes nothing for an absent or unknown header value', async () => {
+    const env = acceptanceEnv();
+    const adapter = await resolveStudioAcceptanceAdapter(env);
+    const before = await mainSha(adapter);
+
+    await applyStudioAcceptanceRecoveryScenario(request(), env, STUDIO_ACCEPTANCE_ARTICLE_SLUG);
+    await applyStudioAcceptanceRecoveryScenario(
+      request('not-a-scenario'),
+      env,
+      STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+    );
+
+    expect(await mainSha(adapter)).toBe(before);
+  });
+
+  it('main-moved advances main without touching the article draft branch', async () => {
+    const env = acceptanceEnv();
+    const adapter = await resolveStudioAcceptanceAdapter(env);
+    const before = await mainSha(adapter);
+    const branchName = `studio/article/${STUDIO_ACCEPTANCE_ARTICLE_SLUG}`;
+    const branchBefore = await adapter.getBranch(branchName);
+    if (!branchBefore.ok) throw new Error('draft branch missing');
+
+    await applyStudioAcceptanceRecoveryScenario(
+      request('main-moved'),
+      env,
+      STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+    );
+
+    expect(await mainSha(adapter)).not.toBe(before);
+    const branchAfter = await adapter.getBranch(branchName);
+    expect(branchAfter.ok && branchAfter.value.sha).toBe(branchBefore.value.sha);
+  });
+
+  it('draft-moved lands one further commit on the article draft branch only', async () => {
+    const env = acceptanceEnv();
+    const adapter = await resolveStudioAcceptanceAdapter(env);
+    const before = await mainSha(adapter);
+    const branchName = `studio/article/${STUDIO_ACCEPTANCE_ARTICLE_SLUG}`;
+    const branchBefore = await adapter.getBranch(branchName);
+    if (!branchBefore.ok) throw new Error('draft branch missing');
+
+    await applyStudioAcceptanceRecoveryScenario(
+      request('draft-moved'),
+      env,
+      STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+    );
+
+    const branchAfter = await adapter.getBranch(branchName);
+    expect(branchAfter.ok && branchAfter.value.sha).not.toBe(branchBefore.value.sha);
+    expect(await mainSha(adapter)).toBe(before);
+  });
+
+  it('save-offline fails exactly the next get-main-ref call, then recovers', async () => {
+    const env = acceptanceEnv();
+    const adapter = await resolveStudioAcceptanceAdapter(env);
+
+    await applyStudioAcceptanceRecoveryScenario(
+      request('save-offline'),
+      env,
+      STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+    );
+
+    const failed = await adapter.getMainRef();
+    expect(failed).toEqual({
+      ok: false,
+      failure: { operation: 'get-main-ref', reason: 'transport' },
+    });
+    const recovered = await adapter.getMainRef();
+    expect(recovered.ok).toBe(true);
+  });
+
+  it('replace-late-offline moves main and fails exactly the next delete-branch call, then recovers', async () => {
+    const env = acceptanceEnv();
+    const adapter = await resolveStudioAcceptanceAdapter(env);
+    const before = await mainSha(adapter);
+
+    await applyStudioAcceptanceRecoveryScenario(
+      request('replace-late-offline'),
+      env,
+      STUDIO_ACCEPTANCE_ARTICLE_SLUG,
+    );
+
+    // Main moved (so a refreshed-evidence Replace still verifies as
+    // eligible) and reads keep working — only the next delete-branch is
+    // armed to fail, so a targeted Replace stops at the delete-branch phase
+    // after the old Draft PR was already closed (the post-mutation partial
+    // state).
+    expect(await mainSha(adapter)).not.toBe(before);
+    const failed = await adapter.deleteBranch('studio/article/never-exists', 'a'.repeat(40));
+    expect(failed).toEqual({
+      ok: false,
+      failure: { operation: 'delete-branch', reason: 'transport' },
+    });
+    const recovered = await adapter.deleteBranch('studio/article/never-exists', 'a'.repeat(40));
+    expect(recovered).toEqual({
+      ok: false,
+      failure: { operation: 'delete-branch', reason: 'not-found' },
+    });
   });
 });
 
