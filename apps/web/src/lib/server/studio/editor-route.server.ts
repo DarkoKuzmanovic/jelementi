@@ -7,12 +7,25 @@ import {
   reconstructStudioPreviewInput,
   saveStudioDraft,
 } from './editor.server';
-import { getStudioConfig } from './config.server';
+import { getStudioConfig, type StudioConfig } from './config.server';
 import { replaceStudioDraft, type StudioDraftReplacementResult } from './draft-replacement.server';
 import type { GithubAdapter, GithubReadAdapter, GithubSaveAdapter } from './github-adapter';
 import { requireStudioAccess, requireStudioMutation } from './request-guard.server';
+import {
+  buildStudioValidationProjection,
+  type StudioValidationProjection,
+} from './validation-projection.server';
 import type { StudioEditorData, StudioPreviewInput, StudioSaveResult } from './editor.server';
-import type { StudioLifecycle, StudioPreviewResult } from '../../studio/contracts';
+import { buildStudioActionEnvelope, type StudioActionEnvelope } from '../../studio/action-envelope';
+import {
+  buildStudioWorkspaceProjection,
+  type StudioWorkspaceProjection,
+} from '../../studio/workspace-projection';
+import type {
+  StudioEditorInput,
+  StudioLifecycle,
+  StudioPreviewResult,
+} from '../../studio/contracts';
 
 const MAX_SLUG_LENGTH = 100;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -26,11 +39,28 @@ export interface StudioEditorRouteEvent {
 export interface StudioPreviewActionData {
   preview: StudioPreviewResult;
   editor?: StudioPreviewInput;
+  /**
+   * Shared decoded action-response envelope (#78). Present on the
+   * server-accepted path; full-navigation rendering and enhanced rendering
+   * consume the same envelope — only delivery differs. Absent on early
+   * rejection paths the enhanced client never reaches (it falls through to
+   * native submission when its bounded snapshot capture fails).
+   */
+  envelope?: StudioActionEnvelope;
 }
 
 export interface StudioSaveActionData {
   save: StudioSaveResult;
   editor?: StudioPreviewInput;
+  /**
+   * Server-authored canonical slug accepted by this Save (#78 decision B).
+   * On `/studio/articles/new` the enhanced client migrates the matching
+   * `new` recovery snapshot and navigates to `/studio/articles/<slug>`;
+   * immutable slug enforcement stays entirely server-side.
+   */
+  acceptedSlug?: string;
+  validation?: StudioValidationProjection;
+  envelope?: StudioActionEnvelope;
 }
 
 export interface StudioDraftReplacementActionData {
@@ -98,9 +128,14 @@ export async function previewStudioEditorAction(
       },
     };
   }
+  const preview = previewFromEditorInput(decoded.value, { mediaBaseUrl });
   return {
-    preview: previewFromEditorInput(decoded.value, { mediaBaseUrl }),
+    preview,
     editor: { metadata: decoded.value.metadata, body: decoded.value.body },
+    envelope: buildStudioActionEnvelope(envelopeIds(form, 'preview'), {
+      kind: 'preview',
+      preview,
+    }),
   };
 }
 
@@ -117,12 +152,13 @@ export async function saveStudioEditorAction(
   if (expectedSlug !== undefined && !isStudioSlug(expectedSlug)) {
     error(400, 'Invalid article slug.');
   }
-  let mediaBaseUrl: string;
+  let studioConfig: StudioConfig;
   try {
-    mediaBaseUrl = getStudioConfig(event.platform?.env).mediaBaseUrl;
+    studioConfig = getStudioConfig(event.platform?.env);
   } catch {
     error(503, 'Studio save unavailable.');
   }
+  const mediaBaseUrl = studioConfig.mediaBaseUrl;
 
   const adapter = event.locals.studioGithubAdapter as GithubSaveAdapter | undefined;
   if (adapter === undefined) error(503, 'Studio save unavailable.');
@@ -146,7 +182,36 @@ export async function saveStudioEditorAction(
   const save = await saveStudioDraft(adapter, decoded.value.metadata.slug, decoded.value, {
     mediaBaseUrl,
   });
-  return { save, editor: { metadata: decoded.value.metadata, body: decoded.value.body } };
+  const candidate = { metadata: decoded.value.metadata, body: decoded.value.body };
+  const compileIssues =
+    save.kind === 'saved' || save.kind === 'save_rejected' ? save.compileIssues : [];
+  const validation = buildStudioValidationProjection(compileIssues, candidate);
+  const envelope = buildStudioActionEnvelope(envelopeIds(form, 'save'), {
+    kind: 'save',
+    save,
+    workspace: saveWorkspaceProjection(
+      save,
+      decoded.value,
+      studioConfig.github.owner,
+      studioConfig.github.repo,
+    ),
+    ...(validation === undefined ? {} : { validation }),
+  });
+  return {
+    save,
+    editor: candidate,
+    ...(validation === undefined ? {} : { validation }),
+    // Server-authored canonical slug for the FIRST successful Save on the
+    // new-article route only (#78 decision: server-authored enhanced
+    // redirect). The enhanced client migrates the matching `new` Recovery
+    // record and navigates to `/studio/articles/<slug>`; immutable-slug
+    // enforcement stays entirely server-side. Never emitted for an
+    // established article route or a Save that the server did not accept.
+    ...(expectedSlug === undefined && save.kind === 'saved'
+      ? { acceptedSlug: decoded.value.metadata.slug }
+      : {}),
+    envelope,
+  };
 }
 
 export async function replaceStudioEditorAction(
@@ -209,6 +274,87 @@ export async function replaceStudioEditorAction(
           issues: replacement.compileIssues,
         };
   return { replacement, editor: candidate, status };
+}
+
+/**
+ * Bounded correlation ids for the action-response envelope (#78). The
+ * enhanced client submits them as hidden fields; full navigation falls
+ * back to bounded server-derived ids. They are correlation tokens, never
+ * authority — the server only echoes them and never trusts them.
+ */
+function envelopeIds(
+  form: FormData,
+  fallback: string,
+): { operationId: string; submittedSnapshotId: string } {
+  const bounded = (value: FormDataEntryValue | null): string | undefined => {
+    if (typeof value !== 'string' || value.length === 0 || value.length > 200) return undefined;
+    return /^[A-Za-z0-9._-]{1,200}$/.test(value) ? value : undefined;
+  };
+  return {
+    operationId: bounded(form.get('enhancementOperationId')) ?? `${fallback}-${Date.now()}`,
+    submittedSnapshotId:
+      bounded(form.get('submittedSnapshotId')) ?? `${fallback}-snapshot-${Date.now()}`,
+  };
+}
+
+/**
+ * Refreshed workspace projection composed from the authoritative Save
+ * result (spec #72: "Save nests the existing Save result plus refreshed
+ * workspace projection/concurrency"). Every mapped lifecycle kind is
+ * derived only from domain facts the Save result actually carries — the
+ * browser never reclassifies or reinterprets anything. The concurrency
+ * evidence advances ONLY from the authoritative Save result (never from
+ * the submitted form's stale evidence), and the Studio branch URL is the
+ * deterministic GitHub tree URL — never the Draft PR URL.
+ */
+function saveWorkspaceProjection(
+  save: StudioSaveResult,
+  input: StudioEditorInput,
+  owner: string,
+  repo: string,
+): StudioWorkspaceProjection {
+  const article = {
+    slug: input.metadata.slug,
+    title: input.metadata.title,
+    status: input.metadata.status,
+    updatedAt: input.metadata.updatedAt,
+  };
+  const branchName = `studio/article/${input.metadata.slug}`;
+  let lifecycle: StudioLifecycle;
+  let concurrency = input.concurrency;
+  if (save.kind === 'saved') {
+    // Only a successful Save produces advanced concurrency; the submitted
+    // evidence is stale by definition at that point.
+    concurrency = save.concurrency;
+    const branch = {
+      name: branchName,
+      url: `https://github.com/${owner}/${repo}/tree/${branchName}`,
+      headSha:
+        save.concurrency.draftHeadSha ??
+        save.concurrency.expectedBlobSha ??
+        save.concurrency.baseMainSha,
+    };
+    lifecycle =
+      save.compileIssues.length > 0
+        ? { kind: 'draft_invalid', article, branch, issues: save.compileIssues }
+        : { kind: 'draft_valid', article, branch };
+  } else if (save.kind === 'save_conflict') {
+    lifecycle = { kind: 'conflict', article, loaded: save.loaded, current: save.current };
+  } else if (save.kind === 'save_failed') {
+    lifecycle = {
+      kind: 'failed',
+      article,
+      phase: save.phase,
+      failure: { category: save.reason === 'topology' ? 'conflict' : 'github' },
+    };
+    // A post-commit partial failure carries the advanced evidence.
+    concurrency = save.concurrency ?? concurrency;
+  } else {
+    // save_rejected: the form could not be decoded, so no lifecycle claim
+    // is invented — the workspace stays "Status unavailable".
+    lifecycle = { kind: 'unknown', article };
+  }
+  return buildStudioWorkspaceProjection(lifecycle, concurrency);
 }
 
 function invalidFormPreview(form: FormData, expectedSlug?: string): StudioPreviewActionData {

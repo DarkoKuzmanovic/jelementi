@@ -3,6 +3,7 @@ import {
   STUDIO_ACCEPTANCE_IDENTITY_HEADER,
   STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
 } from '../../src/lib/server/studio/request-guard.server';
+import { expectFirstSaveLanded, waitForStudioHydration } from './helpers';
 
 /**
  * Validation & recovery presentation acceptance (#77).
@@ -41,9 +42,11 @@ function slugSuffix(testInfo: TestInfo): string {
 async function createSavedArticle(
   page: Page,
   slug: string,
+  testInfo: TestInfo,
   options: { publishable: boolean },
 ): Promise<void> {
   await page.goto('/studio/articles/new');
+  await waitForStudioHydration(page, testInfo);
   await page.getByRole('textbox', { name: 'Title', exact: true }).fill(`Recovery ${slug}`);
   await page.getByRole('textbox', { name: 'Slug', exact: true }).fill(slug);
   await page
@@ -59,7 +62,7 @@ async function createSavedArticle(
     await page.getByRole('textbox', { name: 'Published date', exact: true }).fill('2026-08-18');
   }
   await page.getByRole('button', { name: 'Save draft' }).click();
-  await expect(page.getByRole('heading', { name: 'Studio draft saved' })).toBeVisible();
+  await expectFirstSaveLanded(page, slug, testInfo);
 }
 
 test.describe('Validation summary', () => {
@@ -111,6 +114,7 @@ test.describe('Validation summary', () => {
     // control, which lives inside the initially closed "More metadata"
     // disclosure.
     await page.goto('/studio/articles/new');
+    await waitForStudioHydration(page, testInfo);
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill(`Recovery ${slug}`);
     await page.getByRole('textbox', { name: 'Slug', exact: true }).fill(slug);
     await page
@@ -122,7 +126,12 @@ test.describe('Validation summary', () => {
     await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('published');
     await page.getByRole('button', { name: 'Save draft' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Saved — needs fixes' })).toBeVisible();
+    if (testInfo.project.name === 'studio-no-js') {
+      await expect(page.getByRole('heading', { name: 'Saved — needs fixes' })).toBeVisible();
+    } else {
+      await expect(page).toHaveURL(new RegExp(`/studio/articles/${slug}$`));
+      await expect(page.getByText('Saved — needs fixes', { exact: true }).first()).toBeVisible();
+    }
 
     // The publication center's validation summary lives on the article
     // route; the committed draft is invalid, so a plain load targets the
@@ -171,7 +180,7 @@ test.describe('Recovery presentation', () => {
     page,
   }, testInfo) => {
     const slug = `recovery-journey-${slugSuffix(testInfo)}`;
-    await createSavedArticle(page, slug, { publishable: false });
+    await createSavedArticle(page, slug, testInfo, { publishable: false });
     await page.goto(`/studio/articles/${slug}`);
 
     // Another session moves `main` before this Save lands.
@@ -225,7 +234,7 @@ test.describe('Recovery presentation', () => {
     page,
   }, testInfo) => {
     const slug = `recovery-offline-${slugSuffix(testInfo)}`;
-    await createSavedArticle(page, slug, { publishable: false });
+    await createSavedArticle(page, slug, testInfo, { publishable: false });
     await page.goto(`/studio/articles/${slug}`);
 
     // GitHub is unreachable for exactly the next save attempt.
@@ -251,7 +260,7 @@ test.describe('Recovery presentation', () => {
     page,
   }, testInfo) => {
     const slug = `recovery-partial-${slugSuffix(testInfo)}`;
-    await createSavedArticle(page, slug, { publishable: false });
+    await createSavedArticle(page, slug, testInfo, { publishable: false });
     await page.goto(`/studio/articles/${slug}`);
 
     // Another session moves `main`, so this Save conflicts with an offer.
@@ -310,7 +319,7 @@ test.describe('Recovery presentation', () => {
     page,
   }, testInfo) => {
     const slug = `recovery-publish-${slugSuffix(testInfo)}`;
-    await createSavedArticle(page, slug, { publishable: true });
+    await createSavedArticle(page, slug, testInfo, { publishable: true });
     await page.goto(`/studio/articles/${slug}`);
     await expect(page.getByText('Ready to publish', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Publish saved version' })).toBeEnabled();

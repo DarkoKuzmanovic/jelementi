@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { StudioLifecycle } from '$lib/studio/contracts';
+  import type { StudioConcurrencyEvidence, StudioLifecycle } from '$lib/studio/contracts';
   import type { StudioPublishResult } from '$lib/server/studio/publish.server';
   import type { StudioUnpublishResult } from '$lib/server/studio/unpublish.server';
   import type { StudioDiscardResult } from '$lib/server/studio/discard.server';
@@ -7,6 +7,7 @@
 
   let {
     status,
+    concurrency,
     publish,
     unpublish,
     discard,
@@ -14,6 +15,7 @@
     candidateDirty = false,
   }: {
     status: StudioLifecycle;
+    concurrency?: StudioConcurrencyEvidence;
     publish?: StudioPublishResult;
     unpublish?: StudioUnpublishResult;
     discard?: StudioDiscardResult;
@@ -132,6 +134,15 @@
       Publish saved version
     </button>
     <form method="POST" action="?/refresh">
+      {#if concurrency}
+        <input type="hidden" name="baseMainSha" value={concurrency.baseMainSha} />
+        {#if concurrency.draftHeadSha}
+          <input type="hidden" name="draftHeadSha" value={concurrency.draftHeadSha} />
+        {/if}
+        {#if concurrency.expectedBlobSha}
+          <input type="hidden" name="expectedBlobSha" value={concurrency.expectedBlobSha} />
+        {/if}
+      {/if}
       <button type="submit" aria-label="Check status — refresh evidence">Check status</button>
     </form>
   </div>

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { serializeArticleSource } from '@jelementi/content-compiler';
 import { FakeGithubAdapter } from './github-adapter.fake';
 import type { StudioGithubConfig } from './config.server';
+import { decodeStudioActionEnvelope } from '../../studio/action-envelope';
 import {
   loadStudioEditorPage,
   previewStudioEditorAction,
@@ -100,8 +101,10 @@ describe('Studio editor route boundary', () => {
     expect(result.editor.body).toBe('Body.');
   });
 
-  it('previews the submitted body through the server compiler without a GitHub write', async () => {
+  it('previews through the shared correlated envelope without a GitHub write', async () => {
     const form = validForm();
+    form.set('enhancementOperationId', 'preview-op');
+    form.set('submittedSnapshotId', 'preview-snapshot');
     const result = await previewStudioEditorAction(
       event(
         new Request('https://jelementi.quz.ma/studio/articles/a-draft?/preview', {
@@ -114,6 +117,15 @@ describe('Studio editor route boundary', () => {
     expect(requireStudioMutation).toHaveBeenCalled();
     expect(result.preview.kind).toBe('preview_ok');
     expect(result.editor?.body).toBe('The **body**.');
+    const envelope = decodeStudioActionEnvelope(result.envelope);
+    expect(envelope).toMatchObject({
+      ok: true,
+      value: {
+        kind: 'preview',
+        operationId: 'preview-op',
+        submittedSnapshotId: 'preview-snapshot',
+      },
+    });
     const branches = await adapter.listStudioBranches();
     expect(branches).toEqual({ ok: true, value: [] });
   });
@@ -187,9 +199,11 @@ describe('Studio editor route boundary', () => {
 });
 
 describe('Studio save route boundary', () => {
-  it('commits a new draft branch and opens a Draft PR after authorization', async () => {
+  it('commits a new draft and returns its server-authored identity and workspace envelope', async () => {
     const form = validForm();
     form.set('slug', 'a-fresh-save');
+    form.set('enhancementOperationId', 'save-op');
+    form.set('submittedSnapshotId', 'save-snapshot');
     const main = await adapter.getMainRef();
     if (!main.ok) throw new Error('expected main ref');
     form.set('baseMainSha', main.value.sha);
@@ -209,11 +223,51 @@ describe('Studio save route boundary', () => {
     expect(result.save.pullRequest.number).toBeGreaterThan(0);
     expect(result.save.concurrency.draftHeadSha).toBeDefined();
     expect(result.editor?.metadata.slug).toBe('a-fresh-save');
+    expect(result.acceptedSlug).toBe('a-fresh-save');
+    const envelope = decodeStudioActionEnvelope(result.envelope);
+    expect(envelope).toMatchObject({
+      ok: true,
+      value: {
+        kind: 'save',
+        operationId: 'save-op',
+        submittedSnapshotId: 'save-snapshot',
+        workspace: { slug: 'a-fresh-save', concurrency: result.save.concurrency },
+      },
+    });
 
     const branches = await adapter.listStudioBranches();
     expect(branches.ok && branches.value.map((b) => b.name)).toContain(
       'studio/article/a-fresh-save',
     );
+  });
+
+  it('returns the actionable validation projection inside an enhanced invalid-Save envelope', async () => {
+    const form = validForm();
+    form.set('slug', 'invalid-enhanced-save');
+    form.set('body', '# Unsupported heading');
+    form.set('enhancementOperationId', 'invalid-save-op');
+    form.set('submittedSnapshotId', 'invalid-save-snapshot');
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.validation).toMatchObject({ count: 1, severity: 'blocking' });
+    expect(decodeStudioActionEnvelope(result.envelope)).toMatchObject({
+      ok: true,
+      value: {
+        kind: 'save',
+        validation: { count: 1, severity: 'blocking' },
+      },
+    });
   });
 
   it('rejects an invalid form without touching GitHub', async () => {
