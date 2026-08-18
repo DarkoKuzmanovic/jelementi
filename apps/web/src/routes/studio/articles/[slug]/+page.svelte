@@ -2,10 +2,13 @@
   import type { ActionData, PageData } from './$types';
   import StudioEditor from '../../../../lib/studio/StudioEditor.svelte';
   import StudioPublishPanel from '../../../../lib/studio/StudioPublishPanel.svelte';
+  import StudioEditorialDesk from '../../../../lib/studio/StudioEditorialDesk.svelte';
+  import StudioPreviewPane from '../../../../lib/studio/StudioPreviewPane.svelte';
   import StudioLifecycleSummary from '../../../../lib/studio/StudioLifecycleSummary.svelte';
   import StudioEvidenceDisclosure from '../../../../lib/studio/StudioEvidenceDisclosure.svelte';
   import StudioStatusAnnouncer from '../../../../lib/studio/StudioStatusAnnouncer.svelte';
   import { buildStudioWorkspaceProjection } from '../../../../lib/studio/workspace-projection';
+  import { studioEditorCandidateEquals } from '../../../../lib/studio/editorial-candidate';
   import type {
     StudioDraftReplacementActionData,
     StudioPreviewActionData,
@@ -53,6 +56,17 @@
   // polling — this is the only way `status` changes without a reload.
   const status = $derived(replacementAction?.status ?? refreshAction?.status ?? data.status);
 
+  const submittedCandidate = $derived(
+    previewAction?.editor ??
+      saveAction?.editor ??
+      replacementAction?.editor ??
+      publishAction?.editor,
+  );
+  const candidateDirty = $derived(
+    submittedCandidate !== undefined &&
+      !studioEditorCandidateEquals(submittedCandidate, data.editor),
+  );
+
   // Server-authored composite view above `status`: this route never ships
   // client JS (`csr = false`), so this is computed during SSR only, never
   // in the browser. It composes the existing lifecycle result, it never
@@ -61,21 +75,64 @@
 </script>
 
 <StudioStatusAnnouncer politeMessage={workspace.summary} />
-<StudioLifecycleSummary projection={workspace} />
 
-<StudioEditor
-  editor={data.editor}
-  submitted={previewAction?.editor ?? saveAction?.editor ?? replacementAction?.editor}
-  preview={previewAction?.preview}
-  save={saveAction?.save}
-  replacement={replacementAction?.replacement}
-/>
+<StudioEditorialDesk>
+  {#snippet editor()}
+    <StudioEditor
+      editor={data.editor}
+      submitted={submittedCandidate}
+      save={saveAction?.save}
+      replacement={replacementAction?.replacement}
+    />
+  {/snippet}
 
-<StudioPublishPanel
-  {status}
-  publish={publishAction?.publish}
-  unpublish={unpublishAction?.unpublish}
-  discard={discardAction?.discard}
-/>
+  {#snippet preview()}
+    <StudioPreviewPane preview={previewAction?.preview} />
+  {/snippet}
 
-<StudioEvidenceDisclosure projection={workspace} />
+  {#snippet publication()}
+    <aside id="publication-center" aria-labelledby="studio-publication-center-heading">
+      <h2 id="studio-publication-center-heading">Publication center</h2>
+      {#if candidateDirty}
+        <section class="studio-dirty-notice" aria-labelledby="studio-dirty-heading">
+          <h3 id="studio-dirty-heading">Unsaved form changes</h3>
+          <p>
+            Not saved yet. The committed Studio draft is still safe; save the current form before
+            publishing.
+          </p>
+        </section>
+      {/if}
+      <div id="validation-summary">
+        <StudioLifecycleSummary projection={workspace} />
+      </div>
+      <div id="recovery">
+        <StudioPublishPanel
+          {status}
+          {candidateDirty}
+          publish={publishAction?.publish}
+          unpublish={unpublishAction?.unpublish}
+          discard={discardAction?.discard}
+        />
+      </div>
+      <StudioEvidenceDisclosure projection={workspace} />
+    </aside>
+  {/snippet}
+</StudioEditorialDesk>
+
+<style>
+  .studio-dirty-notice {
+    margin-bottom: var(--studio-space-3);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-3);
+    background: var(--studio-info-surface);
+    color: var(--studio-info-text);
+  }
+
+  .studio-dirty-notice > :first-child {
+    margin-top: 0;
+  }
+
+  .studio-dirty-notice > :last-child {
+    margin-bottom: 0;
+  }
+</style>

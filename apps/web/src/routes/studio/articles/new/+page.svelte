@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { ActionData, PageData } from './$types';
   import StudioEditor from '../../../../lib/studio/StudioEditor.svelte';
+  import StudioEditorialDesk from '../../../../lib/studio/StudioEditorialDesk.svelte';
+  import StudioPreviewPane from '../../../../lib/studio/StudioPreviewPane.svelte';
+  import StudioNewArticlePublicationCenter from '../../../../lib/studio/StudioNewArticlePublicationCenter.svelte';
   import type {
     StudioPreviewActionData,
     StudioSaveActionData,
@@ -17,9 +20,20 @@
   );
 </script>
 
-<StudioEditor
-  editor={data.editor}
-  submitted={previewAction?.editor ?? saveAction?.editor}
-  preview={previewAction?.preview}
-  save={saveAction?.save}
-/>
+<StudioEditorialDesk>
+  {#snippet editor()}
+    <StudioEditor
+      editor={data.editor}
+      submitted={previewAction?.editor ?? saveAction?.editor}
+      save={saveAction?.save}
+    />
+  {/snippet}
+
+  {#snippet preview()}
+    <StudioPreviewPane preview={previewAction?.preview} />
+  {/snippet}
+
+  {#snippet publication()}
+    <StudioNewArticlePublicationCenter concurrency={data.editor.concurrency} />
+  {/snippet}
+</StudioEditorialDesk>

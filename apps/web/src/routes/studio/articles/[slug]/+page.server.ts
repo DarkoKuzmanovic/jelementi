@@ -7,8 +7,16 @@ import {
   saveStudioEditorAction,
   type StudioEditorRouteEvent,
 } from '../../../../lib/server/studio/editor-route.server';
-import type { StudioEditorData } from '../../../../lib/server/studio/editor.server';
+import {
+  decodeStudioFormData,
+  reconstructStudioPreviewInput,
+  verifyStudioPublishCandidate,
+  type StudioEditorData,
+  type StudioPreviewInput,
+} from '../../../../lib/server/studio/editor.server';
 import { getStudioConfig } from '../../../../lib/server/studio/config.server';
+import { isStudioAcceptanceMode } from '../../../../lib/server/studio/acceptance-bootstrap.server';
+import { studioEditorialAcceptanceMediaFetch } from '../../../../lib/server/studio/editorial-acceptance-media.server';
 import { deriveStudioArticleStatus } from '../../../../lib/server/studio/lifecycle.server';
 import {
   publishStudioDraft,
@@ -39,6 +47,7 @@ const SHA_PATTERN = /^[0-9a-f]{40,64}$/i;
 
 export interface StudioPublishActionData {
   publish: StudioPublishResult;
+  editor?: StudioPreviewInput;
 }
 
 export interface StudioRefreshActionData {
@@ -85,11 +94,11 @@ export const actions: Actions = {
   replace: (event) => replaceStudioEditorAction(eventForEditorRoute(event), event.params.slug),
 
   /**
-   * Explicit, head-bound approval (ADR-0004): revalidates the exact
-   * committed draft, flips the Draft PR ready, and enables auto-merge only
-   * for the head SHA the operator last saw. `expectedHeadSha` is a hidden
-   * field the editor itself renders from the loaded status — a malformed
-   * value indicates a client bug, not a normal validation failure.
+   * Publish saved version submits the complete bounded editor candidate as
+   * an ordinary form. Before the unchanged exact-head Publish service runs,
+   * this route proves that candidate serializes byte-for-byte to the draft
+   * committed at `expectedHeadSha`. Malformed or newer form content is
+   * preserved for correction and rejected without a GitHub mutation.
    */
   publish: async (event) => {
     await requireStudioMutation({ request: event.request, platform: event.platform });
@@ -106,10 +115,48 @@ export const actions: Actions = {
       error(400, 'Invalid publish request.');
     }
 
+    const decoded = decodeStudioFormData(form);
+    const submitted = decoded.ok
+      ? { metadata: decoded.value.metadata, body: decoded.value.body }
+      : reconstructStudioPreviewInput(form);
+    submitted.metadata.slug = event.params.slug;
+    if (!decoded.ok || decoded.value.metadata.slug !== event.params.slug) {
+      return { publish: unsavedEditorChanges(event.params.slug), editor: submitted };
+    }
+
+    const verification = await verifyStudioPublishCandidate(
+      adapter,
+      event.params.slug,
+      expectedHeadSha,
+      submitted,
+    );
+    if (verification.kind === 'candidate_rejected') {
+      return { publish: unsavedEditorChanges(event.params.slug), editor: submitted };
+    }
+    if (verification.kind === 'candidate_conflict') {
+      return {
+        publish: {
+          kind: 'publish_conflict',
+          expectedHeadSha,
+          currentHeadSha: verification.currentHeadSha,
+        },
+        editor: submitted,
+      };
+    }
+    if (verification.kind === 'candidate_failed') {
+      return {
+        publish: { kind: 'publish_failed', phase: 'revalidate', reason: 'github' },
+        editor: submitted,
+      };
+    }
+
     const publish = await publishStudioDraft(adapter, event.params.slug, expectedHeadSha, {
       mediaBaseUrl: config.mediaBaseUrl,
+      ...(isStudioAcceptanceMode(event.platform?.env)
+        ? { fetch: studioEditorialAcceptanceMediaFetch }
+        : {}),
     });
-    const result: StudioPublishActionData = { publish };
+    const result: StudioPublishActionData = { publish, editor: submitted };
     return result;
   },
 
@@ -211,6 +258,19 @@ export const actions: Actions = {
     return result;
   },
 };
+
+function unsavedEditorChanges(slug: string): StudioPublishResult {
+  return {
+    kind: 'publish_rejected',
+    compileIssues: [
+      {
+        code: 'UNSAVED_EDITOR_CHANGES',
+        message: 'Save the current form before publishing.',
+        sourcePath: `content/articles/${slug}.md`,
+      },
+    ],
+  };
+}
 
 function loadConfig(
   platform: App.Platform | undefined,

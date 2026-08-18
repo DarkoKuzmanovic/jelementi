@@ -10,6 +10,7 @@ import {
   loadStudioEditor,
   previewStudioArticle,
   saveStudioDraft,
+  verifyStudioPublishCandidate,
 } from './editor.server';
 import type { StudioGithubConfig } from './config.server';
 
@@ -85,6 +86,60 @@ describe('previewStudioArticle', () => {
         },
       ],
     });
+  });
+});
+
+describe('verifyStudioPublishCandidate', () => {
+  it('accepts only a candidate that serializes byte-for-byte to the committed draft at the expected head', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      metadata.slug,
+      {
+        metadata,
+        body: 'Saved body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: 'https://media.jelementi.quz.ma/' },
+    );
+    if (saved.kind !== 'saved' || saved.concurrency.draftHeadSha === undefined) {
+      throw new Error('save failed');
+    }
+
+    await expect(
+      verifyStudioPublishCandidate(adapter, metadata.slug, saved.concurrency.draftHeadSha, {
+        metadata,
+        body: 'Saved body.',
+      }),
+    ).resolves.toEqual({ kind: 'candidate_matches' });
+
+    await expect(
+      verifyStudioPublishCandidate(adapter, metadata.slug, saved.concurrency.draftHeadSha, {
+        metadata,
+        body: 'Newer unsaved body.',
+      }),
+    ).resolves.toEqual({ kind: 'candidate_rejected' });
+
+    await expect(
+      verifyStudioPublishCandidate(adapter, metadata.slug, saved.concurrency.draftHeadSha, {
+        metadata: { ...metadata, title: 'Newer unsaved title' },
+        body: 'Saved body.',
+      }),
+    ).resolves.toEqual({ kind: 'candidate_rejected' });
+  });
+
+  it('reports moved-head evidence before comparing candidate content', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    adapter.seedBranch(`studio/article/${metadata.slug}`, 'b'.repeat(40));
+
+    await expect(
+      verifyStudioPublishCandidate(adapter, metadata.slug, 'a'.repeat(40), {
+        metadata,
+        body: 'Candidate body.',
+      }),
+    ).resolves.toEqual({ kind: 'candidate_conflict', currentHeadSha: 'b'.repeat(40) });
   });
 });
 

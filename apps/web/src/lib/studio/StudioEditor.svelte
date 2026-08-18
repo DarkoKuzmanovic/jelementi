@@ -5,21 +5,19 @@
     StudioSaveResult,
   } from '../server/studio/editor.server';
   import type { StudioDraftReplacementResult } from '../server/studio/draft-replacement.server';
-  import type { StudioPreviewResult } from './contracts';
-  import ArticleRenderer from '../article/ArticleRenderer.svelte';
 
   let {
     editor,
     submitted,
-    preview,
     save,
     replacement,
+    formId = 'studio-article-form',
   }: {
     editor: StudioEditorData;
     submitted?: StudioPreviewInput;
-    preview?: StudioPreviewResult;
     save?: StudioSaveResult;
     replacement?: StudioDraftReplacementResult;
+    formId?: string;
   } = $props();
 
   const visible = $derived(submitted ?? { metadata: editor.metadata, body: editor.body });
@@ -45,135 +43,154 @@
   const slugLocked = $derived(!editor.slugEditable || save?.kind === 'saved');
 </script>
 
-<section aria-labelledby="studio-editor-heading">
-  <p class="eyebrow">{metadata.status === 'draft' ? 'Draft article' : 'Canonical article'}</p>
+<section class="studio-editor" aria-labelledby="studio-editor-heading">
+  <p class="studio-editor__eyebrow">
+    {metadata.status === 'draft' ? 'Draft article' : 'Canonical article'}
+  </p>
   <h2 id="studio-editor-heading">{metadata.title}</h2>
-  <p>Preview is compiled on the server from the current form. No draft is saved automatically.</p>
 
-  <form method="POST" action="?/preview" class="studio-editor-form">
-    <fieldset>
-      <legend>Article metadata</legend>
-      <label>
-        Title
-        <input name="title" value={metadata.title} required />
-      </label>
-      <label>
-        Slug
-        <input name="slug" value={metadata.slug} readonly={slugLocked} required />
-      </label>
-      <label>
-        Excerpt
-        <textarea name="excerpt" rows="3" required>{metadata.excerpt}</textarea>
-      </label>
-      <label>
-        Updated date
-        <input name="updatedAt" value={metadata.updatedAt} required />
-      </label>
-      <label>
-        Published date
-        <input name="publishedAt" value={metadata.publishedAt ?? ''} />
-      </label>
-      <label>
-        Status
-        <select name="status" value={metadata.status}>
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
-          <option value="archived">Archived</option>
-        </select>
-      </label>
-      <label>
-        Category
-        <input name="category" value={metadata.category} required />
-      </label>
-      <label>
-        Tags <span>(comma-separated)</span>
-        <input name="tags" value={metadata.tags.join(', ')} />
-      </label>
-      <label>
-        Author
-        <input name="author" value={metadata.author} required />
-      </label>
-    </fieldset>
+  <form id={formId} method="POST" action="?/preview" class="studio-editor-form">
+    <section class="studio-editor__section" aria-labelledby="studio-essentials-heading">
+      <h3 id="studio-essentials-heading">Essentials</h3>
+      <p>Required to understand the article.</p>
+      <div class="studio-editor__field-grid">
+        <label class="studio-editor__field-wide">
+          Title
+          <input name="title" value={metadata.title} required />
+        </label>
+        <label>
+          Slug
+          <input name="slug" value={metadata.slug} readonly={slugLocked} required />
+        </label>
+        <label>
+          Status
+          <select name="status" value={metadata.status}>
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+            <option value="archived">Archived</option>
+          </select>
+        </label>
+        <label class="studio-editor__field-wide">
+          Excerpt
+          <textarea name="excerpt" rows="3" required>{metadata.excerpt}</textarea>
+        </label>
+      </div>
+    </section>
 
-    <fieldset>
-      <legend>Cover</legend>
-      <label>
-        Media key
-        <input name="coverSrc" value={metadata.cover.src} required />
-      </label>
-      <label>
-        Alt text
-        <input name="coverAlt" value={metadata.cover.alt} />
-      </label>
-    </fieldset>
+    <details class="studio-editor__metadata">
+      <summary>
+        More metadata
+        <span>Dates, category, tags, author, media, audio, and references</span>
+      </summary>
+      <div class="studio-editor__field-grid">
+        <label>
+          Updated date
+          <input name="updatedAt" value={metadata.updatedAt} required />
+        </label>
+        <label>
+          Published date
+          <input name="publishedAt" value={metadata.publishedAt ?? ''} />
+        </label>
+        <label>
+          Category
+          <input name="category" value={metadata.category} required />
+        </label>
+        <label>
+          Tags <span>(comma-separated)</span>
+          <input name="tags" value={metadata.tags.join(', ')} />
+        </label>
+        <label class="studio-editor__field-wide">
+          Author
+          <input name="author" value={metadata.author} required />
+        </label>
+      </div>
 
-    <fieldset>
-      <legend>Audio (optional)</legend>
-      <label>
-        Media key
-        <input name="audioSrc" value={metadata.audio?.src ?? ''} />
-      </label>
-      <label>
-        Duration in seconds
-        <input
-          name="audioDurationSeconds"
-          type="number"
-          min="1"
-          value={metadata.audio?.durationSeconds ?? ''}
-        />
-      </label>
-    </fieldset>
+      <fieldset>
+        <legend>Cover</legend>
+        <div class="studio-editor__field-grid">
+          <label>
+            Media key
+            <input name="coverSrc" value={metadata.cover.src} required />
+          </label>
+          <label>
+            Alt text
+            <input name="coverAlt" value={metadata.cover.alt} />
+          </label>
+        </div>
+      </fieldset>
 
-    <fieldset>
-      <legend>References</legend>
-      {#each metadata.references as reference, index (index)}
-        <div class="studio-reference-fields">
+      <fieldset>
+        <legend>Audio (optional)</legend>
+        <div class="studio-editor__field-grid">
+          <label>
+            Media key
+            <input name="audioSrc" value={metadata.audio?.src ?? ''} />
+          </label>
+          <label>
+            Duration in seconds
+            <input
+              name="audioDurationSeconds"
+              type="number"
+              min="1"
+              value={metadata.audio?.durationSeconds ?? ''}
+            />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>References</legend>
+        {#each metadata.references as reference, index (index)}
+          <div class="studio-reference-fields">
+            <label>
+              Title
+              <input name="referenceTitle" value={reference.title} />
+            </label>
+            <label>
+              URL
+              <input name="referenceUrl" type="url" value={reference.url} />
+            </label>
+            <label>
+              Publisher
+              <input name="referencePublisher" value={reference.publisher ?? ''} />
+            </label>
+            <label>
+              Accessed date
+              <input name="referenceAccessedAt" value={reference.accessedAt ?? ''} />
+            </label>
+          </div>
+        {/each}
+        <div class="studio-reference-fields" aria-label="New reference">
           <label>
             Title
-            <input name="referenceTitle" value={reference.title} />
+            <input name="referenceTitle" />
           </label>
           <label>
             URL
-            <input name="referenceUrl" type="url" value={reference.url} />
+            <input name="referenceUrl" type="url" />
           </label>
           <label>
             Publisher
-            <input name="referencePublisher" value={reference.publisher ?? ''} />
+            <input name="referencePublisher" />
           </label>
           <label>
             Accessed date
-            <input name="referenceAccessedAt" value={reference.accessedAt ?? ''} />
+            <input name="referenceAccessedAt" />
           </label>
         </div>
-      {/each}
-      <div class="studio-reference-fields" aria-label="New reference">
-        <label>
-          Title
-          <input name="referenceTitle" />
-        </label>
-        <label>
-          URL
-          <input name="referenceUrl" type="url" />
-        </label>
-        <label>
-          Publisher
-          <input name="referencePublisher" />
-        </label>
-        <label>
-          Accessed date
-          <input name="referenceAccessedAt" />
-        </label>
-      </div>
-    </fieldset>
+      </fieldset>
+    </details>
 
-    <fieldset>
-      <legend>Markdown body</legend>
+    <section class="studio-editor__section">
+      <p class="studio-editor__eyebrow">Writing · No autosave</p>
+      <h3 id="studio-body-heading">Markdown body</h3>
       <label>
         Body
-        <textarea name="body" rows="18">{visible.body}</textarea>
+        <textarea id="studio-body" name="body" rows="24" spellcheck="true">{visible.body}</textarea>
       </label>
+      <p>Unsaved text stays in this form. Save draft is the only commit action.</p>
       <p>Reading time is generated by the compiler and is not editable.</p>
-    </fieldset>
+    </section>
 
     <input type="hidden" name="baseMainSha" value={concurrency.baseMainSha} />
     {#if concurrency.draftHeadSha}
@@ -182,11 +199,13 @@
     {#if concurrency.expectedBlobSha}
       <input type="hidden" name="expectedBlobSha" value={concurrency.expectedBlobSha} />
     {/if}
-    <button type="submit">Preview</button>
-    <button type="submit" formaction="?/save">Save draft</button>
-    {#if save?.kind === 'save_conflict' && save.replacementAvailable}
-      <button type="submit" formaction="?/replace">Replace stale Studio draft</button>
-    {/if}
+    <div class="studio-editor__actions">
+      <button type="submit">Preview</button>
+      <button type="submit" formaction="?/save">Save draft</button>
+      {#if save?.kind === 'save_conflict' && save.replacementAvailable}
+        <button type="submit" formaction="?/replace">Replace stale Studio draft</button>
+      {/if}
+    </div>
   </form>
 
   {#if save?.kind === 'saved'}
@@ -317,22 +336,120 @@
       </dl>
     </section>
   {/if}
-
-  {#if preview?.kind === 'preview_issues'}
-    <section aria-labelledby="preview-issues-heading">
-      <h3 id="preview-issues-heading">Preview needs attention</h3>
-      <ul>
-        {#each preview.compileIssues as issue, index (index)}
-          <li>
-            {issue.code}: {issue.message} ({issue.sourcePath}:{issue.line ?? 1}:{issue.column ?? 1})
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {:else if preview?.kind === 'preview_ok'}
-    <section aria-labelledby="preview-heading">
-      <h3 id="preview-heading">Preview</h3>
-      <ArticleRenderer document={preview.document} />
-    </section>
-  {/if}
 </section>
+
+<style>
+  .studio-editor {
+    min-width: 0;
+    background: var(--studio-panel);
+    border: 1px solid var(--studio-border);
+    border-radius: var(--studio-radius-panel);
+    padding: var(--studio-space-4);
+  }
+
+  .studio-editor__eyebrow,
+  .studio-editor p,
+  .studio-editor summary span,
+  .studio-editor label span {
+    color: var(--studio-text-muted);
+    font-size: var(--studio-text-compact);
+  }
+
+  .studio-editor-form,
+  .studio-editor__section,
+  .studio-editor__metadata,
+  .studio-editor fieldset {
+    display: grid;
+    gap: var(--studio-space-3);
+  }
+
+  .studio-editor__field-grid,
+  .studio-reference-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--studio-space-3);
+  }
+
+  .studio-editor__field-wide {
+    grid-column: 1 / -1;
+  }
+
+  .studio-editor label {
+    display: grid;
+    gap: var(--studio-space-1);
+    min-width: 0;
+  }
+
+  .studio-editor input,
+  .studio-editor select,
+  .studio-editor textarea {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    background: var(--studio-panel);
+    color: var(--studio-text-primary);
+    border: 1px solid var(--studio-border);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-2);
+    font: inherit;
+  }
+
+  .studio-editor textarea[name='body'] {
+    min-height: 28rem;
+    resize: vertical;
+    font-family: var(--studio-font-evidence);
+    line-height: var(--studio-line-height-body);
+  }
+
+  .studio-editor__metadata {
+    background: var(--studio-surface-subtle);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-3);
+  }
+
+  .studio-editor__metadata summary {
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .studio-editor__metadata summary span {
+    display: block;
+    font-weight: 400;
+  }
+
+  .studio-editor__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--studio-space-2);
+  }
+
+  .studio-editor button {
+    border: 1px solid var(--studio-action-primary-bg);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-2) var(--studio-space-4);
+    background: var(--studio-action-primary-bg);
+    color: var(--studio-action-primary-fg);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .studio-editor button:hover {
+    background: var(--studio-action-primary-hover);
+  }
+
+  @media (max-width: 640px) {
+    .studio-editor__field-grid,
+    .studio-reference-fields {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .studio-editor__field-wide {
+      grid-column: auto;
+    }
+
+    .studio-editor__actions {
+      display: grid;
+    }
+  }
+</style>

@@ -37,6 +37,9 @@ describe('StudioLifecycleSummary', () => {
     expect(body).toContain('Ready to publish');
     expect(body).toContain(projection.summary);
     expect(body).toContain(projection.recommendedAction);
+    expect(body.indexOf(projection.summary)).toBeLessThan(body.indexOf('Recommended:'));
+    expect(body.indexOf('Recommended:')).toBeLessThan(body.indexOf('Published version'));
+    expect(body.indexOf('Published version')).toBeLessThan(body.indexOf('Working change'));
   });
 
   it('always shows the validation summary, never gated behind Evidence disclosure', () => {

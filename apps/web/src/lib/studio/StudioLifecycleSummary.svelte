@@ -13,6 +13,7 @@
 <section class="studio-lifecycle-summary" aria-labelledby="studio-lifecycle-summary-heading">
   <h3 id="studio-lifecycle-summary-heading">Lifecycle summary</h3>
   <p>{projection.summary}</p>
+  <p><strong>Recommended:</strong> {projection.recommendedAction}</p>
 
   <div class="studio-lifecycle-summary__axis">
     <div>
@@ -25,7 +26,6 @@
     </div>
   </div>
 
-  <p><strong>Recommended:</strong> {projection.recommendedAction}</p>
   <p class="studio-lifecycle-summary__reader-effect">{projection.readerEffect}</p>
 
   <!-- Always visible, never gated behind Evidence disclosure (#72: "validation
