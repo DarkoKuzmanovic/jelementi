@@ -85,7 +85,7 @@ test('client filtering preserves shared search semantics, source order, and inpu
   await input.fill('');
   await expect(page.getByRole('article')).toHaveCount(representativeCatalogSize);
   await expect(page.getByRole('article').first()).toContainText('Every Reader Structure');
-  await expect(page.getByRole('article').last()).toContainText('The Patient Instrument');
+  await expect(page.getByRole('article').last()).toContainText('A Sparse Column Without Audio');
 });
 
 test('submission and zero-result recovery keep control with the Search input', async ({
