@@ -78,6 +78,14 @@ export function verifyWranglerContract(
       'wrangler config must never define STUDIO_ACCEPTANCE_MODE: it grants an unauthenticated Studio access bypass (ADR-0001) and belongs only to the acceptance-only apps/web/wrangler.acceptance.jsonc fixture.',
     );
   }
+  if (
+    isRecord(config.vars) &&
+    Object.keys(config.vars).some((name) => name.startsWith('READER_ACCEPTANCE_'))
+  ) {
+    throw new Error(
+      'wrangler config must never define READER_ACCEPTANCE_*: Reader fixture selection is test-only and must be absent from every deployable configuration.',
+    );
+  }
 }
 
 function run(command: string, args: string[], cwd: string): Promise<void> {

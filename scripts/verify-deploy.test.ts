@@ -52,6 +52,15 @@ describe('Wrangler M2 reader contract', () => {
     );
   });
 
+  it('rejects Reader acceptance mode from every deployable Wrangler contract', () => {
+    const withAcceptanceMode = { ...contract, vars: { READER_ACCEPTANCE_SCENARIO: 'sparse' } };
+    expect(() => verifyWranglerContract(withAcceptanceMode)).toThrow('READER_ACCEPTANCE');
+    const { routes: _routes, ...branchUploadWithAcceptanceMode } = withAcceptanceMode;
+    expect(() => verifyWranglerContract(branchUploadWithAcceptanceMode, 'branch-upload')).toThrow(
+      'READER_ACCEPTANCE',
+    );
+  });
+
   it('accepts a contract with other production vars but no acceptance flag', () => {
     const withVars = { ...contract, vars: { PRODUCTION_ORIGIN: 'https://jelementi.quz.ma' } };
     expect(() => verifyWranglerContract(withVars)).not.toThrow();
