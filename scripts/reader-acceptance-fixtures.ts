@@ -187,6 +187,41 @@ const representativeDocuments = [
     publishedAt: '2026-07-28',
     excerpt: 'unbroken-content-token-that-must-reflow-without-page-level-overflow',
   }),
+  ArticleDocumentSchema.parse({
+    schemaVersion: 1,
+    slug: 'acceptance-no-audio-long-column',
+    title: 'A Sparse Column Without Audio',
+    excerpt: 'A deterministic sparse article with no audio and long content.',
+    status: 'published',
+    publishedAt: '2026-07-28',
+    updatedAt: '2026-07-28',
+    category: 'Solo',
+    tags: ['sparse', 'quiet'],
+    author: 'Jelementi',
+    cover: { src: `${mediaOrigin}sparse-cover.webp`, alt: 'Sparse cover' },
+    readingTimeMinutes: 2,
+    blocks: [
+      {
+        type: 'paragraph',
+        children: [
+          text('A very long unbroken token that must stay contained inside the bounded column: '),
+          text('x'.repeat(180)),
+        ],
+      },
+      {
+        type: 'image',
+        src: `${mediaOrigin}wide-image.webp`,
+        alt: 'A wide deterministic fixture landscape',
+        caption: [text('A wide media caption that also stays contained.')],
+        width: 1600,
+        height: 900,
+      },
+      { type: 'divider' },
+    ],
+    footnotes: [],
+    references: [],
+  }),
+  }),
 ] as const;
 
 const excludedDocuments = [

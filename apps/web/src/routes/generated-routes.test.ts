@@ -5,11 +5,19 @@ import type { ArticleDocument, ArticleIndexEntry } from '@jelementi/article-mode
 import { resolveArticle, resolveCategory } from '../lib/routes';
 import type { GeneratedContent } from '../lib/generated-content';
 
-// The article page imports its body renderer through the `$lib` alias, which the
-// vitest environment cannot resolve. The meta-element contract under test lives
-// in the real page component's svelte:head, so only the body subcomponent is
-// shimmed; the rendered head output is entirely produced by the page itself.
+// The article page imports its body renderer and continuation through the
+// `$lib` alias, which the vitest environment cannot resolve. The meta-element
+// contract under test lives in the real page component's svelte:head, so only
+// the body subcomponents are shimmed; the rendered head output is entirely
+// produced by the page itself.
 vi.mock('$lib/article/ArticleRenderer.svelte', () => ({
+  default: (): { body: string; head: string; css: { code: string } } => ({
+    body: '',
+    head: '',
+    css: { code: '' },
+  }),
+}));
+vi.mock('$lib/article/ArticleContinuation.svelte', () => ({
   default: (): { body: string; head: string; css: { code: string } } => ({
     body: '',
     head: '',
@@ -104,7 +112,9 @@ describe('generated reader routes', () => {
     const contentVersion = await articleContentFingerprint(article);
     expect(contentVersion).toMatch(/^[0-9a-f]{64}$/);
 
-    const { head } = render(ArticlePage, { props: { data: { article, contentVersion } } });
+    const { head } = render(ArticlePage, {
+      props: { data: { article, contentVersion, continuation: { nextOlder: null } } },
+    });
     const metas = head.match(/<meta\b[^>]*\bname="jelementi-content-version"[^>]*>/g) ?? [];
     expect(metas).toHaveLength(1);
     const meta = metas[0];

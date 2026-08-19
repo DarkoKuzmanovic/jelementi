@@ -91,6 +91,18 @@ describe('Reader acceptance fixture catalogs', () => {
     expect(filterArticles(content.index, 'no such acceptance article')).toEqual([]);
   });
 
+  it('provides a no-audio sparse article with contained long unbroken content', () => {
+    const content = loadReaderAcceptanceContent('representative');
+    const sparse = content.articles['acceptance-no-audio-long-column'];
+    if (sparse === undefined) throw new Error('Sparse fixture is missing.');
+
+    expect(sparse.audio).toBeUndefined();
+    expect(sparse.blocks.length).toBeGreaterThanOrEqual(3);
+    expect(JSON.stringify(sparse.blocks)).toContain('x'.repeat(180));
+    // Wide media still renders with its caption in one flow.
+    expect(sparse.blocks.some((block) => block.type === 'image')).toBe(true);
+  });
+
   it('offers an explicit ordinary-error scenario that fails instead of falling back to real data', () => {
     expect(() => loadReaderAcceptanceContent('ordinary-error')).toThrow(
       'Reader acceptance ordinary error',

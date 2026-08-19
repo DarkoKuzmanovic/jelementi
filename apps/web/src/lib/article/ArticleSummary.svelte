@@ -1,30 +1,8 @@
 <script lang="ts">
   import type { ArticleIndexEntry } from '@jelementi/article-model';
+  import { formatPublishedDate } from './format-date';
 
   let { article }: { article: ArticleIndexEntry } = $props();
-
-  const MONTHS = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ] as const;
-
-  function formatPublishedDate(value: string): string {
-    const date = new Date(`${value}T00:00:00Z`);
-    if (Number.isNaN(date.getTime())) return value;
-    const month = MONTHS[date.getUTCMonth()];
-    if (month === undefined) return value;
-    return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`;
-  }
 </script>
 
 <!--

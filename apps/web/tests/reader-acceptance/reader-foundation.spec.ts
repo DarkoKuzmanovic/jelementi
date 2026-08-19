@@ -20,17 +20,19 @@ test('renders every rich-content fixture capability without relying on JavaScrip
     page.getByRole('heading', { level: 1, name: /Every Reader Structure/ }),
   ).toBeVisible();
   await expect(page.locator('audio[aria-label^="Audio for"]')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Field Notes' })).toHaveAttribute(
-    'href',
-    '/categories/field-notes',
-  );
+  await expect(
+    page.locator('.article-opening').getByRole('link', { name: 'Field Notes' }),
+  ).toHaveAttribute('href', '/categories/field-notes');
   await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Back to footnote reference/ })).toHaveCount(2);
   await expect(page.getByRole('link', { name: 'Back to footnote reference 1' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to footnote reference 2' })).toBeVisible();
   await expect(page.locator('blockquote')).toContainText('hard invariant');
-  await expect(page.locator('figure')).toContainText('conventional source link');
+  // The cover figure carries no caption; the in-flow image figure has the caption.
+  await expect(page.locator('article#article-top figure figcaption')).toContainText(
+    'conventional source link',
+  );
 });
 
 test('keeps Search browseable and missing content fail-closed at wide and 320 CSS px', async ({
