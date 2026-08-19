@@ -17,10 +17,12 @@
 </script>
 
 <article id="article-top">
-  <header>
-    <p><a href={`/categories/${categorySlug(document.category)}`}>{document.category}</a></p>
-    <h1>{document.title}</h1>
-    <p class="excerpt">{document.excerpt}</p>
+  <header class="article-opening">
+    <p class="article-opening__category">
+      <a href={`/categories/${categorySlug(document.category)}`}>{document.category}</a>
+    </p>
+    <h1 class="article-opening__title">{document.title}</h1>
+    <p class="article-opening__excerpt">{document.excerpt}</p>
   </header>
   <ArticleAudio article={document} />
   {#each document.blocks as block, index (index)}
@@ -44,7 +46,7 @@
   {/each}
   {#if document.references.length > 0}
     <section aria-labelledby="sources-heading">
-      <h2 id="sources-heading">Sources</h2>
+      <h2 class="endmatter-heading" id="sources-heading">Sources</h2>
       <ul>
         {#each document.references as reference, index (index)}
           <li>
@@ -60,7 +62,7 @@
   {/if}
   {#if document.footnotes.length > 0}
     <section aria-labelledby="footnotes-heading">
-      <h2 id="footnotes-heading">Footnotes</h2>
+      <h2 class="endmatter-heading" id="footnotes-heading">Footnotes</h2>
       <ol>
         {#each document.footnotes as footnote (footnote.id)}
           <li id={`footnote-${footnote.id}`}>
@@ -74,3 +76,34 @@
     </section>
   {/if}
 </article>
+
+<style>
+  .article-opening__category {
+    margin: 0 0 var(--space-3);
+    font-size: var(--text-small);
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .article-opening__category a {
+    color: var(--foundation-accent);
+  }
+
+  .article-opening__title {
+    margin: 0 0 var(--space-4);
+    font-family: var(--font-serif);
+    font-size: var(--text-h1);
+    line-height: var(--leading-heading);
+  }
+
+  .article-opening__excerpt {
+    margin: 0;
+    color: var(--foundation-muted);
+    font-size: 1.1rem;
+  }
+
+  .endmatter-heading {
+    font-family: var(--font-serif);
+  }
+</style>

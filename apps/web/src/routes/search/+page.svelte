@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { filterArticles } from '$lib/generated-content';
+  import ArticleSummary from '$lib/article/ArticleSummary.svelte';
   let { data }: { data: PageData } = $props();
   let query = $state('');
   const results = $derived(filterArticles(data.index, query));
@@ -16,8 +17,22 @@
   {:else}
     <ul class="article-list">
       {#each results as article (article.slug)}
-        <li><a href={`/articles/${article.slug}`}>{article.title}</a> — {article.excerpt}</li>
+        <li>
+          <ArticleSummary {article} />
+        </li>
       {/each}
     </ul>
   {/if}
 </section>
+
+<style>
+  .article-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .article-list li {
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--foundation-rule);
+  }
+</style>

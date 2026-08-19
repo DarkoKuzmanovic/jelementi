@@ -10,3 +10,22 @@
     <footer>— {block.attribution}</footer>
   {/if}
 </blockquote>
+
+<style>
+  blockquote {
+    margin: var(--space-6) 0;
+    padding-left: var(--space-4);
+    border-left: 2px solid var(--foundation-rule);
+    color: var(--foundation-ink);
+  }
+
+  blockquote p {
+    margin: 0;
+  }
+
+  blockquote footer {
+    margin-top: var(--space-2);
+    color: var(--foundation-muted);
+    font-size: var(--text-small);
+  }
+</style>

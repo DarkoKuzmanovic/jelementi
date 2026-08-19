@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import ArticleSummary from '$lib/article/ArticleSummary.svelte';
   let { data }: { data: PageData } = $props();
 </script>
 
@@ -10,15 +11,32 @@
   <ul class="article-list">
     {#each data.index as article (article.slug)}
       <li>
-        <article>
-          <h2><a href={`/articles/${article.slug}`}>{article.title}</a></h2>
-          <p>{article.excerpt}</p>
-          <p>
-            <a href={`/categories/${article.categorySlug}`}>{article.category}</a> · {article.readingTimeMinutes}
-            min read
-          </p>
-        </article>
+        <ArticleSummary {article} />
       </li>
     {/each}
   </ul>
 </section>
+
+<style>
+  .home h1 {
+    font-family: var(--font-serif);
+    font-size: var(--text-h1);
+    line-height: var(--leading-heading);
+    margin-bottom: var(--space-2);
+  }
+
+  .lede {
+    color: var(--foundation-muted);
+    margin-top: 0;
+  }
+
+  .article-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .article-list li {
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--foundation-rule);
+  }
+</style>

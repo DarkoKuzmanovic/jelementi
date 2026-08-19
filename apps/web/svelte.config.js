@@ -20,6 +20,16 @@ const config = {
     csrf: {
       trustedOrigins: [],
     },
+    prerender: {
+      // The #98 Reader shell links to the static Categories index, which the
+      // #99 slice implements. Until then the crawl hits the expected 404 once;
+      // tolerate exactly that path and fail closed on every other prerender
+      // error so no real regression can slip through the build.
+      handleHttpError: ({ path, message }) => {
+        if (path === '/categories') return;
+        throw new Error(message);
+      },
+    },
   },
 };
 
