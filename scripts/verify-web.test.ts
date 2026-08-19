@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  verifyFallbackRecoveryClientBundle,
   verifyNoReaderAcceptanceCapability,
   verifyPublicClientBundles,
   verifyReaderProductionConfig,
@@ -10,6 +11,9 @@ const bootstrap = '<script>kit.start()</script>';
 const noindex = '<meta name="robots" content="noindex">';
 const reader = `${noindex}<h1>Reader</h1>`;
 const articlePage = `${noindex}A Rock at the Edge of the World Sources Footnotes Tristan da Cunha Government`;
+const fallback = `${noindex}${bootstrap}`;
+const recoveryBundle =
+  'This page is not available. The page could not be loaded. Page recovery Error recovery Try again href="/" href="/search" href="/categories"';
 const allReader = {
   '/': reader,
   '/articles/tristan-da-cunha': articlePage,
@@ -20,7 +24,7 @@ const allReader = {
 const complete = {
   ...allReader,
   '/search': `${noindex}${bootstrap}`,
-  '/404': `${noindex}${bootstrap}`,
+  '/404': fallback,
 };
 
 describe('web smoke assertions', () => {
@@ -83,6 +87,17 @@ describe('web smoke assertions', () => {
     ).not.toThrow();
   });
 
+  it('requires the fallback client bundle to own exact 404 and ordinary recovery', () => {
+    expect(() =>
+      verifyFallbackRecoveryClientBundle([{ path: 'recovery.js', source: recoveryBundle }]),
+    ).not.toThrow();
+    expect(() =>
+      verifyFallbackRecoveryClientBundle([
+        { path: 'recovery.js', source: recoveryBundle.replace('href="/categories"', '') },
+      ]),
+    ).toThrow('fallback client');
+  });
+
   it.each([
     ['fixture module path', 'scripts/reader-acceptance-fixtures.ts'],
     ['fixture marker', 'jelementi-reader-acceptance-fixture-v1'],
@@ -127,7 +142,7 @@ describe('web smoke assertions', () => {
       '/categories/history': reader,
       '/search': `${noindex}${bootstrap}`,
       '/about': reader,
-      '/404': `${noindex}${bootstrap}`,
+      '/404': fallback,
     };
 
     expect(() =>
@@ -162,7 +177,7 @@ describe('web smoke assertions', () => {
       '/categories/history': reader,
       '/search': `${noindex}${bootstrap}`,
       '/about': reader,
-      '/404': `${noindex}${bootstrap}`,
+      '/404': fallback,
     };
 
     expect(() =>
@@ -184,7 +199,7 @@ describe('web smoke assertions', () => {
       '/categories/science': `${noindex}Science`,
       '/search': `${noindex}${bootstrap}`,
       '/about': reader,
-      '/404': `${noindex}${bootstrap}`,
+      '/404': fallback,
     };
 
     expect(() =>

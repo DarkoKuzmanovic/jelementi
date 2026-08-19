@@ -89,7 +89,7 @@ function readerFetch(): {
       if (path === '/not-found')
         return {
           status: 404,
-          body: `${noindex}${bootstrap}<h1>Page not found</h1>The page you requested is not available.`,
+          body: `${noindex}${bootstrap}`,
           headers: new Headers({ 'content-type': 'text/html' }),
         };
       throw new Error(`Unexpected request: ${path}`);

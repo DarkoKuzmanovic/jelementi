@@ -17,11 +17,13 @@ function acceptanceScenario(value: string | undefined): ReaderAcceptanceScenario
     value === 'representative' ||
     value === 'intermediate' ||
     value === 'sparse' ||
-    value === 'ordinary-error'
-  )
+    value === 'ordinary-error' ||
+    value === 'retryable-error'
+  ) {
     return value;
+  }
   throw new Error(
-    'READER_ACCEPTANCE_SCENARIO must explicitly be representative, intermediate, sparse, or ordinary-error.',
+    'READER_ACCEPTANCE_SCENARIO must explicitly be representative, intermediate, sparse, ordinary-error, or retryable-error.',
   );
 }
 
@@ -49,6 +51,15 @@ export function readerAcceptanceContentPlugin(scenario: ReaderAcceptanceScenario
     },
     load(id) {
       if (id !== virtualModule) return undefined;
+      if (scenario === 'ordinary-error') {
+        return `export const generatedContent = new Proxy({}, { get() { throw new Error('Reader acceptance ordinary error.'); } });`;
+      }
+      if (scenario === 'retryable-error') {
+        return [
+          `import { error } from '@sveltejs/kit';`,
+          `export const generatedContent = new Proxy({}, { get() { throw error(503, 'Reader acceptance retryable error.'); } });`,
+        ].join('\n');
+      }
       return [
         `import { loadReaderAcceptanceContent } from ${JSON.stringify(fixtureModule)};`,
         `export const generatedContent = loadReaderAcceptanceContent(${JSON.stringify(scenario)});`,
@@ -60,6 +71,8 @@ export function readerAcceptanceContentPlugin(scenario: ReaderAcceptanceScenario
 const scenario = acceptanceScenario(process.env.READER_ACCEPTANCE_SCENARIO);
 
 export default mergeConfig(baseConfig, {
-  cacheDir: `/tmp/jelementi-reader-acceptance-vite-${scenario}`,
+  // Per-process isolation prevents concurrent issue worktrees from sharing
+  // stale transformed routes through one global acceptance cache.
+  cacheDir: `/tmp/jelementi-reader-acceptance-vite-${scenario}-${process.pid}`,
   plugins: [readerAcceptanceContentPlugin(scenario)],
 });

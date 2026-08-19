@@ -140,9 +140,9 @@ test('prefers-reduced-motion suppresses motion', async ({ page }, testInfo) => {
 test('missing content still 404s with shared error surface and reader shell', async ({ page }) => {
   const response = await page.goto('/articles/missing-reader-acceptance-article');
   expect(response?.status()).toBe(404);
-  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'This page is not available.' })).toBeVisible();
   // Error surface still inside reader shell (not bare)
   await expect(page.locator('header.site-header')).toBeVisible();
   await expect(page.getByRole('main')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Return to the reader' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Page recovery' })).toBeVisible();
 });

@@ -308,7 +308,6 @@ export async function verifyWorker({
       clientEntryPattern.test(missing.body),
       'Missing fallback client bootstrap on 404 fallback.',
     );
-    assert(missing.body.includes('Page not found'), 'Missing English Jelementi 404 copy.');
     assert(!missing.body.includes('http-equiv="refresh"'), '404 fallback must not redirect to /.');
   } finally {
     if (child !== undefined) {

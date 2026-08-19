@@ -46,5 +46,5 @@ test('keeps Search browseable and missing content fail-closed at wide and 320 CS
 
   const response = await page.goto('/articles/missing-reader-acceptance-article');
   expect(response?.status()).toBe(404);
-  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'This page is not available.' })).toBeVisible();
 });

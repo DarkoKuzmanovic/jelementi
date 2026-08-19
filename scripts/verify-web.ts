@@ -119,6 +119,25 @@ export function verifyPublicClientBundles(files: readonly ClientBundleFile[]): v
   }
 }
 
+/** The SPA fallback stays bootstrap-only; its client bundle owns exact recovery UI. */
+export function verifyFallbackRecoveryClientBundle(files: readonly ClientBundleFile[]): void {
+  const source = files.map((file) => file.source).join('\n');
+  for (const token of [
+    'This page is not available.',
+    'The page could not be loaded.',
+    'Page recovery',
+    'Error recovery',
+    'Try again',
+    'href="/"',
+    'href="/search"',
+    'href="/categories"',
+  ]) {
+    if (!source.includes(token)) {
+      throw new Error(`Static fallback client is missing recovery capability: ${token}.`);
+    }
+  }
+}
+
 const readerAcceptanceCapabilityPattern =
   /READER_ACCEPTANCE_|reader-acceptance-fixtures|jelementi-reader-acceptance-fixture|acceptance-rich-column/i;
 
@@ -193,7 +212,9 @@ async function main(): Promise<void> {
   const outputRoot = join(root, '.svelte-kit/cloudflare');
   const pages = await readHtmlFiles(outputRoot);
   verifyRenderedPages(pages, await loadExpectations(root));
-  verifyPublicClientBundles(await readTextFiles(join(outputRoot, '_app/immutable'), ['.js']));
+  const publicClientBundles = await readTextFiles(join(outputRoot, '_app/immutable'), ['.js']);
+  verifyPublicClientBundles(publicClientBundles);
+  verifyFallbackRecoveryClientBundle(publicClientBundles);
   verifyNoReaderAcceptanceCapability(
     await readTextFiles(outputRoot, ['.html', '.js', '.json', '.css']),
   );

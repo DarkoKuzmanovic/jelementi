@@ -12,7 +12,7 @@ import {
 
 export const READER_ACCEPTANCE_FIXTURE_MARKER = 'jelementi-reader-acceptance-fixture-v1';
 export type ReaderAcceptanceScenario =
-  'representative' | 'intermediate' | 'sparse' | 'ordinary-error';
+  'representative' | 'intermediate' | 'sparse' | 'ordinary-error' | 'retryable-error';
 
 const mediaOrigin = 'https://reader-acceptance.invalid/';
 
@@ -221,7 +221,6 @@ const representativeDocuments = [
     footnotes: [],
     references: [],
   }),
-  }),
 ] as const;
 
 const excludedDocuments = [
@@ -307,6 +306,9 @@ export function loadReaderAcceptanceContent(scenario: ReaderAcceptanceScenario):
   if (scenario === 'sparse') return sparse;
   if (scenario === 'ordinary-error') {
     throw new Error('Reader acceptance ordinary error: deterministic route-data failure.');
+  }
+  if (scenario === 'retryable-error') {
+    throw new Error('Reader acceptance retryable error: deterministic route-data failure.');
   }
   throw new Error(`Unknown Reader acceptance scenario: ${String(scenario)}.`);
 }

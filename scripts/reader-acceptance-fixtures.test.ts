@@ -23,7 +23,7 @@ describe('Reader acceptance fixture catalogs', () => {
     ]);
     expect(intermediate.index).toHaveLength(4);
     expect(Object.keys(intermediate.articles)).toHaveLength(intermediate.index.length);
-    expect(representative.index).toHaveLength(8);
+    expect(representative.index).toHaveLength(9);
     expect(Object.keys(representative.articles)).toHaveLength(representative.index.length);
     expect(representative.index.every((entry) => entry.searchText.length > 0)).toBe(true);
     expect(
@@ -72,6 +72,7 @@ describe('Reader acceptance fixture catalogs', () => {
         count: 1,
         newest: 'acceptance-long-category',
       },
+      { name: 'Solo', count: 1, newest: 'acceptance-no-audio-long-column' },
     ]);
     expect(projectCategoryArticles(content.index, 'field-notes')).toHaveLength(3);
     expect(
@@ -103,9 +104,12 @@ describe('Reader acceptance fixture catalogs', () => {
     expect(sparse.blocks.some((block) => block.type === 'image')).toBe(true);
   });
 
-  it('offers an explicit ordinary-error scenario that fails instead of falling back to real data', () => {
+  it('offers explicit ordinary-error scenarios that fail instead of falling back to real data', () => {
     expect(() => loadReaderAcceptanceContent('ordinary-error')).toThrow(
       'Reader acceptance ordinary error',
+    );
+    expect(() => loadReaderAcceptanceContent('retryable-error')).toThrow(
+      'Reader acceptance retryable error',
     );
     expect(() => loadReaderAcceptanceContent('unknown' as never)).toThrow('Unknown Reader');
   });
