@@ -35,8 +35,10 @@ export function runStudioBrowserAcceptance({
     return 0;
   }
 
-  const provisionExitCode = executePlaywright(['install', 'chromium']);
-  if (provisionExitCode !== 0) return provisionExitCode;
+  if (env.PLAYWRIGHT_BROWSERS_PREINSTALLED !== '1') {
+    const provisionExitCode = executePlaywright(['install', 'chromium']);
+    if (provisionExitCode !== 0) return provisionExitCode;
+  }
 
   return executePlaywright(['test', '-c', 'apps/web/playwright.config.ts']);
 }

@@ -17,7 +17,7 @@ const ciWorkflow = readFileSync(
 );
 const activeCiLines = ciWorkflow.split('\n').filter((line) => !line.trimStart().startsWith('#'));
 const ciRunSteps = activeCiLines.flatMap((line) => {
-  const match = /^\s+- run:\s*(\S.*)$/.exec(line);
+  const match = /^\s+(?:-\s+)?run:\s*(\S.*)$/.exec(line);
   return match?.[1] ? [match[1]] : [];
 });
 
@@ -53,12 +53,27 @@ describe('Studio browser acceptance execution seam', () => {
     ['GitHub CI execution', { CI: 'true' }],
     ['a blank Workers value', { WORKERS_CI: '' }],
     ['a different Workers value', { WORKERS_CI: 'true' }],
+    ['a non-exact preinstalled marker', { PLAYWRIGHT_BROWSERS_PREINSTALLED: 'true' }],
   ])('runs version-aligned Chromium acceptance for %s', (_label, env) => {
     const executePlaywright = vi.fn(() => 0);
 
     expect(runStudioBrowserAcceptance({ env, executePlaywright })).toBe(0);
     expect(executePlaywright.mock.calls).toEqual([
       [['install', 'chromium']],
+      [['test', '-c', 'apps/web/playwright.config.ts']],
+    ]);
+  });
+
+  it('does not provision Chromium again when CI explicitly preinstalled it', () => {
+    const executePlaywright = vi.fn(() => 0);
+
+    expect(
+      runStudioBrowserAcceptance({
+        env: { PLAYWRIGHT_BROWSERS_PREINSTALLED: '1' },
+        executePlaywright,
+      }),
+    ).toBe(0);
+    expect(executePlaywright.mock.calls).toEqual([
       [['test', '-c', 'apps/web/playwright.config.ts']],
     ]);
   });
@@ -97,11 +112,17 @@ describe('Studio browser acceptance execution seam', () => {
     expect(browserGate).toBe('tsx scripts/studio-browser-acceptance.ts');
   });
 
-  it('keeps GitHub required verification provisioned and routed through the canonical gate', () => {
-    expect(activeCiLines).toContain('  verify:');
-    expect(ciRunSteps).toContain('pnpm exec playwright install --with-deps chromium');
+  it('keeps GitHub required verification provisioned, bounded, and routed through the canonical gate', () => {
+    const installCommand = 'pnpm exec playwright install --with-deps --only-shell chromium';
+
+    expect(activeCiLines).toContain('concurrency:');
+    expect(activeCiLines).toContain('  cancel-in-progress: true');
+    expect(activeCiLines).toContain('    timeout-minutes: 15');
+    expect(activeCiLines).toContain("      PLAYWRIGHT_BROWSERS_PREINSTALLED: '1'");
+    expect(activeCiLines).toContain('        timeout-minutes: 5');
+    expect(ciRunSteps).toContain(installCommand);
     expect(ciRunSteps.at(-1)).toBe('pnpm verify:deploy');
-    expect(ciRunSteps.indexOf('pnpm exec playwright install --with-deps chromium')).toBeLessThan(
+    expect(ciRunSteps.indexOf(installCommand)).toBeLessThan(
       ciRunSteps.indexOf('pnpm verify:deploy'),
     );
     expect(activeCiLines.join('\n')).not.toMatch(/\bWORKERS_CI\b/);

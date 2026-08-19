@@ -43,8 +43,10 @@ export function runReaderBrowserAcceptance({
     return 0;
   }
 
-  const provisionExitCode = executePlaywright(['install', 'chromium']);
-  if (provisionExitCode !== 0) return provisionExitCode;
+  if (env.PLAYWRIGHT_BROWSERS_PREINSTALLED !== '1') {
+    const provisionExitCode = executePlaywright(['install', 'chromium']);
+    if (provisionExitCode !== 0) return provisionExitCode;
+  }
 
   const fixtureRuns: ReadonlyArray<{
     scenario: 'representative' | 'intermediate' | 'sparse';
