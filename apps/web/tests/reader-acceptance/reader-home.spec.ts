@@ -22,6 +22,7 @@ const catalogs = {
       'Culture in the Archive',
       'The Patient Instrument',
       'A Single Thread at Narrow Width',
+      'A Sparse Column Without Audio',
     ],
   },
 } as const;
@@ -150,6 +151,7 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     '/articles/acceptance-culture-old',
     '/articles/acceptance-science-old',
     '/articles/acceptance-long-category',
+    '/articles/acceptance-no-audio-long-column',
   ]);
   await expect(page.locator('.home-catalog [tabindex]')).toHaveCount(0);
 
@@ -170,6 +172,8 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     '/categories/science',
     '/articles/acceptance-long-category',
     '/categories/a-deliberately-long-category-name-for-narrow-readers',
+    '/articles/acceptance-no-audio-long-column',
+    '/categories/solo',
   ];
   const keyboardHrefs: string[] = [];
   const focusOutlines: Array<{ style: string; width: string }> = [];

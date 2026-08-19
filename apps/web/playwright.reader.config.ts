@@ -6,7 +6,8 @@ const RETRYABLE_ERROR_PORT = 44_105;
 const representativeBaseUrl = `http://127.0.0.1:${REPRESENTATIVE_PORT}`;
 const ordinaryErrorBaseUrl = `http://127.0.0.1:${ORDINARY_ERROR_PORT}`;
 const retryableErrorBaseUrl = `http://127.0.0.1:${RETRYABLE_ERROR_PORT}`;
-const normalTests = /reader-(?!ordinary-error).*\.spec\.ts/;
+const normalTests =
+  /reader-(foundation|shell|recovery|home|categories|article-quiet-column|search)\.spec\.ts/;
 const ordinaryErrorTest = 'reader-ordinary-error.spec.ts';
 
 /** Deterministic Reader fixture seam: actual SvelteKit routes, test-only catalog. */

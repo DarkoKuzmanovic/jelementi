@@ -11,17 +11,19 @@ test('Categories is a deterministic static directory with canonical links', asyn
   await expect(page.locator('main script')).toHaveCount(0);
 
   const rows = page.locator('.category-index > li');
-  await expect(rows).toHaveCount(4);
+  await expect(rows).toHaveCount(5);
   await expect(rows.locator('h2')).toHaveText([
     'Field Notes',
     'Culture',
     'Science',
     'A Deliberately Long Category Name for Narrow Readers',
+    'Solo',
   ]);
   await expect(rows.locator('.category-count')).toHaveText([
     '3 articles',
     '2 articles',
     '2 articles',
+    '1 article',
     '1 article',
   ]);
 
