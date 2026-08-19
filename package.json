@@ -32,6 +32,7 @@
     "test:studio:browser": "tsx scripts/studio-browser-acceptance.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.11.1",
     "@jelementi/article-model": "workspace:*",
     "@jelementi/content-compiler": "workspace:*",
     "@playwright/test": "^1.62.1",
