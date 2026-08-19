@@ -1,7 +1,7 @@
 import type { EntryGenerator, PageServerLoad } from './$types';
 import { articleContentFingerprint } from '@jelementi/article-model';
-import { generatedContent } from '../../../lib/generated-content.server';
-import { resolveArticle } from '../../../lib/routes';
+import { generatedContent } from '../../../../lib/generated-content.server';
+import { resolveArticle } from '../../../../lib/routes';
 
 export const prerender = true;
 export const csr = false;

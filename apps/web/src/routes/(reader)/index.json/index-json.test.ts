@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
-import type { GeneratedContent } from '../../lib/generated-content';
+import type { GeneratedContent } from '../../../lib/generated-content';
 
 // This route statically imports the real, eagerly-globbed generated/index.json
 // via generated-content.server.ts (a build-time artifact that only exists
@@ -24,7 +24,7 @@ const entry: ArticleIndexEntry = {
 
 const generatedContent: GeneratedContent = { index: [entry], articles: {} };
 
-vi.mock('../../lib/generated-content.server', () => ({ generatedContent }));
+vi.mock('../../../lib/generated-content.server', () => ({ generatedContent }));
 
 const { GET, prerender } = await import('./+server');
 

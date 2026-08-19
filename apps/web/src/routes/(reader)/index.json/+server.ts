@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
-import { generatedContent } from '../../lib/generated-content.server';
-import type { StudioIndexEvidence } from '../../lib/studio/contracts';
+import { generatedContent } from '../../../lib/generated-content.server';
+import type { StudioIndexEvidence } from '../../../lib/studio/contracts';
 
 export const prerender = true;
 

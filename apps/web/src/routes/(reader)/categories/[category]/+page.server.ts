@@ -1,6 +1,6 @@
 import type { EntryGenerator, PageServerLoad } from './$types';
-import { generatedContent } from '../../../lib/generated-content.server';
-import { resolveCategory } from '../../../lib/routes';
+import { generatedContent } from '../../../../lib/generated-content.server';
+import { resolveCategory } from '../../../../lib/routes';
 
 export const prerender = true;
 export const csr = false;
