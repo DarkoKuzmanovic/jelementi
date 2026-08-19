@@ -11,6 +11,7 @@
     "dev:web": "pnpm content:build && pnpm --filter @jelementi/web dev",
     "build:web": "pnpm content:build && pnpm --filter @jelementi/web build",
     "preview:web": "pnpm build:web && pnpm exec wrangler dev --local --ip 127.0.0.1 --persist-to /tmp/jelementi-wrangler-preview",
+    "prototype:public-home": "pnpm --filter @jelementi/web exec vite ../../prototypes/public-home-discovery --host 127.0.0.1 --port 4392 --strictPort",
     "deploy:web": "pnpm verify:deploy && pnpm exec wrangler deploy",
     "verify:web": "tsx scripts/verify-web.ts",
     "verify:worker": "tsx scripts/verify-worker.ts",

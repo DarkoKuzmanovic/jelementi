@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>PROTOTYPE — Jelementi public home discovery</title>
+    <link rel="stylesheet" href="./prototype.css" />
+    <script src="./prototype.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#prototype-main">Skip to articles</a>
+    <aside class="prototype-banner" aria-label="Prototype notice">
+      <strong>PROTOTYPE ONLY · ticket “Prototype the public home and discovery experience”</strong>
+      <span
+        >Question: what should Jelementi’s public home feel like across wide and narrow
+        screens?</span
+      >
+    </aside>
+
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="identity" href="#prototype-main" aria-label="Jelementi home"
+          >Jelementi<span>small stories, wide horizons</span></a
+        >
+        <nav aria-label="Primary navigation">
+          <a href="#prototype-main" aria-current="page">Home</a>
+          <a href="#category-notes">Categories</a>
+          <a href="#search-note">Search</a>
+          <a href="#about-note">About</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="prototype-main">
+      <section class="variant variant-a" data-variant="A" aria-labelledby="variant-a-title">
+        <header class="edition-heading">
+          <p>Independent notes on distant places and close observations</p>
+          <h1 id="variant-a-title">A — The editorial front</h1>
+          <p class="variant-intent">
+            A composed front page: one decisive lead, a compact recent desk, then a complete quiet
+            index.
+          </p>
+        </header>
+
+        <article class="a-lead story story--lead">
+          <p class="eyebrow">
+            <a href="#category-travel">Remote places</a><span>18 August 2026</span
+            ><span>9 min read</span>
+          </p>
+          <h2><a href="#article">The Quietest Island in the Middle of Everywhere</a></h2>
+          <p class="dek">
+            Life, weather, and improbable connection on a volcanic island far from any continental
+            shore.
+          </p>
+          <div class="lead-mark" aria-hidden="true">01</div>
+        </article>
+
+        <section class="a-recent" aria-labelledby="a-recent-title">
+          <h2 class="section-label" id="a-recent-title">Recently published</h2>
+          <div class="a-recent__row">
+            <article class="story">
+              <p class="eyebrow">
+                <a href="#category-culture">Culture</a><span>14 August</span><span>6 min</span>
+              </p>
+              <h3><a href="#article">Why Old Maps Leave Room for Monsters</a></h3>
+              <p>What blank edges reveal about knowledge, fear, and imagination.</p>
+            </article>
+            <article class="story">
+              <p class="eyebrow">
+                <a href="#category-nature">Nature</a><span>8 August</span><span>7 min</span>
+              </p>
+              <h3><a href="#article">A Field Guide to Listening After Rain</a></h3>
+              <p>Small sounds that return when a summer storm finally moves on.</p>
+            </article>
+            <article class="story">
+              <p class="eyebrow">
+                <a href="#category-history">History</a><span>1 August</span><span>5 min</span>
+              </p>
+              <h3><a href="#article">The Library That Travelled by Donkey</a></h3>
+              <p>A moving collection, a mountain path, and the habit of sharing books.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="a-more more-section" aria-labelledby="a-more-title">
+          <h2 class="section-label" id="a-more-title">More articles</h2>
+          <div class="a-more__list">
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-design">Design</a><span>24 July</span><span>4 min</span>
+              </p>
+              <h3><a href="#article">The Useful Awkwardness of Hand-painted Signs</a></h3>
+              <p>Letterforms that make a street feel owned rather than branded.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-food">Food</a><span>17 July</span><span>8 min</span>
+              </p>
+              <h3><a href="#article">Salt, Smoke, Time</a></h3>
+              <p>Three patient ingredients and the coastal kitchens built around them.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-culture">Culture</a><span>9 July</span><span>6 min</span>
+              </p>
+              <h3><a href="#article">Postcards Sent to Places That Never Existed</a></h3>
+              <p>A tiny archive of sincere messages addressed to imaginary towns.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-nature">Nature</a><span>30 June</span><span>10 min</span>
+              </p>
+              <h3><a href="#article">Borrowing the River’s Calendar</a></h3>
+              <p>Reading a year through flood marks, reeds, insects, and returning birds.</p>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <section class="variant variant-b" data-variant="B" aria-labelledby="variant-b-title" hidden>
+        <header class="b-intro">
+          <p class="section-label">Issue 18 · August 2026</p>
+          <h1 id="variant-b-title">B — The slow journal</h1>
+          <p>
+            One generous reading path. Discovery happens through rhythm and sequence rather than a
+            dense front-page scan.
+          </p>
+        </header>
+
+        <article class="b-lead story story--lead">
+          <p class="eyebrow">
+            <a href="#category-travel">Remote places</a><span>18 August 2026</span
+            ><span>9 min read</span>
+          </p>
+          <h2><a href="#article">The Quietest Island in the Middle of Everywhere</a></h2>
+          <p class="dek">
+            Life, weather, and improbable connection on a volcanic island far from any continental
+            shore.
+          </p>
+          <a class="reading-link" href="#article"
+            >Begin with the newest story <span aria-hidden="true">→</span></a
+          >
+        </article>
+
+        <section class="b-recent" aria-labelledby="b-recent-title">
+          <h2 class="section-label" id="b-recent-title">Three more from this issue</h2>
+          <div class="b-stream">
+            <article class="story">
+              <p class="story-number" aria-hidden="true">02</p>
+              <div>
+                <p class="eyebrow">
+                  <a href="#category-culture">Culture</a><span>14 August</span><span>6 min</span>
+                </p>
+                <h3><a href="#article">Why Old Maps Leave Room for Monsters</a></h3>
+                <p>What blank edges reveal about knowledge, fear, and imagination.</p>
+              </div>
+            </article>
+            <article class="story">
+              <p class="story-number" aria-hidden="true">03</p>
+              <div>
+                <p class="eyebrow">
+                  <a href="#category-nature">Nature</a><span>8 August</span><span>7 min</span>
+                </p>
+                <h3><a href="#article">A Field Guide to Listening After Rain</a></h3>
+                <p>Small sounds that return when a summer storm finally moves on.</p>
+              </div>
+            </article>
+            <article class="story">
+              <p class="story-number" aria-hidden="true">04</p>
+              <div>
+                <p class="eyebrow">
+                  <a href="#category-history">History</a><span>1 August</span><span>5 min</span>
+                </p>
+                <h3><a href="#article">The Library That Travelled by Donkey</a></h3>
+                <p>A moving collection, a mountain path, and the habit of sharing books.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="b-archive more-section" aria-labelledby="b-more-title">
+          <div class="b-archive__heading">
+            <h2 id="b-more-title">Earlier notes</h2>
+            <p>Everything remains discoverable; older writing simply quiets down.</p>
+          </div>
+          <div class="b-archive__list">
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-design">Design</a><span>24 July</span><span>4 min</span>
+              </p>
+              <h3><a href="#article">The Useful Awkwardness of Hand-painted Signs</a></h3>
+              <p>Letterforms that make a street feel owned rather than branded.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-food">Food</a><span>17 July</span><span>8 min</span>
+              </p>
+              <h3><a href="#article">Salt, Smoke, Time</a></h3>
+              <p>Three patient ingredients and the coastal kitchens built around them.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-culture">Culture</a><span>9 July</span><span>6 min</span>
+              </p>
+              <h3><a href="#article">Postcards Sent to Places That Never Existed</a></h3>
+              <p>A tiny archive of sincere messages addressed to imaginary towns.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-nature">Nature</a><span>30 June</span><span>10 min</span>
+              </p>
+              <h3><a href="#article">Borrowing the River’s Calendar</a></h3>
+              <p>Reading a year through flood marks, reeds, insects, and returning birds.</p>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <section class="variant variant-c" data-variant="C" aria-labelledby="variant-c-title" hidden>
+        <header class="c-intro">
+          <div>
+            <p class="section-label">Browse from a thread</p>
+            <h1 id="variant-c-title">C — The curious index</h1>
+          </div>
+          <p>
+            Category wayfinding sits beside the editorial sequence, making the complete catalog feel
+            explorable without changing what Home publishes.
+          </p>
+        </header>
+
+        <div class="c-layout">
+          <aside class="c-categories" id="category-notes" aria-labelledby="c-categories-title">
+            <h2 id="c-categories-title">Categories</h2>
+            <ul>
+              <li>
+                <a href="#category-nature"><span>Nature</span><span>2 stories</span></a>
+              </li>
+              <li>
+                <a href="#category-culture"><span>Culture</span><span>2 stories</span></a>
+              </li>
+              <li>
+                <a href="#category-design"><span>Design</span><span>1 story</span></a>
+              </li>
+              <li>
+                <a href="#category-food"><span>Food</span><span>1 story</span></a>
+              </li>
+              <li>
+                <a href="#category-history"><span>History</span><span>1 story</span></a>
+              </li>
+              <li>
+                <a href="#category-travel"><span>Remote places</span><span>1 story</span></a>
+              </li>
+            </ul>
+            <a class="all-categories" href="#categories">Open the Categories index →</a>
+          </aside>
+
+          <div class="c-stories">
+            <article class="c-lead story story--lead">
+              <p class="eyebrow">
+                <a href="#category-travel">Remote places</a><span>18 August 2026</span
+                ><span>9 min read</span>
+              </p>
+              <h2><a href="#article">The Quietest Island in the Middle of Everywhere</a></h2>
+              <p class="dek">
+                Life, weather, and improbable connection on a volcanic island far from any
+                continental shore.
+              </p>
+            </article>
+            <section class="c-recent" aria-labelledby="c-recent-title">
+              <h2 class="section-label" id="c-recent-title">Recently published</h2>
+              <article class="story">
+                <p class="eyebrow">
+                  <a href="#category-culture">Culture</a><span>14 August</span><span>6 min</span>
+                </p>
+                <h3><a href="#article">Why Old Maps Leave Room for Monsters</a></h3>
+                <p>What blank edges reveal about knowledge, fear, and imagination.</p>
+              </article>
+              <article class="story">
+                <p class="eyebrow">
+                  <a href="#category-nature">Nature</a><span>8 August</span><span>7 min</span>
+                </p>
+                <h3><a href="#article">A Field Guide to Listening After Rain</a></h3>
+                <p>Small sounds that return when a summer storm finally moves on.</p>
+              </article>
+              <article class="story">
+                <p class="eyebrow">
+                  <a href="#category-history">History</a><span>1 August</span><span>5 min</span>
+                </p>
+                <h3><a href="#article">The Library That Travelled by Donkey</a></h3>
+                <p>A moving collection, a mountain path, and the habit of sharing books.</p>
+              </article>
+            </section>
+            <section class="c-more more-section" aria-labelledby="c-more-title">
+              <h2 class="section-label" id="c-more-title">More articles</h2>
+              <article class="story story--compact">
+                <p class="eyebrow">
+                  <a href="#category-design">Design</a><span>24 July</span><span>4 min</span>
+                </p>
+                <h3><a href="#article">The Useful Awkwardness of Hand-painted Signs</a></h3>
+                <p>Letterforms that make a street feel owned rather than branded.</p>
+              </article>
+              <article class="story story--compact">
+                <p class="eyebrow">
+                  <a href="#category-food">Food</a><span>17 July</span><span>8 min</span>
+                </p>
+                <h3><a href="#article">Salt, Smoke, Time</a></h3>
+                <p>Three patient ingredients and the coastal kitchens built around them.</p>
+              </article>
+              <article class="story story--compact">
+                <p class="eyebrow">
+                  <a href="#category-culture">Culture</a><span>9 July</span><span>6 min</span>
+                </p>
+                <h3><a href="#article">Postcards Sent to Places That Never Existed</a></h3>
+                <p>A tiny archive of sincere messages addressed to imaginary towns.</p>
+              </article>
+              <article class="story story--compact">
+                <p class="eyebrow">
+                  <a href="#category-nature">Nature</a><span>30 June</span><span>10 min</span>
+                </p>
+                <h3><a href="#article">Borrowing the River’s Calendar</a></h3>
+                <p>Reading a year through flood marks, reeds, insects, and returning birds.</p>
+              </article>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="variant variant-d" data-variant="D" aria-labelledby="variant-d-title" hidden>
+        <header class="d-intro">
+          <p class="section-label">A publication of small discoveries</p>
+          <h1 id="variant-d-title">D — The field notebook</h1>
+          <p>
+            Selective asymmetry and annotation make the publication memorable, while familiar links
+            and a strict reading order keep it calm.
+          </p>
+        </header>
+        <div class="d-field">
+          <article class="d-lead story story--lead">
+            <p class="margin-note" aria-hidden="true">start here</p>
+            <p class="eyebrow">
+              <a href="#category-travel">Remote places</a><span>18 August 2026</span
+              ><span>9 min read</span>
+            </p>
+            <h2><a href="#article">The Quietest Island in the Middle of Everywhere</a></h2>
+            <p class="dek">
+              Life, weather, and improbable connection on a volcanic island far from any continental
+              shore.
+            </p>
+          </article>
+          <section class="d-recent" aria-labelledby="d-recent-title">
+            <h2 class="section-label" id="d-recent-title">Fresh from the notebook</h2>
+            <article class="story">
+              <p class="eyebrow">
+                <a href="#category-culture">Culture</a><span>14 August</span><span>6 min</span>
+              </p>
+              <h3><a href="#article">Why Old Maps Leave Room for Monsters</a></h3>
+              <p>What blank edges reveal about knowledge, fear, and imagination.</p>
+            </article>
+            <article class="story">
+              <p class="eyebrow">
+                <a href="#category-nature">Nature</a><span>8 August</span><span>7 min</span>
+              </p>
+              <h3><a href="#article">A Field Guide to Listening After Rain</a></h3>
+              <p>Small sounds that return when a summer storm finally moves on.</p>
+            </article>
+            <article class="story">
+              <p class="eyebrow">
+                <a href="#category-history">History</a><span>1 August</span><span>5 min</span>
+              </p>
+              <h3><a href="#article">The Library That Travelled by Donkey</a></h3>
+              <p>A moving collection, a mountain path, and the habit of sharing books.</p>
+            </article>
+          </section>
+          <section class="d-more more-section" aria-labelledby="d-more-title">
+            <div class="d-more__heading">
+              <p aria-hidden="true">from earlier pages</p>
+              <h2 id="d-more-title">More articles</h2>
+            </div>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-design">Design</a><span>24 July</span><span>4 min</span>
+              </p>
+              <h3><a href="#article">The Useful Awkwardness of Hand-painted Signs</a></h3>
+              <p>Letterforms that make a street feel owned rather than branded.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-food">Food</a><span>17 July</span><span>8 min</span>
+              </p>
+              <h3><a href="#article">Salt, Smoke, Time</a></h3>
+              <p>Three patient ingredients and the coastal kitchens built around them.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-culture">Culture</a><span>9 July</span><span>6 min</span>
+              </p>
+              <h3><a href="#article">Postcards Sent to Places That Never Existed</a></h3>
+              <p>A tiny archive of sincere messages addressed to imaginary towns.</p>
+            </article>
+            <article class="story story--compact">
+              <p class="eyebrow">
+                <a href="#category-nature">Nature</a><span>30 June</span><span>10 min</span>
+              </p>
+              <h3><a href="#article">Borrowing the River’s Calendar</a></h3>
+              <p>Reading a year through flood marks, reeds, insects, and returning birds.</p>
+            </article>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <section class="prototype-notes" aria-label="Prototype boundary notes">
+      <div id="search-note">
+        <strong>Search</strong
+        ><span
+          >Remains the sole normally hydrated public route; this prototype does not alter it.</span
+        >
+      </div>
+      <div id="about-note">
+        <strong>About</strong
+        ><span>Would keep the same shell and quieter single-column composition.</span>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <a class="identity" href="#prototype-main">Jelementi</a>
+      <nav aria-label="Footer navigation">
+        <a href="#prototype-main">Home</a><a href="#category-notes">Categories</a
+        ><a href="#search-note">Search</a><a href="#about-note">About</a>
+      </nav>
+      <p>
+        Prototype catalog data · no production routes, data, or content contracts are connected.
+      </p>
+    </footer>
+
+    <aside class="state-panel" aria-live="polite" aria-label="Current prototype state">
+      <strong id="state-variant">A — Editorial front</strong>
+      <span id="state-width">wide viewport</span>
+      <p id="state-hypothesis">
+        Tests a composed publication front page with strong editorial hierarchy.
+      </p>
+    </aside>
+
+    <nav class="variant-switcher" aria-label="Choose a prototype variant">
+      <button type="button" id="previous-variant" aria-label="Previous variant">←</button>
+      <span id="switcher-label">A — Editorial front</span>
+      <button type="button" id="next-variant" aria-label="Next variant">→</button>
+    </nav>
+  </body>
+</html>
