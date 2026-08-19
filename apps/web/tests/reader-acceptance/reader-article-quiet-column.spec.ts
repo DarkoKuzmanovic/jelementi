@@ -232,7 +232,7 @@ test('article is prerendered without hydration entry', async ({ page }) => {
 test('missing article 404s with the shared error surface and no next-older', async ({ page }) => {
   const response = await page.goto('/articles/missing-reader-acceptance-article');
   expect(response?.status()).toBe(404);
-  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'This page is not available.' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Continue reading' })).toHaveCount(0);
 });
 

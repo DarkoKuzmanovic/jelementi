@@ -9,6 +9,7 @@ const retryableErrorBaseUrl = `http://127.0.0.1:${RETRYABLE_ERROR_PORT}`;
 const normalTests =
   /reader-(foundation|shell|recovery|home|categories|article-quiet-column|search)\.spec\.ts/;
 const ordinaryErrorTest = 'reader-ordinary-error.spec.ts';
+const representativeScenario = process.env.READER_ACCEPTANCE_SCENARIO ?? 'representative';
 
 /** Deterministic Reader fixture seam: actual SvelteKit routes, test-only catalog. */
 export default defineConfig({
@@ -50,7 +51,7 @@ export default defineConfig({
   webServer: [
     {
       command: `pnpm exec vite dev --config vite.reader-acceptance.config.ts --host 127.0.0.1 --port ${REPRESENTATIVE_PORT}`,
-      env: { READER_ACCEPTANCE_SCENARIO: 'representative' },
+      env: { READER_ACCEPTANCE_SCENARIO: representativeScenario },
       port: REPRESENTATIVE_PORT,
       reuseExistingServer: false,
       timeout: 60_000,

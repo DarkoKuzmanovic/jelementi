@@ -82,7 +82,7 @@ test('category listings are one newest-first reading sequence with return naviga
 test('a missing category keeps the normal shell and HTTP 404 truth', async ({ page }, testInfo) => {
   const response = await page.goto('/categories/missing-reader-acceptance-category');
   expect(response?.status()).toBe(404);
-  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'This page is not available.' })).toBeVisible();
   await expect(page.getByRole('banner')).toBeVisible();
   await expect(page.getByRole('main')).toBeVisible();
   for (const name of ['Home', 'Categories', 'Search']) {
