@@ -68,9 +68,10 @@ describe('shared foundation', () => {
     expect(foundationCss).toContain('.visually-hidden');
   });
 
-  it('respects reduced motion without client theme state', () => {
+  it('respects reduced motion without globally imposing smooth scrolling', () => {
     expect(foundationCss).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(foundationCss).toContain('scroll-behavior: auto');
+    expect(foundationCss).not.toContain('scroll-behavior: smooth');
+    expect(foundationCss).toContain('animation-duration: 0.01ms');
   });
 
   it('contains no Reader-versus-Studio branching', () => {

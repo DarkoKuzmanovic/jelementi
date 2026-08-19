@@ -1,5 +1,5 @@
 /**
- * Studio semantic design tokens (#73 presentation foundation).
+ * Studio semantic design tokens (#73 presentation foundation, #98 shared foundation).
  *
  * Scoped under `.studio-shell` — never applied globally — so the reader-
  * facing site is untouched. Light values are the default; a
@@ -7,48 +7,56 @@
  * Component styling reads only the semantic custom properties below, never
  * a raw color/spacing literal, so every Studio surface stays in the same
  * palette and can be retuned in one place.
+ *
+ * Broad shared ownership (spec #96, ticket #98): matching palette
+ * foundations, neutral aliases, type foundations, spacing, and radius
+ * now alias the surface-neutral foundation.css tokens so Studio visibly
+ * tracks the Jelementi foundation. Genuinely Studio-semantic roles
+ * (status, danger, evidence file surfaces, primary/danger actions,
+ * lifecycle info, disabled) and operational density remain
+ * surface-owned and are not aliased.
  */
 
 .studio-shell {
-  /* Typography */
-  --studio-font-interface: system-ui, sans-serif;
-  --studio-font-editorial: Georgia, Cambria, 'Times New Roman', Times, serif;
-  --studio-font-evidence: ui-monospace, monospace;
-  --studio-text-base: 16px;
-  --studio-line-height-body: 1.55;
-  --studio-text-compact: 14px;
-  --studio-text-card-title: 18px;
-  --studio-text-section-title: 24px;
-  --studio-text-page-title: 32px;
+  /* Typography — alias foundation type foundations */
+  --studio-font-interface: var(--font-sans);
+  --studio-font-editorial: var(--font-serif);
+  --studio-font-evidence: var(--font-mono);
+  --studio-text-base: var(--text-base);
+  --studio-line-height-body: var(--leading-body);
+  --studio-text-compact: var(--text-small);
+  --studio-text-card-title: var(--text-h3);
+  --studio-text-section-title: var(--text-h2);
+  --studio-text-page-title: var(--text-h1);
 
-  /* Spacing scale */
-  --studio-space-1: 4px;
-  --studio-space-2: 8px;
-  --studio-space-3: 12px;
-  --studio-space-4: 16px;
-  --studio-space-6: 24px;
-  --studio-space-8: 32px;
-  --studio-space-12: 48px;
+  /* Spacing scale — alias foundation spacing */
+  --studio-space-1: var(--space-1);
+  --studio-space-2: var(--space-2);
+  --studio-space-3: var(--space-3);
+  --studio-space-4: var(--space-4);
+  --studio-space-6: var(--space-6);
+  --studio-space-8: var(--space-8);
+  --studio-space-12: var(--space-12);
 
-  /* Shape */
-  --studio-radius-control: 6px;
-  --studio-radius-panel: 10px;
-  --studio-radius-pill: 999px;
+  /* Shape — alias foundation radius */
+  --studio-radius-control: var(--radius-control);
+  --studio-radius-panel: var(--radius-panel);
+  --studio-radius-pill: var(--radius-pill);
   --studio-shadow-dialog: 0 12px 36px rgb(0 0 0 / 0.18);
 
-  /* Light theme tokens */
-  --studio-canvas: #f3f0e9;
-  --studio-panel: #fffef9;
+  /* Light theme tokens — palette foundations alias shared foundation */
+  --studio-canvas: var(--foundation-canvas);
+  --studio-panel: var(--foundation-paper);
   --studio-surface-subtle: #ede9df;
-  --studio-surface-selected: #dce9e1;
-  --studio-text-primary: #20231f;
-  --studio-text-muted: #62675e;
-  --studio-border: #d9d4c8;
+  --studio-surface-selected: var(--foundation-accent-soft);
+  --studio-text-primary: var(--foundation-ink);
+  --studio-text-muted: var(--foundation-muted);
+  --studio-border: var(--foundation-rule);
   --studio-text-selected: #174230;
-  --studio-action-primary-bg: #215c44;
+  --studio-action-primary-bg: var(--foundation-accent);
   --studio-action-primary-fg: #ffffff;
   --studio-action-primary-hover: #174230;
-  --studio-link: #315e73;
+  --studio-link: var(--foundation-link);
   --studio-info-surface: #e7f1f5;
   --studio-info-text: #264f61;
   --studio-action-danger-bg: #8d2f27;
@@ -58,7 +66,7 @@
   --studio-danger-text: #7a281f;
   --studio-disabled-bg: #d9d4c8;
   --studio-disabled-text: #62675e;
-  --studio-focus: #2563eb;
+  --studio-focus: var(--foundation-focus);
 
   background: var(--studio-canvas);
   color: var(--studio-text-primary);
@@ -69,18 +77,10 @@
 
 @media (prefers-color-scheme: dark) {
   .studio-shell {
-    --studio-canvas: #121310;
-    --studio-panel: #1b1d19;
     --studio-surface-subtle: #252821;
-    --studio-surface-selected: #294437;
-    --studio-text-primary: #f3f0e8;
-    --studio-text-muted: #b9b5ab;
-    --studio-border: #41443c;
     --studio-text-selected: #d7f2e2;
-    --studio-action-primary-bg: #8bc7a7;
     --studio-action-primary-fg: #0f2b1d;
     --studio-action-primary-hover: #a7d8bd;
-    --studio-link: #9bc3d8;
     --studio-info-surface: #20323a;
     --studio-info-text: #d5eefb;
     --studio-action-danger-bg: #ffb4ab;
@@ -90,7 +90,6 @@
     --studio-danger-text: #ffdad5;
     --studio-disabled-bg: #34372f;
     --studio-disabled-text: #989b91;
-    --studio-focus: #93c5fd;
   }
 }
 

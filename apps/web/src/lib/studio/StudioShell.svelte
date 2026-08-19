@@ -19,23 +19,17 @@
   (`.studio-shell`, tokens.css) and light/dark boundary apply consistently.
   Purely presentational: it carries no lifecycle truth of its own.
 
-  The shell shares the Jelementi foundation (#98) focus treatment;
-  Studio-owned operational tokens, density, and lifecycle
-  presentation remain scoped to `.studio-shell` and are unchanged.
+  Studio broadly consumes the shared Jelementi foundation (#98): palette
+  foundations, neutral aliases, type foundations, spacing, radius, focus
+  (via tokens.css aliasing), and visibly the shared serif wordmark
+  identity. Studio-semantic status/danger/evidence roles and operational
+  density remain surface-owned. Focus ownership lives in the token
+  boundary (tokens.css), not a one-off component override.
 -->
 <div class="studio-shell">
   <header>
-    <p class="eyebrow">{eyebrow}</p>
+    <p class="eyebrow jelementi-wordmark">{eyebrow}</p>
     <h1>{heading}</h1>
   </header>
   {@render children()}
 </div>
-
-<style>
-  .studio-shell {
-    /* Consume the surface-neutral foundation focus ownership (#98) via the
-       shared token. foundation.css owns the light/dark values via
-       prefers-color-scheme so Studio tracks foundation without forking. */
-    --studio-focus: var(--foundation-focus);
-  }
-</style>

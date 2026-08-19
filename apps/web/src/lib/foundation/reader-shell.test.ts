@@ -124,16 +124,56 @@ describe('reader shell public contract', () => {
     expect(rootLayout).toContain('{@render children()}');
   });
 
-  it('consumes foundation focus ownership: studio does not duplicate hex values', () => {
+  it('consumes shared foundation broadly via token aliasing, not duplication', () => {
+    const studioTokens = readFileSync(new URL('../studio/tokens.css', import.meta.url), 'utf8');
+    // Focus ownership lives in token boundary, not component override
+    expect(studioTokens).toContain('--studio-focus: var(--foundation-focus)');
+    // Palette foundations alias shared tokens
+    for (const alias of [
+      '--studio-canvas: var(--foundation-canvas)',
+      '--studio-panel: var(--foundation-paper)',
+      '--studio-text-primary: var(--foundation-ink)',
+      '--studio-text-muted: var(--foundation-muted)',
+      '--studio-border: var(--foundation-rule)',
+      '--studio-link: var(--foundation-link)',
+      '--studio-surface-selected: var(--foundation-accent-soft)',
+      '--studio-action-primary-bg: var(--foundation-accent)',
+    ]) {
+      expect(studioTokens).toContain(alias);
+    }
+    // Type foundations alias shared scale
+    expect(studioTokens).toContain('--studio-font-interface: var(--font-sans)');
+    expect(studioTokens).toContain('--studio-font-editorial: var(--font-serif)');
+    expect(studioTokens).toContain('--studio-font-evidence: var(--font-mono)');
+    // Spacing and radius alias shared scale
+    for (const token of [
+      '--studio-space-1: var(--space-1)',
+      '--studio-space-12: var(--space-12)',
+      '--studio-radius-control: var(--radius-control)',
+      '--studio-radius-pill: var(--radius-pill)',
+    ]) {
+      expect(studioTokens).toContain(token);
+    }
+    // No duplicated literal hex where aliasing should occur
+    // Studio-semantic tokens (danger/info/disabled/evidence) legitimately
+    // keep literals; check that foundation literals are not duplicated for
+    // aliased roles — canvas/panel/text etc should not appear as hex
+    expect(studioTokens).not.toMatch(/--studio-canvas:\s*#f3f0e9/);
+    expect(studioTokens).not.toMatch(/--studio-panel:\s*#fff/);
+    expect(studioTokens).not.toMatch(/--studio-focus:\s*#/);
+  });
+
+  it('studio visibly consumes shared Jelementi identity without changing lifecycle semantics', () => {
     const studioShell = readFileSync(
       new URL('../studio/StudioShell.svelte', import.meta.url),
       'utf8',
     );
-    expect(studioShell).toContain('var(--foundation-focus)');
+    expect(studioShell).toContain('jelementi-wordmark');
     expect(studioShell).not.toMatch(/#1459d9/);
     expect(studioShell).not.toMatch(/#93c5fd/);
-    const studioTokens = readFileSync(new URL('../studio/tokens.css', import.meta.url), 'utf8');
-    // tokens.css may define its own fallback, but StudioShell must not fork hex directly
-    expect(studioTokens).toBeTruthy();
+    expect(studioShell).not.toContain('--studio-focus');
+    const { body } = renderStudio();
+    expect(body).toContain('jelementi-wordmark');
+    expect(body).toContain('Jelementi Studio');
   });
 });
