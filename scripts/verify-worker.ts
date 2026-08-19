@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { chromium } from '@playwright/test';
 import { richContentSlug } from './verify-web';
 
 const clientEntryPattern = /(?:\/_app\/immutable\/entry\/start|\bkit\.start\(\))/i;
@@ -45,6 +46,7 @@ export interface VerifyWorkerOptions {
   staticAssetPath?: string;
   spawn?: (command: string, args: string[], options: { cwd: string }) => WorkerChild;
   fetch?: (url: string) => Promise<WorkerHttpResponse>;
+  browserVerify?: (baseUrl: string) => Promise<void>;
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
   reapTermTimeoutMs?: number;
@@ -76,6 +78,41 @@ function assertHydration(response: WorkerHttpResponse, path: string): void {
     clientEntryPattern.test(response.body),
     `Missing intentional hydration client entry on ${path}.`,
   );
+}
+
+async function verifyFallbackInBrowser(baseUrl: string): Promise<void> {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const response = await page.goto(`${baseUrl}/not-found`);
+    assert(response?.status() === 404, 'Browser fallback navigation must retain HTTP 404.');
+    await page
+      .getByRole('heading', { level: 1, name: 'This page is not available.' })
+      .waitFor({ state: 'visible' });
+    assert(
+      await page.getByRole('banner').isVisible(),
+      'Browser fallback is missing Reader header.',
+    );
+    assert((await page.getByRole('main').count()) === 1, 'Browser fallback must have one main.');
+    assert(await page.getByRole('contentinfo').isVisible(), 'Browser fallback is missing footer.');
+    const recovery = page.getByRole('navigation', { name: 'Page recovery' });
+    for (const [name, href] of [
+      ['Home', '/'],
+      ['Search', '/search'],
+      ['Categories', '/categories'],
+    ] as const) {
+      assert(
+        (await recovery.getByRole('link', { name, exact: true }).getAttribute('href')) === href,
+        `Browser fallback recovery destination is incorrect: ${name}.`,
+      );
+    }
+    assert(
+      (await recovery.getByRole('link', { name: 'Try again' }).count()) === 0,
+      'Browser 404 fallback must not offer Try again.',
+    );
+  } finally {
+    await browser.close();
+  }
 }
 
 async function pollForReady(
@@ -224,6 +261,7 @@ export async function verifyWorker({
   staticAssetPath = '/_app/immutable/entry/start.js',
   spawn,
   fetch: request = defaultFetch,
+  browserVerify,
   now = Date.now,
   sleep = defaultSleep,
   reapTermTimeoutMs = 5_000,
@@ -309,6 +347,7 @@ export async function verifyWorker({
       'Missing fallback client bootstrap on 404 fallback.',
     );
     assert(!missing.body.includes('http-equiv="refresh"'), '404 fallback must not redirect to /.');
+    await browserVerify?.(baseUrl);
   } finally {
     if (child !== undefined) {
       await reap(child, now, sleep, reapTermTimeoutMs, reapKillTimeoutMs);
@@ -367,12 +406,18 @@ async function findStaticAsset(rootDir: string): Promise<string> {
 async function main(): Promise<void> {
   const rootDir = process.cwd();
   assertNoR2MediaBinding(await readSourceFiles(join(rootDir, 'apps/web/src')));
+  const browserVerify = process.env.WORKERS_CI === '1' ? undefined : verifyFallbackInBrowser;
   await verifyWorker({
     rootDir,
     routes: await loadRoutes(rootDir),
     staticAssetPath: await findStaticAsset(rootDir),
+    browserVerify,
   });
-  console.log('Local Worker smoke passed: /not-found returned HTTP 404 without redirect.');
+  console.log(
+    browserVerify === undefined
+      ? 'Local Worker smoke passed: /not-found returned HTTP 404 with fallback bootstrap.'
+      : 'Local Worker smoke passed: /not-found retained HTTP 404 and rendered Reader recovery.',
+  );
 }
 
 function isMainEntry(): boolean {

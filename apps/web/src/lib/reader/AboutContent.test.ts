@@ -7,9 +7,9 @@ describe('AboutContent', () => {
     const { body } = render(AboutContent);
 
     expect(body).toContain('About Jelementi');
-    expect(body).toContain('small publication for curious readers');
-    expect(body).toContain('carefully edited stories');
-    expect(body).toContain('researched, edited for clarity');
+    expect(body).toContain('publishes carefully edited stories in English');
+    expect(body).toContain('researched from documented sources');
+    expect(body).toContain('edited for clarity and context');
     expect(body).not.toContain('Publication details');
     expect(body).not.toMatch(/mailto:|tel:|@jelementi/i);
   });

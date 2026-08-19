@@ -14,6 +14,7 @@ test('ordinary errors use the normal shell and expose Try again only when retry 
   await expect(
     page.getByRole('heading', { level: 1, name: 'The page could not be loaded.' }),
   ).toBeVisible();
+  await expect(page.getByText(/ReaderAcceptanceInternalUnbroken/)).toHaveCount(0);
 
   const recovery = page.getByRole('navigation', { name: 'Error recovery' });
   await expect(recovery.getByRole('link', { name: 'Home', exact: true })).toHaveAttribute(
@@ -44,4 +45,23 @@ test('ordinary errors use the normal shell and expose Try again only when retry 
     await expect(tryAgain).toHaveCount(0);
     await expect(page.getByText('Use another route to continue reading.')).toBeVisible();
   }
+
+  const cdp = await page.context().newCDPSession(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 4 });
+  expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(4);
+  await expect(page.getByRole('main')).toBeVisible();
+  await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.addStyleTag({
+    content: `
+      html { font-size: 200% !important; }
+      * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }
+    `,
+  });
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
 });

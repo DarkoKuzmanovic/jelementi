@@ -6,6 +6,11 @@ const recoveryDestinations = [
   { name: 'Search', href: '/search' },
   { name: 'Categories', href: '/categories' },
 ] as const;
+const recoveryRoutes = [
+  '/unknown-reader-acceptance-route',
+  '/articles/missing-reader-acceptance-article',
+  '/categories/missing-reader-acceptance-category',
+] as const;
 
 async function expectRecovery(page: Page): Promise<void> {
   const recovery = page.getByRole('navigation', { name: 'Page recovery' });
@@ -32,9 +37,9 @@ test('About is compact and factual without invented ownership or contact details
   const response = await page.goto('/about');
   expect(response?.status()).toBe(200);
   await expect(page.getByRole('heading', { level: 1, name: 'About Jelementi' })).toBeVisible();
-  await expect(page.getByText(/small publication for curious readers/i)).toBeVisible();
-  await expect(page.getByText(/carefully edited stories/i)).toBeVisible();
-  await expect(page.getByText(/researched, edited for clarity/i)).toBeVisible();
+  await expect(page.getByText(/publishes carefully edited stories in English/i)).toBeVisible();
+  await expect(page.getByText(/researched from documented sources/i)).toBeVisible();
+  await expect(page.getByText(/edited for clarity and context/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Publication details' })).toHaveCount(0);
   await expect(page.locator('a[href^="mailto:"], a[href^="tel:"]')).toHaveCount(0);
   if (!testInfo.project.name.includes('no-js')) await expectAccessibleInLightAndDark(page);
@@ -43,11 +48,7 @@ test('About is compact and factual without invented ownership or contact details
 test('unknown routes, missing articles, and missing categories return truthful normal-shell 404s', async ({
   page,
 }, testInfo) => {
-  for (const route of [
-    '/unknown-reader-acceptance-route',
-    '/articles/missing-reader-acceptance-article',
-    '/categories/missing-reader-acceptance-category',
-  ]) {
+  for (const route of recoveryRoutes) {
     const response = await page.goto(route);
     expect(response?.status(), route).toBe(404);
     await expect(page.getByRole('banner')).toBeVisible();
@@ -71,15 +72,18 @@ test('About and recovery reflow under narrow, text-resize, and text-spacing stre
   // same routes and 320 px layout separately without this synthetic stress.
   if (testInfo.project.name.includes('no-js')) test.skip();
   const cdp = await page.context().newCDPSession(page);
+  const stressRoutes = ['/about', ...recoveryRoutes];
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/articles/missing-reader-acceptance-article');
-  await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 4 });
-  expect(await page.evaluate(() => window.visualViewport?.scale)).toBe(4);
-  await expect(page.getByRole('main')).toBeVisible();
-  await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
+  for (const route of stressRoutes) {
+    await page.goto(route);
+    await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 4 });
+    expect(await page.evaluate(() => window.visualViewport?.scale), route).toBe(4);
+    await expect(page.getByRole('main')).toBeVisible();
+    await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
+  }
 
   await page.setViewportSize({ width: 320, height: 800 });
-  for (const route of ['/about', '/articles/missing-reader-acceptance-article']) {
+  for (const route of stressRoutes) {
     await page.goto(route);
     await page.addStyleTag({
       content: `

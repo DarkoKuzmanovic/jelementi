@@ -101,6 +101,7 @@ describe('local Worker smoke verifier', () => {
   it('polls the local Worker, validates reader and 404 behavior, then reaps it', async () => {
     const child = createFakeChild({ exitOnTerm: true });
     const { fetch, requested } = readerFetch();
+    let browserBaseUrl: string | undefined;
 
     await expect(
       verifyWorker({
@@ -113,6 +114,9 @@ describe('local Worker smoke verifier', () => {
         now: counter(10),
         timeoutMs: 100,
         staticAssetPath: '/_app/immutable/entry/start.js',
+        browserVerify: async (baseUrl) => {
+          browserBaseUrl = baseUrl;
+        },
       }),
     ).resolves.toBeUndefined();
 
@@ -120,6 +124,7 @@ describe('local Worker smoke verifier', () => {
     expect(requested).toContain('/categories/missing-worker-category');
     expect(requested).toContain('/search?query=tristan');
     expect(requested).toContain('/not-found');
+    expect(browserBaseUrl).toBe('http://127.0.0.1:8787');
     expect(child.signals).toEqual(['SIGTERM']);
   });
 

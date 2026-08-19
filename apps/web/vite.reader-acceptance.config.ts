@@ -52,12 +52,12 @@ export function readerAcceptanceContentPlugin(scenario: ReaderAcceptanceScenario
     load(id) {
       if (id !== virtualModule) return undefined;
       if (scenario === 'ordinary-error') {
-        return `export const generatedContent = new Proxy({}, { get() { throw new Error('Reader acceptance ordinary error.'); } });`;
+        return `export const generatedContent = new Proxy({}, { get() { throw new Error('ReaderAcceptanceInternalUnbroken'.repeat(20)); } });`;
       }
       if (scenario === 'retryable-error') {
         return [
           `import { error } from '@sveltejs/kit';`,
-          `export const generatedContent = new Proxy({}, { get() { throw error(503, 'Reader acceptance retryable error.'); } });`,
+          `export const generatedContent = new Proxy({}, { get() { throw error(503, 'ReaderAcceptanceInternalUnbroken'.repeat(20)); } });`,
         ].join('\n');
       }
       return [

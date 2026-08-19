@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import ReaderRecovery from '../../routes/(reader)/ReaderRecovery.svelte';
+import { recoveryRetryHref } from '../../routes/(reader)/reader-recovery';
 
 describe('ReaderRecovery', () => {
+  it('owns retry eligibility and preserves the current path and query', () => {
+    const url = new URL('https://jelementi.quz.ma/articles/example?from=error#ignored');
+
+    expect(recoveryRetryHref(502, url)).toBe('/articles/example?from=error');
+    expect(recoveryRetryHref(503, url)).toBe('/articles/example?from=error');
+    expect(recoveryRetryHref(504, url)).toBe('/articles/example?from=error');
+    expect(recoveryRetryHref(404, url)).toBeUndefined();
+    expect(recoveryRetryHref(500, url)).toBeUndefined();
+  });
+
   it('renders exact plain 404 recovery with the three canonical destinations', () => {
     const { body } = render(ReaderRecovery, { props: { status: 404 } });
 

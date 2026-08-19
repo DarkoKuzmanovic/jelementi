@@ -17,9 +17,8 @@
 
 <article class="about" aria-labelledby="about-heading">
   <h1 id="about-heading">About Jelementi</h1>
-  <p class="about__statement">Jelementi is a small publication for curious readers.</p>
-  <p>It publishes carefully edited stories that look closely at places, people, and ideas.</p>
-  <p>Each story is researched, edited for clarity, and presented with room to read.</p>
+  <p class="about__statement">Jelementi publishes carefully edited stories in English.</p>
+  <p>Each story is researched from documented sources and edited for clarity and context.</p>
 
   {#if hasFacts}
     <section aria-labelledby="publication-details-heading">

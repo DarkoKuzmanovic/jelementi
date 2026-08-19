@@ -17,6 +17,7 @@ vi.mock('$app/state', () => ({ page: mockedPage }));
 
 import ReaderLayout from '../../routes/(reader)/+layout.svelte';
 import RootError from '../../routes/+error.svelte';
+import StudioError from '../../routes/studio/+error.svelte';
 import StudioShell from '../studio/StudioShell.svelte';
 
 const childSnippet = createRawSnippet(() => ({ render: () => '<p>page-content</p>' }));
@@ -31,6 +32,13 @@ function renderRootErrorAt(pathname: string, status: number) {
   mockedPage.status = status;
   mockedPage.error = { message: 'Internal detail that must not reach Reader recovery.' };
   return render(RootError);
+}
+
+function renderStudioErrorAt(status: number) {
+  mockedPage.url = new URL('https://jelementi.quz.ma/studio/missing');
+  mockedPage.status = status;
+  mockedPage.error = { message: 'Preserved Studio error detail.' };
+  return render(StudioError);
 }
 
 function renderStudio() {
@@ -66,6 +74,19 @@ describe('reader shell public contract', () => {
       expect(body.indexOf('id="main-content"')).toBeLessThan(body.indexOf('page-content'));
     });
   }
+
+  it('keeps Studio errors in a Studio-owned boundary with unchanged behavior', () => {
+    const notFound = renderStudioErrorAt(404).body;
+    expect(notFound).toContain('Page not found');
+    expect(notFound).toContain('The page you requested is not available.');
+    expect(notFound).toContain('<a href="/">Return to the reader</a>');
+    expect(notFound).not.toContain('site-header');
+
+    const ordinary = renderStudioErrorAt(500).body;
+    expect(ordinary).toContain('Something went wrong');
+    expect(ordinary).toContain('Preserved Studio error detail.');
+    expect(ordinary).toContain('<a href="/">Return to the reader</a>');
+  });
 
   it('renders the static fallback client through the normal shell with exact 404 recovery', () => {
     const { body } = renderRootErrorAt('/unknown-route', 404);
@@ -142,11 +163,13 @@ describe('reader shell public contract', () => {
       new URL('../../routes/+layout.svelte', import.meta.url),
       'utf8',
     );
+    const rootError = readFileSync(new URL('../../routes/+error.svelte', import.meta.url), 'utf8');
     expect(rootLayout).not.toMatch(/isStudio/);
     expect(rootLayout).not.toMatch(/\/studio/);
     expect(rootLayout).not.toMatch(/#if.*isStudio/);
     expect(rootLayout).not.toContain('site-header');
     expect(rootLayout).not.toContain('site-footer');
+    expect(rootError).not.toMatch(/studioPath|\/studio/);
     // Root layout only imports foundation and renders children
     expect(rootLayout).toContain("import '../app.css'");
     expect(rootLayout).toContain('{@render children()}');
