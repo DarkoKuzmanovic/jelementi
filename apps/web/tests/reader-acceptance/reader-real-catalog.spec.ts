@@ -67,7 +67,13 @@ test('smokes the complete canonical generated Reader inventory independently of 
   await expect(page.getByRole('heading', { level: 1, name: expectedLead.title })).toBeVisible();
   const opening = page.locator('.article-opening');
   await expect(opening.getByText('By Jelementi')).toBeVisible();
+  await expect(opening.getByText('26 July 2026')).toBeVisible();
+  await expect(opening.getByText('1 min read')).toBeVisible();
   await expect(opening.getByText(/min read/)).toBeVisible();
+  await expect(opening.getByRole('list', { name: 'Tags' })).toBeVisible();
+  await expect(
+    page.locator('figure.article-cover').getByRole('img', { name: /Tristan da Cunha/ }),
+  ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
   const continuation = page.getByRole('navigation', { name: 'Continue reading' });
