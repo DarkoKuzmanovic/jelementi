@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
 const LONG_CATEGORY_SLUG = 'a-deliberately-long-category-name-for-narrow-readers';
+const TEXT_SPACING_STRESS =
+  'html { font-size: 200%; } * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }';
 
 test('Categories is a deterministic static directory with canonical links', async ({ page }) => {
   await page.goto('/categories');
@@ -75,7 +77,7 @@ test('category listings are one newest-first reading sequence with return naviga
   await expect(page.locator('.category-articles > li')).toHaveCount(1);
 });
 
-test('a missing category keeps the normal shell and HTTP 404 truth', async ({ page }) => {
+test('a missing category keeps the normal shell and HTTP 404 truth', async ({ page }, testInfo) => {
   const response = await page.goto('/categories/missing-reader-acceptance-category');
   expect(response?.status()).toBe(404);
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
@@ -85,6 +87,9 @@ test('a missing category keeps the normal shell and HTTP 404 truth', async ({ pa
     await expect(
       page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name }),
     ).toBeVisible();
+  }
+  if (!testInfo.project.name.includes('no-js')) {
+    await expectNoBlockingAccessibilityViolations(page);
   }
 });
 
@@ -106,10 +111,7 @@ test('Categories reflows at 320px with text spacing, visible focus, themes, and 
 
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto('/categories');
-  await page.addStyleTag({
-    content:
-      'html { font-size: 200%; } * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }',
-  });
+  await page.addStyleTag({ content: TEXT_SPACING_STRESS });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -131,4 +133,44 @@ test('Categories reflows at 320px with text spacing, visible focus, themes, and 
   expect(focusOutline.style).not.toBe('none');
   expect(Number.parseFloat(focusOutline.width)).toBeGreaterThan(0);
   await expectNoBlockingAccessibilityViolations(page);
+});
+
+test('one and many category listings pass the complete responsive and accessibility matrix', async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name.includes('no-js')) test.skip();
+
+  for (const route of ['/categories/field-notes', `/categories/${LONG_CATEGORY_SLUG}`]) {
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+      await page.goto(route);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await expectNoBlockingAccessibilityViolations(page);
+    }
+
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto(route);
+    await page.addStyleTag({ content: TEXT_SPACING_STRESS });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await expect(page.locator('.category-articles > li').first()).toBeVisible();
+    await expectNoBlockingAccessibilityViolations(page);
+  }
+
+  await page.goto('/categories/field-notes');
+  for (let tab = 0; tab < 7; tab += 1) await page.keyboard.press('Tab');
+  const returnLink = page
+    .locator('.page-intro')
+    .getByRole('link', { name: 'Categories', exact: true });
+  await expect(returnLink).toBeFocused();
+  const focusOutline = await returnLink.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { style: style.outlineStyle, width: style.outlineWidth };
+  });
+  expect(focusOutline.style).not.toBe('none');
+  expect(Number.parseFloat(focusOutline.width)).toBeGreaterThan(0);
 });
