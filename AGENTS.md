@@ -36,6 +36,11 @@ pnpm content:validate
 PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy
 ```
 
+Agents must run `pnpm format` (Prettier `--check .`) before every push — CI runs it as the
+first step of `verify:deploy`, so a formatting miss fails the job in seconds. Fix locally
+with `pnpm format:fix` (`prettier --write .`) and re-push; do not use `npx prettier`
+directly — the repo pins Prettier via `pnpm` and `prettier-plugin-svelte`.
+
 ## Agent skills
 
 ### Issue tracker
