@@ -97,7 +97,13 @@ describe('verifyStudioAccess', () => {
   it('rejects a tampered token', async () => {
     const signer = await createSigner();
     const token = await signer.sign(validClaims());
-    const tampered = `${token.slice(0, -2)}xx`;
+    const [header, payload, signature] = token.split('.');
+    if (header === undefined || payload === undefined || signature === undefined) {
+      throw new Error('Signer returned a malformed JWT.');
+    }
+    const replacement = signature[0] === 'a' ? 'b' : 'a';
+    const tampered = `${header}.${payload}.${replacement}${signature.slice(1)}`;
+    expect(tampered).not.toBe(token);
     expect(await verifyStudioAccess(tampered, config, { jwks: signer.jwks })).toEqual({
       ok: false,
       reason: 'invalid-token',
