@@ -219,7 +219,9 @@ test.describe('Discard journey', () => {
     await page.goto(`/studio/articles/${slug}`);
     await openDangerZone(page);
     await expect(
-      page.getByText('Discard closes only the sole exact unmerged Draft PR', { exact: false }).first(),
+      page
+        .getByText('Discard closes only the sole exact unmerged Draft PR', { exact: false })
+        .first(),
     ).toBeVisible();
     await confirmDestructive(page, hasJs, {
       opener: 'Discard draft…',
