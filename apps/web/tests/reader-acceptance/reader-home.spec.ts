@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
 const scenario = process.env.READER_ACCEPTANCE_SCENARIO ?? 'representative';
 
@@ -169,4 +170,20 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
   }
   expect(keyboardArticleHrefs).toEqual(articleHrefs);
   expect(firstArticleOutline).toEqual({ style: 'solid', width: '3px' });
+});
+
+test('Home has zero serious or critical Axe findings across width and theme roles', async ({
+  page,
+}, testInfo) => {
+  test.skip(scenario !== 'representative', 'Representative-only accessibility scan.');
+  test.skip(testInfo.project.name.includes('no-js'), 'Axe injection requires JavaScript.');
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [1280, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/');
+      await expectNoBlockingAccessibilityViolations(page);
+    }
+  }
 });
