@@ -14,8 +14,34 @@
  * uses a fixed fixture catalog (representative scenario) via the same
  * Vite config as the Playwright suite.
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+
+export function getCurrentHead(): string {
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' });
+  if (result.status !== 0 || !result.stdout?.trim()) {
+    throw new Error(
+      'Failed to derive current HEAD — refusing to record stale base. Ensure git is available and this is a git worktree.',
+    );
+  }
+  const sha = result.stdout.trim();
+  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`Invalid HEAD sha: ${sha}`);
+  return sha;
+}
+
+export const PLACEHOLDER_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+export function isPlaceholderPng(buffer: Buffer): boolean {
+  return buffer.equals(Buffer.from(PLACEHOLDER_PNG_BASE64, 'base64'));
+}
+
+export function pngWidth(buffer: Buffer): number | null {
+  // PNG IHDR width at bytes 16-19 big-endian (after 8-byte signature + 4-byte length + 4-byte 'IHDR')
+  if (buffer.length < 24 || buffer.readUInt32BE(12) !== 0x49484452) return null; // 'IHDR'
+  return buffer.readUInt32BE(16);
+}
 
 export interface EvidenceRoute {
   id: string;
@@ -38,12 +64,16 @@ export const EVIDENCE_ROUTES: readonly EvidenceRoute[] = [
   },
   {
     id: 'article-sparse',
-    path: '/articles/acceptance-sparse-column',
-    label: 'Article — sparse without audio',
+    path: '/articles/acceptance-no-audio-long-column',
+    label: 'Article — sparse without audio (representative fixture)',
   },
   { id: 'search', path: '/search', label: 'Search (browse-first, progressive enhancement)' },
   { id: 'about', path: '/about', label: 'About (compact factual)' },
-  { id: '404', path: '/not-found', label: 'Static 404 fallback (normal shell, HTTP 404)' },
+  {
+    id: '404',
+    path: '/unknown-reader-acceptance-route',
+    label: 'Static 404 fallback (normal shell, HTTP 404)',
+  },
 ] as const;
 
 export type Theme = 'light' | 'dark';
@@ -155,9 +185,8 @@ export function buildContactSheetMarkdown(input: ContactSheetInput): string {
 
 async function main(): Promise<void> {
   const dryRun = process.argv.includes('--dry-run');
-  // Deterministic: pinned to T104 worktree base date so byte output is stable across runs.
-  const generatedAt = '2026-08-19T00:00:00.000Z';
-  const commit = '54e2e8f';
+  const generatedAt = new Date().toISOString();
+  const commit = getCurrentHead();
   const measurements = {
     representativeHtmlBytes: 26369,
     uniqueReaderCssBytes: 17942,
@@ -181,119 +210,147 @@ async function main(): Promise<void> {
   await mkdir(outDir, { recursive: true });
   await mkdir(join(outDir, 'screenshots'), { recursive: true });
   await writeFile(join(outDir, 'contact-sheet.md'), md, 'utf8');
-  // Deterministic placeholder screenshots so the evidence directory is never empty.
-  // Real Chromium captures (below) will overwrite these when available. Placeholders
-  // are honestly labeled in README and contact sheet as review evidence, not browser proof.
-  const placeholder = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-    'base64',
+  console.log(
+    `Wrote docs/evidence/reader-acceptance/contact-sheet.md (commit ${commit}, ${generatedAt})${dryRun ? ' — dry run, no screenshots' : ''}`,
   );
+  // Remove any stale placeholder artifacts from the prior 7b49b20 evidence set.
+  const placeholderNotePath = join(outDir, 'screenshots', 'PLACEHOLDER_NOTE.txt');
+  await rm(placeholderNotePath, { force: true });
   for (const route of EVIDENCE_ROUTES) {
     for (const theme of ['light', 'dark'] as const) {
       for (const width of [1280, 320] as const) {
         const filename = evidenceRouteToFilename(route, theme, width);
-        const placeholderPath = join(outDir, 'screenshots', filename);
+        const p = join(outDir, 'screenshots', filename);
         try {
-          await writeFile(placeholderPath, placeholder);
+          const existing = await readFile(p);
+          if (isPlaceholderPng(existing)) await rm(p, { force: true });
         } catch {}
       }
     }
   }
-  // Also write a deterministic placeholder note alongside screenshots
-  await writeFile(
-    join(outDir, 'screenshots', 'PLACEHOLDER_NOTE.txt'),
-    `Placeholders for T104 — deterministic byte-identical 1x1 PNGs.\nReal Chromium screenshots will overwrite these when pnpm tsx scripts/generate-reader-evidence.ts runs with browsers.\nManual Firefox/WebKit/touch captures remain BLOCKED_PENDING_HUMAN.\n`,
-    'utf8',
-  );
-  console.log(
-    `Wrote docs/evidence/reader-acceptance/contact-sheet.md${dryRun ? ' (dry run)' : ''}`,
-  );
 
   if (!dryRun) {
-    // Attempt Chromium screenshots via Playwright if available. This is best-effort;
-    // failures do not block report — contact sheet already marks honest manual gaps.
-    try {
-      const { chromium } = await import('@playwright/test');
-      const { spawn } = await import('node:child_process');
-      // Use the same Vite dev harness as the acceptance suite for deterministic fixtures.
-      // For brevity, capture directly from the already-built Cloudflare output via wrangler dev
-      // is not required here; instead launch a temporary Vite dev server for screenshots.
-      console.log('Attempting Chromium screenshots (best-effort)…');
-      // Simple inline: start Vite dev for representative scenario and capture.
-      const viteArgs = [
-        'exec',
-        'vite',
-        'dev',
-        '--config',
-        'vite.reader-acceptance.config.ts',
-        '--host',
-        '127.0.0.1',
-        '--port',
-        '44104',
-      ];
-      const child = spawn('pnpm', viteArgs, {
-        env: { ...process.env, READER_ACCEPTANCE_SCENARIO: 'representative' },
-        stdio: 'pipe',
-      });
-      // Wait a bit for server ready (poll via fetch)
-      const ready = await new Promise<boolean>((resolve) => {
-        let done = false;
-        const timer = setInterval(async () => {
-          try {
-            const r = await fetch('http://127.0.0.1:44104/');
-            if (r.ok) {
-              done = true;
-              clearInterval(timer);
-              resolve(true);
-            }
-          } catch {}
-        }, 500);
-        setTimeout(() => {
-          if (!done) {
+    // Fail-closed deterministic Chromium capture — Chromium is installed and the canonical suite passed, so this must succeed.
+    const { chromium } = await import('@playwright/test');
+    const { spawn } = await import('node:child_process');
+    const PORT = 44103; // representative scenario port (see playwright.reader.config.ts)
+    console.log(
+      `Starting deterministic Chromium capture on port ${PORT} (scenario representative)…`,
+    );
+    const viteArgs = [
+      'exec',
+      'vite',
+      'dev',
+      '--config',
+      'vite.reader-acceptance.config.ts',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(PORT),
+    ];
+    const child = spawn('pnpm', viteArgs, {
+      cwd: join(process.cwd(), 'apps/web'),
+      env: { ...process.env, READER_ACCEPTANCE_SCENARIO: 'representative' },
+      stdio: 'pipe',
+    });
+    let childOutput = '';
+    child.stdout?.on('data', (d) => (childOutput += d.toString()));
+    child.stderr?.on('data', (d) => (childOutput += d.toString()));
+    const ready = await new Promise<boolean>((resolve) => {
+      let done = false;
+      const timer = setInterval(async () => {
+        try {
+          const r = await fetch(`http://127.0.0.1:${PORT}/`);
+          if (r.ok) {
+            done = true;
             clearInterval(timer);
-            resolve(false);
+            resolve(true);
           }
-        }, 15000);
-      });
-      if (!ready) {
-        console.warn(
-          'Vite dev not ready; skipping screenshots. Contact sheet remains review evidence.',
-        );
-        child.kill('SIGTERM');
-        return;
-      }
-      const browser = await chromium.launch();
-      for (const theme of ['light', 'dark'] as const) {
-        for (const width of [1280, 320] as const) {
-          for (const route of EVIDENCE_ROUTES) {
-            const filename = evidenceRouteToFilename(route, theme, width);
-            const page = await browser.newPage();
-            await page.setViewportSize({ width, height: 900 });
-            await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
-            try {
-              await page.goto(`http://127.0.0.1:44104${route.path}`, {
-                waitUntil: 'domcontentloaded',
-              });
-              await page.waitForTimeout(400);
-              await page.screenshot({
-                path: join(outDir, 'screenshots', filename),
-                fullPage: true,
-              });
-              console.log(`  captured ${filename}`);
-            } catch (e) {
-              console.warn(`  failed ${filename}: ${e}`);
-            } finally {
-              await page.close();
+        } catch {}
+      }, 500);
+      setTimeout(() => {
+        if (!done) {
+          clearInterval(timer);
+          resolve(false);
+        }
+      }, 20000);
+    });
+    if (!ready) {
+      child.kill('SIGTERM');
+      throw new Error(
+        `Vite dev not ready on port ${PORT} after 20s — failing closed. Child output:\n${childOutput.slice(0, 4000)}`,
+      );
+    }
+    const browser = await chromium.launch();
+    const failures: string[] = [];
+    const expectedWidths: Record<number, number> = { 1280: 1280, 320: 320 };
+    for (const theme of ['light', 'dark'] as const) {
+      for (const width of [1280, 320] as const) {
+        for (const route of EVIDENCE_ROUTES) {
+          const filename = evidenceRouteToFilename(route, theme, width);
+          const outPath = join(outDir, 'screenshots', filename);
+          const page = await browser.newPage();
+          await page.setViewportSize({ width, height: 900 });
+          await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+          try {
+            const response = await page.goto(`http://127.0.0.1:${PORT}${route.path}`, {
+              waitUntil: 'domcontentloaded',
+              timeout: 10000,
+            });
+            const is404Route = route.id === '404';
+            if (!response) throw new Error(`No response for ${route.path}`);
+            if (is404Route) {
+              if (response.status() !== 404)
+                throw new Error(`Expected HTTP 404 for ${route.path}, got ${response.status()}`);
+            } else {
+              if (!response.ok()) throw new Error(`HTTP ${response.status()} for ${route.path}`);
             }
+            await page.waitForTimeout(400);
+            await page.screenshot({ path: outPath, fullPage: true });
+            const buf = await readFile(outPath);
+            if (isPlaceholderPng(buf)) throw new Error(`Captured placeholder for ${filename}`);
+            if (buf.length < 500)
+              throw new Error(`Screenshot too small (${buf.length}B) for ${filename}`);
+            const w = pngWidth(buf);
+            if (w === null) throw new Error(`Unable to parse PNG width for ${filename}`);
+            if (w !== expectedWidths[width])
+              throw new Error(`PNG width ${w} !== expected ${width} for ${filename}`);
+            console.log(`  captured ${filename} (${buf.length}B, width ${w})`);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            failures.push(`${filename}: ${msg}`);
+            console.error(`  FAILED ${filename}: ${msg}`);
+          } finally {
+            await page.close();
           }
         }
       }
-      await browser.close();
-      child.kill('SIGTERM');
-      console.log('Chromium screenshots complete.');
-    } catch (e) {
-      console.warn(`Screenshot capture skipped: ${e}`);
     }
+    await browser.close();
+    child.kill('SIGTERM');
+    // Ensure no stale placeholders remain
+    for (const route of EVIDENCE_ROUTES) {
+      for (const theme of ['light', 'dark'] as const) {
+        for (const width of [1280, 320] as const) {
+          const filename = evidenceRouteToFilename(route, theme, width);
+          const p = join(outDir, 'screenshots', filename);
+          try {
+            const b = await readFile(p);
+            if (isPlaceholderPng(b)) failures.push(`${filename} is still placeholder`);
+          } catch {
+            failures.push(`missing ${filename}`);
+          }
+        }
+      }
+    }
+    if (failures.length > 0) {
+      throw new Error(
+        `Chromium capture failed closed — ${failures.length} failures:\n${failures.join('\n')}`,
+      );
+    }
+    console.log(
+      `Chromium screenshot matrix complete — ${EVIDENCE_ROUTES.length * 4} PNGs verified.`,
+    );
   }
 }
 

@@ -1,6 +1,6 @@
 # Reader acceptance — deterministic curated evidence
 
-Generated: 2026-08-19T00:00:00.000Z | Commit: 54e2e8f
+Generated: 2026-08-19T22:23:44.395Z | Commit: f22e1a2679dec9dc5e440253c23099af3969ebb1
 
 Deterministic curated evidence — review, not gate. No pixel-diff CI assertion.
 
@@ -24,10 +24,10 @@ Chromium automated via Playwright `reader-js-enabled` at representative fixture.
 | Categories (Quiet index directory) | `/categories` | `categories--light--1280.png` | `categories--dark--1280.png` | `categories--light--320.png` | `categories--dark--320.png` |
 | Category — Field Notes (newest-first sequence) | `/categories/field-notes` | `category-field-notes--light--1280.png` | `category-field-notes--dark--1280.png` | `category-field-notes--light--320.png` | `category-field-notes--dark--320.png` |
 | Article — rich column with audio, footnotes, 7 blocks | `/articles/acceptance-rich-column` | `article-rich--light--1280.png` | `article-rich--dark--1280.png` | `article-rich--light--320.png` | `article-rich--dark--320.png` |
-| Article — sparse without audio | `/articles/acceptance-sparse-column` | `article-sparse--light--1280.png` | `article-sparse--dark--1280.png` | `article-sparse--light--320.png` | `article-sparse--dark--320.png` |
+| Article — sparse without audio (representative fixture) | `/articles/acceptance-no-audio-long-column` | `article-sparse--light--1280.png` | `article-sparse--dark--1280.png` | `article-sparse--light--320.png` | `article-sparse--dark--320.png` |
 | Search (browse-first, progressive enhancement) | `/search` | `search--light--1280.png` | `search--dark--1280.png` | `search--light--320.png` | `search--dark--320.png` |
 | About (compact factual) | `/about` | `about--light--1280.png` | `about--dark--1280.png` | `about--light--320.png` | `about--dark--320.png` |
-| Static 404 fallback (normal shell, HTTP 404) | `/not-found` | `404--light--1280.png` | `404--dark--1280.png` | `404--light--320.png` | `404--dark--320.png` |
+| Static 404 fallback (normal shell, HTTP 404) | `/unknown-reader-acceptance-route` | `404--light--1280.png` | `404--dark--1280.png` | `404--light--320.png` | `404--dark--320.png` |
 
 Screenshots saved under `docs/evidence/reader-acceptance/screenshots/` (git-tracked). Review them visually; do not add pixel-diff CI gates.
 

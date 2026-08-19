@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import {
+  buildManualEvidenceTemplate,
+  getCurrentHead,
   HUMAN_CHECKPOINTS,
   isManualMatrixComplete,
   MANUAL_EVIDENCE_TEMPLATE,
@@ -104,6 +107,37 @@ describe('human acceptance wizard', () => {
       },
     };
     expect(isManualMatrixComplete(withEmptyNote)).toBe(false);
+  });
+
+  it('derives worktree commit from actual HEAD, not a hard-coded base', () => {
+    const actual = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+    expect(getCurrentHead()).toBe(actual);
+    expect(actual).toMatch(/^[0-9a-f]{40}$/);
+    // Template must also be truthful, not pinned to 54e2e8f
+    const templ = buildManualEvidenceTemplate();
+    expect(templ.worktreeCommit).toBe(actual);
+    expect(templ.generatedAt).not.toBe('2026-08-19T00:00:00.000Z');
+    const parsed = Date.parse(templ.generatedAt);
+    expect(parsed).not.toBeNaN();
+    // Within last 60s (allows for test runtime)
+    expect(Math.abs(Date.now() - parsed)).toBeLessThan(60_000);
+  });
+
+  it('fails closed when git cannot provide HEAD', () => {
+    const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+      cwd: '/tmp',
+      encoding: 'utf8',
+    });
+    expect(result.status).not.toBe(0);
+    expect(() => {
+      if (
+        result.status !== 0 ||
+        !result.stdout?.trim() ||
+        !/^[0-9a-f]{40}$/.test(result.stdout.trim())
+      ) {
+        throw new Error('Failed to derive current HEAD');
+      }
+    }).toThrow(/Failed to derive/);
   });
 
   it('keeps total checkpoint count stable for report traceability', () => {

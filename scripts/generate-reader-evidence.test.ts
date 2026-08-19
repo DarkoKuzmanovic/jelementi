@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import {
   EVIDENCE_ROUTES,
   evidenceRouteToFilename,
   buildContactSheetMarkdown,
+  getCurrentHead,
+  isPlaceholderPng,
+  PLACEHOLDER_PNG_BASE64,
+  pngWidth,
 } from './generate-reader-evidence';
 
 describe('generate-reader-evidence', () => {
@@ -50,6 +55,39 @@ describe('generate-reader-evidence', () => {
     expect(md).toContain('26369');
     expect(md).toContain('Deterministic curated evidence — review, not gate');
     expect(md).toContain('home--light--1280.png');
+  });
+
+  it('derives commit from actual HEAD, not a pinned base, and uses truthful timestamp', () => {
+    const actual = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+    expect(getCurrentHead()).toBe(actual);
+    expect(actual).toMatch(/^[0-9a-f]{40}$/);
+    // Build with truthful generatedAt
+    const now = new Date().toISOString();
+    const md = buildContactSheetMarkdown({
+      generatedAt: now,
+      commit: actual,
+      measurements: {
+        representativeHtmlBytes: 26369,
+        uniqueReaderCssBytes: 17942,
+        searchJavaScriptBytes: 165878,
+      },
+      assetsCeilings: {
+        representativeHtml: 70885,
+        uniqueReaderCss: 17943,
+        searchJavaScript: 167513,
+      },
+      routes: EVIDENCE_ROUTES,
+    });
+    expect(md).toContain(actual);
+    expect(md).toContain(now);
+  });
+
+  it('detects placeholder PNGs and can parse PNG width', () => {
+    const placeholder = Buffer.from(PLACEHOLDER_PNG_BASE64, 'base64');
+    expect(isPlaceholderPng(placeholder)).toBe(true);
+    expect(pngWidth(placeholder)).toBe(1);
+    const notPlaceholder = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]);
+    expect(isPlaceholderPng(notPlaceholder)).toBe(false);
   });
 
   it('fails to claim WebKit/Firefox/touch coverage as automated chromium evidence', () => {

@@ -13,9 +13,22 @@
  * Critical honesty boundary: the code never fabricates manual evidence.
  * Default evidence status is BLOCKED_PENDING_HUMAN.
  */
+import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+
+export function getCurrentHead(): string {
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' });
+  if (result.status !== 0 || !result.stdout?.trim()) {
+    throw new Error(
+      'Failed to derive current HEAD — refusing to record stale base. Ensure git is available and this is a git worktree.',
+    );
+  }
+  const sha = result.stdout.trim();
+  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`Invalid HEAD sha: ${sha}`);
+  return sha;
+}
 
 export interface HumanCheckpoint {
   id: string;
@@ -182,17 +195,21 @@ export interface ManualEvidence {
   };
 }
 
-export const MANUAL_EVIDENCE_TEMPLATE: ManualEvidence = {
-  status: 'BLOCKED_PENDING_HUMAN',
-  generatedAt: new Date().toISOString(),
-  worktreeCommit: '54e2e8f',
-  invariantsGreen: true,
-  entries: HUMAN_CHECKPOINTS.filter((c) => c.id !== 'human-fidelity-approval').map((c) => ({
-    id: c.id,
-    outcome: 'BLOCKED_PENDING_HUMAN' as const,
-    notes: `BLOCKED: requires human execution. ${c.description}`,
-  })),
-};
+export function buildManualEvidenceTemplate(): ManualEvidence {
+  return {
+    status: 'BLOCKED_PENDING_HUMAN',
+    generatedAt: new Date().toISOString(),
+    worktreeCommit: getCurrentHead(),
+    invariantsGreen: true,
+    entries: HUMAN_CHECKPOINTS.filter((c) => c.id !== 'human-fidelity-approval').map((c) => ({
+      id: c.id,
+      outcome: 'BLOCKED_PENDING_HUMAN' as const,
+      notes: `BLOCKED: requires human execution. ${c.description}`,
+    })),
+  };
+}
+
+export const MANUAL_EVIDENCE_TEMPLATE: ManualEvidence = buildManualEvidenceTemplate();
 
 export function isManualMatrixComplete(evidence: ManualEvidence): boolean {
   if (!evidence.invariantsGreen) return false;
@@ -226,12 +243,13 @@ async function runWizard(): Promise<void> {
   console.log(
     'Frozen ceilings: Reader CSS 17,943 | Search JS 167,513 | Representative HTML 70,885',
   );
-  console.log('Worktree commit: 54e2e8f (t104-final-reader-acceptance)\n');
+  const currentHead = getCurrentHead();
+  console.log(`Worktree commit: ${currentHead} (t104-final-reader-acceptance)\n`);
 
   const evidence: ManualEvidence = {
     status: 'BLOCKED_PENDING_HUMAN',
     generatedAt: new Date().toISOString(),
-    worktreeCommit: '54e2e8f',
+    worktreeCommit: currentHead,
     invariantsGreen: false,
     entries: [],
   };

@@ -1,0 +1,16 @@
+{
+  "generatedAt": "2026-08-19T22:24:48.642Z",
+  "commit": "f22e1a2679dec9dc5e440253c23099af3969ebb1",
+  "url": "http://127.0.0.1:43123/",
+  "lighthouseVersion": "13.4.1",
+  "formFactor": "mobile",
+  "scores": {
+    "accessibility": 100,
+    "bestPractices": 100,
+    "seo": 50,
+    "performance": 100
+  },
+  "rawJsonPath": "/tmp/lighthouse-T104-1787178291400.report.json",
+  "rawHtmlPath": "/tmp/lighthouse-T104-1787178291400.report.html",
+  "note": "Raw JSON/HTML are CI artifacts at /tmp, not committed. Rerun this script if Performance is noisy; do not waive."
+}

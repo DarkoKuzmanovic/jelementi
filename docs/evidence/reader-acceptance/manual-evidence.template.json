@@ -1,14 +1,14 @@
 {
   "status": "BLOCKED_PENDING_HUMAN",
-  "generatedAt": "2026-08-19T22:05:00.000Z",
-  "worktreeCommit": "54e2e8f",
+  "generatedAt": "2026-08-19T22:24:00.000Z",
+  "worktreeCommit": "f22e1a2679dec9dc5e440253c23099af3969ebb1",
   "invariantsGreen": true,
-  "notes": "Template — fill via `pnpm tsx scripts/human-acceptance-wizard.ts`. No manual evidence is claimed until a human performs and records it.",
+  "notes": "Template \u2014 fill via `pnpm tsx scripts/human-acceptance-wizard.ts`. No manual evidence is claimed until a human performs and records it.",
   "entries": [
     {
       "id": "asset-ceilings",
       "outcome": "PASS",
-      "notes": "Automated: pnpm verify:reader:assets PASS — representative HTML 26369/70885, CSS 17942/17943, Search JS 165878/167513",
+      "notes": "Automated: pnpm verify:reader:assets PASS \u2014 representative HTML 26369/70885, CSS 17942/17943, Search JS 165878/167513",
       "evidencePath": "scripts/reader-assets.ts + /tmp/verify-deploy-T104.log"
     },
     {
@@ -19,7 +19,7 @@
     {
       "id": "firefox-stable",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires human Firefox stable desktop — same matrix. Honestly blocked."
+      "notes": "Requires human Firefox stable desktop \u2014 same matrix. Honestly blocked."
     },
     {
       "id": "webkit-proxy",
@@ -34,7 +34,7 @@
     {
       "id": "zoom-100-200-400",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires representative 100%/200%/400% zoom cells — automated 320 reflow exists, manual zoom still required."
+      "notes": "Requires representative 100%/200%/400% zoom cells \u2014 automated 320 reflow exists, manual zoom still required."
     },
     {
       "id": "text-spacing",
@@ -59,7 +59,7 @@
     {
       "id": "contrast-sampling",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Manual contrast sampling semantic text, links/visited, focus, controls, borders, metadata, every callout state light+dark — WCAG 2.2 AA 4.5:1 / 3:1, no exception."
+      "notes": "Manual contrast sampling semantic text, links/visited, focus, controls, borders, metadata, every callout state light+dark \u2014 WCAG 2.2 AA 4.5:1 / 3:1, no exception."
     },
     {
       "id": "orca-firefox-journey",
@@ -76,6 +76,6 @@
     "approved": false,
     "approver": "",
     "date": "",
-    "notes": "BLOCKED_PENDING_HUMAN — only after every preceding PASS and invariants green; never waives failed invariant."
+    "notes": "BLOCKED_PENDING_HUMAN \u2014 only after every preceding PASS and invariants green; never waives failed invariant."
   }
 }
