@@ -38,11 +38,7 @@ export default defineConfig({
     {
       name: 'reader-ordinary-error',
       testMatch: ordinaryErrorTest,
-      use: {
-        ...devices['Desktop Chrome'],
-        baseURL: ordinaryErrorBaseUrl,
-        javaScriptEnabled: false,
-      },
+      use: { ...devices['Desktop Chrome'], baseURL: ordinaryErrorBaseUrl },
     },
     {
       name: 'reader-retryable-error',

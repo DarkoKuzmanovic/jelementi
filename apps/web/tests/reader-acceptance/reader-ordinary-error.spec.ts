@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
 test('ordinary errors use the normal shell and expose Try again only when retry is meaningful', async ({
   page,
@@ -29,6 +30,11 @@ test('ordinary errors use the normal shell and expose Try again only when retry 
   );
 
   const tryAgain = recovery.getByRole('link', { name: 'Try again' });
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expectNoBlockingAccessibilityViolations(page);
+  }
+
   if (retryable) {
     await expect(tryAgain).toHaveAttribute('href', '/');
     await expect(
