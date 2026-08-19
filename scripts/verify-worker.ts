@@ -260,10 +260,28 @@ export async function verifyWorker({
       assert(rich.body.includes('Footnotes'), 'Missing Footnotes on rich article page.');
     }
 
+    const categories = await request(`${baseUrl}/categories`);
+    assertHtml(categories, '/categories');
+    assertNoHydration(categories, '/categories');
+    assert(categories.body.includes('Categories'), 'Missing Categories directory content.');
+
     const category = await request(`${baseUrl}${routes.categoryPath}`);
     assertHtml(category, routes.categoryPath);
     assertNoHydration(category, routes.categoryPath);
     assert(category.body.includes(routes.categoryName), 'Missing category content.');
+
+    const missingCategoryPath = '/categories/missing-worker-category';
+    const missingCategory = await request(`${baseUrl}${missingCategoryPath}`);
+    assert(
+      missingCategory.status === 404,
+      `Missing category must return HTTP 404, received ${missingCategory.status}.`,
+    );
+    assert(
+      noindexPattern.test(missingCategory.body),
+      'Missing global noindex meta tag on missing category.',
+    );
+    assertHydration(missingCategory, missingCategoryPath);
+    assert(missingCategory.body.includes('Page not found'), 'Missing category recovery heading.');
 
     const search = await request(`${baseUrl}/search`);
     assertHtml(search, '/search');

@@ -69,7 +69,14 @@ function readerFetch(): {
       if (path === '/') return html(`${noindex}<h1>Jelementi</h1>`);
       if (path === '/articles/tristan-da-cunha')
         return html(`${noindex}<h1>A Rock at the Edge of the World</h1>Sources Footnotes`);
+      if (path === '/categories') return html(`${noindex}<h1>Categories</h1>`);
       if (path === '/categories/history') return html(`${noindex}<h1>History</h1>`);
+      if (path === '/categories/missing-worker-category')
+        return {
+          status: 404,
+          body: `${noindex}${bootstrap}<h1>Page not found</h1><a href="/categories">Categories</a>`,
+          headers: new Headers({ 'content-type': 'text/html' }),
+        };
       if (path === '/search' || path === '/search?query=tristan')
         return html(`${noindex}${bootstrap}<h1>Search</h1>`);
       if (path === '/about') return html(`${noindex}<h1>About</h1>`);
@@ -109,6 +116,8 @@ describe('local Worker smoke verifier', () => {
       }),
     ).resolves.toBeUndefined();
 
+    expect(requested).toContain('/categories');
+    expect(requested).toContain('/categories/missing-worker-category');
     expect(requested).toContain('/search?query=tristan');
     expect(requested).toContain('/not-found');
     expect(child.signals).toEqual(['SIGTERM']);

@@ -177,6 +177,12 @@ const representativeDocuments = [
     category: 'Science',
     publishedAt: '2026-08-01',
   }),
+  minimalDocument({
+    slug: 'acceptance-long-category',
+    title: 'A Single Thread at Narrow Width',
+    category: 'A Deliberately Long Category Name for Narrow Readers',
+    publishedAt: '2026-07-28',
+  }),
 ] as const;
 
 const sparseDocuments = [

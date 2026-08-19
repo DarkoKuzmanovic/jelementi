@@ -2,7 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const baseRoutes = ['/', '/search', '/about', '/404'];
+const baseRoutes = ['/', '/categories', '/search', '/about', '/404'];
 const hydratedRoutes = ['/search', '/404'];
 const clientEntryPattern = /(?:\/_app\/immutable\/entry\/start|\bkit\.start\(\))/i;
 

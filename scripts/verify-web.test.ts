@@ -13,6 +13,7 @@ const articlePage = `${noindex}A Rock at the Edge of the World Sources Footnotes
 const allReader = {
   '/': reader,
   '/articles/tristan-da-cunha': articlePage,
+  '/categories': reader,
   '/categories/history': reader,
   '/about': reader,
 };
@@ -25,6 +26,11 @@ const complete = {
 describe('web smoke assertions', () => {
   it('accepts a complete correct page set', () => {
     expect(() => verifyRenderedPages(complete)).not.toThrow();
+  });
+
+  it('requires the static Categories directory', () => {
+    const { '/categories': _categories, ...withoutCategories } = complete;
+    expect(() => verifyRenderedPages(withoutCategories)).toThrow('/categories');
   });
 
   it('rejects missing /404 fallback artifact', () => {
@@ -117,6 +123,7 @@ describe('web smoke assertions', () => {
       '/': reader,
       '/articles/minimal-article': `${noindex}Minimal article`,
       '/articles/tristan-da-cunha': articlePage,
+      '/categories': reader,
       '/categories/history': reader,
       '/search': `${noindex}${bootstrap}`,
       '/about': reader,
@@ -151,6 +158,7 @@ describe('web smoke assertions', () => {
       '/': reader,
       '/articles/tristan-da-cunha': articlePage,
       '/articles/untitled-article': `${noindex}Some other words entirely`,
+      '/categories': reader,
       '/categories/history': reader,
       '/search': `${noindex}${bootstrap}`,
       '/about': reader,
@@ -172,6 +180,7 @@ describe('web smoke assertions', () => {
     const dynamic = {
       '/': reader,
       '/articles/second-article': `${noindex}Second article Sources Footnotes`,
+      '/categories': reader,
       '/categories/science': `${noindex}Science`,
       '/search': `${noindex}${bootstrap}`,
       '/about': reader,

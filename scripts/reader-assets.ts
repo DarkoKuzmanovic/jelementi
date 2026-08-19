@@ -122,17 +122,16 @@ export function measureReaderAssets({
   };
 
   const routes = Object.fromEntries(
-    Object.entries(routePaths).map(([routeClass, route]) => {
-      const page = pages[route];
-      if (routeClass !== 'categories' && page === undefined) requiredPage(pages, route);
-      return [routeClass, page === undefined ? null : Buffer.byteLength(page, 'utf8')];
-    }),
+    Object.entries(routePaths).map(([routeClass, route]) => [
+      routeClass,
+      Buffer.byteLength(requiredPage(pages, route), 'utf8'),
+    ]),
   ) as Record<ReaderRouteClass, number | null>;
 
-  const representativePages = Object.values(routePaths).flatMap((route) => {
-    const page = pages[route];
-    return page === undefined ? [] : [{ route, page }];
-  });
+  const representativePages = Object.values(routePaths).map((route) => ({
+    route,
+    page: requiredPage(pages, route),
+  }));
   const cssPaths = representativePages.flatMap(({ route, page }) =>
     referencedStylesheets(page, route),
   );

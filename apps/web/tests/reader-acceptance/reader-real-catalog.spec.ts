@@ -10,6 +10,16 @@ test('smokes the complete canonical generated Reader inventory independently of 
   if (!title) throw new Error('Canonical Home has no first article title.');
   expect(title).not.toContain('Every Reader Structure');
 
+  await page.goto('/categories');
+  await expect(page.getByRole('heading', { level: 1, name: 'Categories' })).toBeVisible();
+  await expect(
+    page.getByRole('main').getByRole('link', { name: 'History', exact: true }),
+  ).toHaveAttribute('href', '/categories/history');
+  await expect(page.getByRole('main').getByRole('link', { name: title })).toHaveAttribute(
+    'href',
+    '/articles/tristan-da-cunha',
+  );
+
   await page.goto('/categories/history');
   await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeVisible();
   await expect(page.getByRole('link', { name: title })).toBeVisible();

@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import {
+  projectCategoryArticles,
+  projectCategoryDirectory,
+} from '../apps/web/src/lib/category-projection';
 import { filterArticles } from '../apps/web/src/lib/generated-content';
 import {
   loadReaderAcceptanceContent,
@@ -12,6 +16,9 @@ describe('Reader acceptance fixture catalogs', () => {
 
     expect(sparse.index).toHaveLength(1);
     expect(Object.keys(sparse.articles)).toEqual([sparse.index[0]?.slug]);
+    expect(projectCategoryDirectory(sparse.index).map(({ name, count }) => [name, count])).toEqual([
+      ['Solo', 1],
+    ]);
     expect(representative.index.length).toBeGreaterThanOrEqual(6);
     expect(Object.keys(representative.articles)).toHaveLength(representative.index.length);
     expect(representative.index.every((entry) => entry.searchText.length > 0)).toBe(true);
@@ -34,15 +41,36 @@ describe('Reader acceptance fixture catalogs', () => {
     expect(JSON.stringify(rich.blocks)).toContain('strikethrough');
   });
 
-  it('makes ordering ties, continuation, no-continuation, and search states deterministic', () => {
+  it('makes category count ties, newest projections, and one/many listings deterministic', () => {
     const content = loadReaderAcceptanceContent('representative');
-    const counts = new Map<string, number>();
-    for (const entry of content.index) {
-      counts.set(entry.categorySlug, (counts.get(entry.categorySlug) ?? 0) + 1);
-    }
 
-    expect([...counts.values()].filter((count) => count === 2).length).toBeGreaterThanOrEqual(2);
-    expect(content.index.filter((entry) => entry.categorySlug === 'field-notes')).toHaveLength(3);
+    expect(
+      projectCategoryDirectory(content.index).map(({ name, count, newest }) => ({
+        name,
+        count,
+        newest: newest.slug,
+      })),
+    ).toEqual([
+      { name: 'Field Notes', count: 3, newest: 'acceptance-rich-column' },
+      { name: 'Culture', count: 2, newest: 'acceptance-culture-new' },
+      { name: 'Science', count: 2, newest: 'acceptance-science-new' },
+      {
+        name: 'A Deliberately Long Category Name for Narrow Readers',
+        count: 1,
+        newest: 'acceptance-long-category',
+      },
+    ]);
+    expect(projectCategoryArticles(content.index, 'field-notes')).toHaveLength(3);
+    expect(
+      projectCategoryArticles(
+        content.index,
+        'a-deliberately-long-category-name-for-narrow-readers',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('keeps continuation and search states deterministic', () => {
+    const content = loadReaderAcceptanceContent('representative');
     expect(filterArticles(content.index, '')).toHaveLength(content.index.length);
     expect(filterArticles(content.index, 'ČAČAK').map((entry) => entry.slug)).toEqual([
       'acceptance-rich-column',

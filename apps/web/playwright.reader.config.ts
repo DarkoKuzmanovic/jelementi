@@ -6,7 +6,7 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 /** Deterministic Reader fixture seam: actual SvelteKit routes, test-only catalog. */
 export default defineConfig({
   testDir: './tests/reader-acceptance',
-  testMatch: /reader-(foundation|shell)\.spec\.ts/,
+  testMatch: /reader-(categories|foundation|shell)\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),

@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { ArticleDocument, ArticleIndexEntry } from '@jelementi/article-model';
-import { articlesForCategory, type GeneratedContent } from './generated-content';
+import { projectCategoryArticles } from './category-projection';
+import type { GeneratedContent } from './generated-content';
 
 export function resolveArticle(content: GeneratedContent, slug: string): ArticleDocument {
   const article = content.articles[slug];
@@ -14,7 +15,7 @@ export interface CategoryListing {
 }
 
 export function resolveCategory(content: GeneratedContent, categorySlug: string): CategoryListing {
-  const articles = articlesForCategory(content.index, categorySlug);
+  const articles = projectCategoryArticles(content.index, categorySlug);
   const first = articles[0];
   if (!first) error(404, 'Category not found');
   return { articles, category: first.category };

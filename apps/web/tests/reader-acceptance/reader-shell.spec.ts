@@ -17,6 +17,7 @@ const publicRoutes = [
   '/about',
   '/search',
   '/articles/acceptance-rich-column',
+  '/categories',
   '/categories/field-notes',
 ];
 

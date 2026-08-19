@@ -12,6 +12,7 @@ function minimumPages(overrides: Record<string, string> = {}): Record<string, st
   return {
     '/': html('Home', '<link rel="stylesheet" href="/_app/reader.css">'),
     '/about': html('About', '<link rel="stylesheet" href="/_app/reader.css">'),
+    '/categories': html('Categories', '<link rel="stylesheet" href="/_app/reader.css">'),
     '/categories/history': html('History', '<link rel="stylesheet" href="/_app/reader.css">'),
     '/articles/example': html('Article', '<link rel="stylesheet" href="/_app/article.css">'),
     '/search': html(
@@ -32,7 +33,7 @@ const assets = {
 
 describe('Reader raw asset measurement', () => {
   it('counts representative raw HTML, unique Reader CSS, and Search-linked JavaScript exactly once', () => {
-    const pages = minimumPages({ '/categories': html('Categories') });
+    const pages = minimumPages();
     const result = measureReaderAssets({
       pages,
       assets,
@@ -67,17 +68,19 @@ describe('Reader raw asset measurement', () => {
     expect(result.routes.home).toBeGreaterThan((pages['/'] ?? '').length);
   });
 
-  it('keeps the future Categories allowance locked while allowing the route to be absent in phase 1', () => {
-    const result = measureReaderAssets({
-      pages: minimumPages(),
-      assets,
-      representative: { article: '/articles/example', category: '/categories/history' },
-      generatedContentBytes: READER_ASSET_BUDGETS.generatedContentBaseline,
-    });
+  it('requires the implemented Categories route while preserving its locked ceiling', () => {
+    const pages = minimumPages();
+    delete pages['/categories'];
 
-    expect(result.routes.categories).toBeNull();
+    expect(() =>
+      measureReaderAssets({
+        pages,
+        assets,
+        representative: { article: '/articles/example', category: '/categories/history' },
+        generatedContentBytes: READER_ASSET_BUDGETS.generatedContentBaseline,
+      }),
+    ).toThrow('Missing representative Reader HTML route: /categories');
     expect(READER_ASSET_BUDGETS.routes.categories.ceiling).toBe(8_192);
-    expect(() => assertReaderAssetBudgets(result)).not.toThrow();
   });
 
   it('fails closed for missing required assets and every frozen ceiling', () => {

@@ -74,9 +74,18 @@ describe('generated reader routes', () => {
     expectHttpError(() => resolveCategory(empty, 'unknown'), 404, 'Category not found');
   });
 
-  it('resolves known article and category without error', () => {
+  it('resolves known article and category with a deterministic newest-first listing', () => {
     expect(resolveArticle(content, 'known').slug).toBe('known');
-    expect(resolveCategory(content, 'history').category).toBe('History');
+    const older = {
+      ...entry,
+      slug: 'older',
+      title: 'Older',
+      publishedAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    };
+    const category = resolveCategory({ ...content, index: [older, entry] }, 'history');
+    expect(category.category).toBe('History');
+    expect(category.articles.map(({ slug }) => slug)).toEqual(['known', 'older']);
   });
 
   it('fingerprints route-resolved article documents deterministically regardless of key order', async () => {
