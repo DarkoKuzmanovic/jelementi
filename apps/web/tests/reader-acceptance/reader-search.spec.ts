@@ -218,3 +218,18 @@ test('Search reflows and remains keyboard-operable under Reader accessibility pr
   expect(Number.parseFloat(motion.animationDuration)).toBeLessThan(0.02);
   expect(Number.parseFloat(motion.transitionDuration)).toBeLessThan(0.02);
 });
+
+test('400% zoom equivalent preserves Search reflow with and without JavaScript', async ({
+  page,
+}) => {
+  // At 400% browser zoom, a 1280 CSS px layout has a 320 CSS px effective viewport.
+  // This is the repository's established deterministic browser proof for 400% reflow.
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto('/search');
+
+  await expect(page.getByRole('searchbox', { name: 'Search published articles' })).toBeVisible();
+  await expect(page.getByRole('article')).toHaveCount(representativeCatalogSize);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+});
