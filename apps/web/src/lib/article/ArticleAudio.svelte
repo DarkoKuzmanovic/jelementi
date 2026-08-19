@@ -16,3 +16,15 @@
     </audio>
   </section>
 {/if}
+
+<style>
+  .article-audio {
+    margin: var(--space-4) 0;
+    color: var(--foundation-muted);
+    font-size: var(--text-small);
+  }
+
+  .article-audio audio {
+    max-width: 100%;
+  }
+</style>

@@ -32,7 +32,15 @@
     {:else}
       <article aria-labelledby="preview-result-heading">
         <h3 id="preview-result-heading">Reader preview</h3>
-        <ArticleRenderer document={preview.document} />
+        <!--
+          Authoritative ArticleRenderer contract (#98): Studio preview reuses
+          the exact shared Reader content renderer and foundation typography
+          at the selected width. It deliberately imports no Reader page
+          chrome — no shell, header, footer, or navigation.
+        -->
+        <div class="article-preview">
+          <ArticleRenderer document={preview.document} />
+        </div>
       </article>
     {/if}
   {/if}
@@ -61,5 +69,9 @@
 
   .studio-preview-pane :global(pre) {
     overflow-x: auto;
+  }
+
+  .article-preview {
+    min-width: 0;
   }
 </style>

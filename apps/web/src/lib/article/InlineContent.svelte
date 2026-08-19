@@ -47,3 +47,11 @@
 {#each nodes as node, index (index)}
   {@render renderNode(node, `${index}`)}
 {/each}
+
+<style>
+  :global(sup a) {
+    font-size: 0.75em;
+    color: var(--foundation-link);
+    text-underline-offset: 0.18em;
+  }
+</style>

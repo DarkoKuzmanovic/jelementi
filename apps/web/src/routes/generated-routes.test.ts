@@ -17,7 +17,7 @@ vi.mock('$lib/article/ArticleRenderer.svelte', () => ({
   }),
 }));
 
-import ArticlePage from './articles/[slug]/+page.svelte';
+import ArticlePage from './(reader)/articles/[slug]/+page.svelte';
 
 const empty: GeneratedContent = { index: [], articles: {} };
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import ArticleSummary from '$lib/article/ArticleSummary.svelte';
   let { data }: { data: PageData } = $props();
 </script>
 
@@ -9,11 +10,20 @@
   <ul class="article-list">
     {#each data.articles as article (article.slug)}
       <li>
-        <article>
-          <h2><a href={`/articles/${article.slug}`}>{article.title}</a></h2>
-          <p>{article.excerpt}</p>
-        </article>
+        <ArticleSummary {article} />
       </li>
     {/each}
   </ul>
 </section>
+
+<style>
+  .article-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .article-list li {
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--foundation-rule);
+  }
+</style>
