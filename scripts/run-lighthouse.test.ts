@@ -8,7 +8,7 @@ describe('run-lighthouse', () => {
     expect(getCurrentHead()).toBe(actual);
   });
 
-  it('requires Accessibility/Best Practices 100 and Performance >=90 (SEO recorded, not enforced for noindex)', () => {
+  it('requires Accessibility/Best Practices/SEO 100 and Performance >=90', () => {
     expect(() =>
       assertLighthouseThresholds({
         accessibility: 100,
@@ -25,14 +25,6 @@ describe('run-lighthouse', () => {
         performance: 90,
       }),
     ).toThrow(/Accessibility/);
-    expect(() =>
-      assertLighthouseThresholds({
-        accessibility: 100,
-        bestPractices: 100,
-        seo: 50,
-        performance: 90,
-      }),
-    ).not.toThrow();
     expect(() =>
       assertLighthouseThresholds({
         accessibility: 100,

@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-08-19T22:30:43.786504Z",
-  "commit": "d3579c63941ed0dd31bfda3dc3d291eb8015abdf",
+  "generatedAt": "2026-08-19T22:38:18.890409Z",
+  "commit": "1ac06ca7c67436f5f5200bc99ddf50cbbb29b619",
   "url": "http://127.0.0.1:43123/",
   "lighthouseVersion": "13.4.1",
   "formFactor": "mobile",
   "scores": {
     "accessibility": 100,
     "bestPractices": 100,
-    "seo": 50,
+    "seo": 60,
     "performance": 100
   },
   "rawJsonPath": "/tmp/lighthouse-T104-1787178291400.report.json",
   "rawHtmlPath": "/tmp/lighthouse-T104-1787178291400.report.html",
-  "note": "Raw JSON/HTML are CI artifacts at /tmp, not committed. Rerun this script if Performance is noisy; do not waive."
+  "note": "Escalation: SEO 60 fails is-crawlable due to global noindex (immutable). Meta-description fix applied (50\u219260). See raw report for auditRefs. Thresholds restored to 100/100/100/>=90, gate remains BLOCKED pending human decision."
 }

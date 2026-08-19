@@ -155,9 +155,9 @@ export const HUMAN_CHECKPOINTS: readonly HumanCheckpoint[] = [
     id: 'lighthouse-mobile',
     label: 'Reproducible local mobile Lighthouse',
     description:
-      'Local mobile Lighthouse run: Accessibility 100, Best Practices 100, Performance >=90, SEO recorded (50 expected due to intentional global noindex, see lighthouse.json). Investigate noisy Performance via rerun, not waiver.',
+      'Local mobile Lighthouse run: Accessibility 100, Best Practices 100, SEO 100, Performance >=90. Investigate noisy results via rerun, not waiver.',
     notes:
-      'Run via `pnpm tsx scripts/run-lighthouse.ts` (wrangler dev --local mobile). Record version, URL, and scores: Accessibility/Best Practices/Performance must meet thresholds; SEO 50 is expected for unlisted beta with global noindex (is-crawlable), not a waiver — document as deviation.',
+      'Run via `pnpm tsx scripts/run-lighthouse.ts` (wrangler dev --local mobile) or Chrome DevTools mobile against local build; record scores and URL.',
     requiredEvidence: [
       'Lighthouse version',
       'mobile scores (Accessibility/Best Practices/Performance thresholds, SEO recorded)',

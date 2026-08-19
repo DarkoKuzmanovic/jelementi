@@ -5,7 +5,12 @@
   let { data }: { data: PageData } = $props();
 </script>
 
-<svelte:head><title>Jelementi</title></svelte:head>
+<svelte:head
+  ><title>Jelementi</title><meta
+    name="description"
+    content="Curious, careful stories from nearby and far away — the complete published catalog of Jelementi."
+  /></svelte:head
+>
 <section class="home-catalog" aria-labelledby="home-heading">
   <header class="home-introduction">
     <p class="home-kicker">Independent stories · Complete published catalog</p>

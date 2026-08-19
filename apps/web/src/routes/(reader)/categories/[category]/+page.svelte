@@ -4,7 +4,15 @@
   let { data }: { data: PageData } = $props();
 </script>
 
-<svelte:head><title>{data.category} — Jelementi</title></svelte:head>
+<svelte:head
+  ><title>{data.category} — Jelementi</title><meta
+    name="description"
+    content="Browse the {data.category} category — {data.articles.length} {data.articles.length ===
+    1
+      ? 'article'
+      : 'articles'}, newest first."
+  /></svelte:head
+>
 <section class="category-listing" aria-labelledby="category-heading">
   <header class="page-intro">
     <p class="kicker"><a href="/categories">Categories</a></p>

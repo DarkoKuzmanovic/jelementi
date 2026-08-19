@@ -40,7 +40,7 @@ export function assertLighthouseThresholds(scores: LighthouseScores): void {
     throw new Error(`Lighthouse Accessibility ${scores.accessibility} !== 100`);
   if (scores.bestPractices !== 100)
     throw new Error(`Lighthouse Best Practices ${scores.bestPractices} !== 100`);
-  // SEO is recorded but not enforced at 100 for this unlisted beta: global noindex intentionally makes is-crawlable fail (see report §10).
+  if (scores.seo !== 100) throw new Error(`Lighthouse SEO ${scores.seo} !== 100`);
   if (scores.performance < 90)
     throw new Error(`Lighthouse Performance ${scores.performance} < 90 — investigate and rerun`);
 }

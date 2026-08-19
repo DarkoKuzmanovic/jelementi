@@ -152,7 +152,7 @@ Default status for every manual cell is **BLOCKED_PENDING_HUMAN**. The report cl
 | M9 | No-JavaScript behavior | JS-disabled outcomes per route (Search complete catalog, recovery links) | **BLOCKED_PENDING_HUMAN** | Disable JS in browser or use `reader-no-js` project evidence as supplement — human still confirms real browser |
 | M10 | Contrast sampling (WCAG 2.2 AA) | Samples: semantic text, links + visited, focus, controls, borders, metadata, every callout state in light + dark; ratios (≥4.5:1 text, ≥3:1 large/non-text); tool version; no exception | **BLOCKED_PENDING_HUMAN** | Colour-picked samples, Axe contrast, or browser contrast tool; must cover all roles |
 | M11 | Orca + Firefox on Linux journey | Orca version, Firefox stable version, distro; step outcomes: shell/skip/landmarks, Home hierarchy, one rich article with audio and footnotes, Categories, Search initial/result/zero/clear announcements, About, 404, ordinary error | **BLOCKED_PENDING_HUMAN** | Linux + Orca + Firefox stable; accessibility-tree inspection supplements other engines |
-| M12 | Lighthouse mobile (reproducible local) | Lighthouse version, mobile scores | **PASS** — Lighthouse 13.4.1 mobile at `http://127.0.0.1:43123/` (wrangler dev --local, commit f22e1a2): Accessibility 100, Best Practices 100, SEO 50, Performance 100. SEO 50 is expected due to intentional global `noindex` (unlisted beta, not crawlable), not a waiver; Performance 100 ≥90. Raw `*.report.json`/`*.report.html` at `/tmp/lighthouse-T104-*` are CI artifacts (not committed). Rerun via `pnpm tsx scripts/run-lighthouse.ts` if noisy. |
+| M12 | Lighthouse mobile (reproducible local) | Lighthouse version, mobile scores (Accessibility 100, Best Practices 100, SEO 100, Performance ≥90), URL tested, rerun notes if noisy | **BLOCKED_PENDING_HUMAN** — Lighthouse 13.4.1 at `http://127.0.0.1:43123/` recorded Accessibility 100/Best Practices 100/Performance 100/SEO 60; SEO 60 fails `is-crawlable` (global noindex) after `meta-description` fix (was 50 → 60, see /tmp/lighthouse-T104-*). `is-crawlable` conflicts with immutable global noindex — see escalation §10a. |
 
 **Human fidelity approval (final gate):**
 
@@ -190,9 +190,24 @@ npx lighthouse http://127.0.0.1:4173/search --form-factor=mobile --output=json
 # record version (npm list lighthouse), scores, URLs, and rerun notes
 ```
 
-This report now claims Lighthouse scores for the loopback preview — see `docs/evidence/reader-acceptance/lighthouse.json` (commit f22e1a2, 2026-08-19T22:24:48.642Z): Accessibility 100, Best Practices 100, Performance 100 (≥90), SEO 50. SEO 50 is expected due to intentional global `noindex` for the unlisted beta (`is-crawlable` fails), not a waiver. Raw JSON/HTML remain CI artifacts at `/tmp`. Rerun via `pnpm tsx scripts/run-lighthouse.ts` if Performance is noisy; do not waive.
+This report does not yet claim Lighthouse SEO 100 — see `docs/evidence/reader-acceptance/lighthouse.json` (commit 1ac06ca, 2026-08-19T22:38:18.890Z): Accessibility 100, Best Practices 100, Performance 100, SEO 60 (fails solely `is-crawlable` due to global noindex after `meta-description` fix, 50 → 60). Product-owned `meta-description` fix attempted; `is-crawlable` failure is inherent to the immutable global noindex for unlisted beta — see escalation §10a. Raw JSON/HTML at `/tmp` are CI artifacts; rerun via `pnpm tsx scripts/run-lighthouse.ts` after fix, do not waive.
 
 ---
+
+### 10a. Escalation — Lighthouse SEO 100 vs immutable global noindex
+
+**Exact failed SEO audits (Lighthouse 13.4.1, mobile, http://127.0.0.1:43123/, commit 1ac06ca, raw /tmp/lighthouse-T104-*.report.json, after meta-description fix):**
+
+- `is-crawlable` — score 0, `Page is blocked from indexing` — Search engines are unable to include your pages in search results if they don't have permission to crawl them. This is triggered by the global `<meta name="robots" content="noindex">` present on every Reader route (see `apps/web/src/app.html` and `verify:web` global noindex gate). This `noindex` is an **immutable M2 contract** for the unlisted beta (DECISIONS.md: “Keep noindex until evidence”, ROADMAP M2: global noindex, AGENTS.md invariant: every route includes noindex). Removing it would violate the published unlisted-beta contract and the `verify:web` gate.
+- `meta-description` — **now PASS (score 1) after fix:** added `<meta name="description">` to `/(reader)/+page.svelte` (homepage), `about/+page.svelte`, `categories/+page.svelte`, `search/+page.svelte`, `articles/[slug]/+page.svelte` (excerpt), and `categories/[category]/+page.svelte`. This product fix improved SEO from **50 → 60**. No product-owned defect remains for `meta-description`.
+
+After the `meta-description` fix, the remaining SEO failure is solely `is-crawlable` due to global noindex. With `noindex` present, Lighthouse SEO caps at **60** (was 50) and cannot reach 100 by design. This is a **true conflict** between fixed issue #104 criterion (SEO 100) and the immutable global noindex for the unlisted beta.
+
+**No product-owned defect remains for `is-crawlable`; no tested URL/server/config change can make SEO 100 without removing the global noindex, which would violate the frozen invariant.** The `/index.json` noindex contract (ADR-0005) does not authorize a global homepage exception — the homepage is intentionally noindex.
+
+**Escalation:** Do not encode SEO 50 as passing. Restore thresholds to Accessibility 100 / Best Practices 100 / SEO 100 / Performance ≥90 (done in `scripts/run-lighthouse.ts`, `human-acceptance-wizard.ts`, tests, report, contact sheet). Record the truthful 50 with full audit evidence, keep Lighthouse as **BLOCKED_PENDING_HUMAN** pending a human decision on whether to (a) amend issue #104 to accept SEO 50 for the unlisted beta, (b) remove global noindex (requires M2/DECISIONS amendment and changes `verify:web`), or (c) run Lighthouse against a non-noindex URL (not currently available — all Reader routes are noindex). No waiver is encoded; the gate remains blocked until a human decides.
+
+**Evidence retained:** concise `docs/evidence/reader-acceptance/lighthouse.json` (100/100/50/100) plus raw `/tmp/lighthouse-T104-*` (not committed) with full auditRefs.
 
 ## 11. Curated deterministic screenshots and contact sheets
 
@@ -342,7 +357,7 @@ Any Reader foundation change that tainted Studio density would be caught by this
 > Representative HTML 26,369/70,885, CSS 17,942/17,943, Search JS 165,878/167,513 — all frozen ceilings preserved.
 > Architecture/data/contracts: prerender/non-hydrated, sole hydrated `/search`, sole fallback bootstrap + HTTP 404, no leaked Studio/compiler/fixture/acceptance-mode capability, validated published-only derivation, unchanged `/index.json` + fingerprint + schema.
 > Automated Reader acceptance covers every required route/state with JS/no-JS Chromium, wide/320, light/dark, reduced motion, keyboard, announcements, zoom/text-spacing stress, zero Axe serious/critical.
-> Manual matrix: Chromium/Firefox/WebKit-proxy/coarse-pointer, 100/200/400 zoom, text spacing, reduced motion, keyboard-only, no-JS experiential, contrast sampling (WCAG 2.2 AA), Orca+Firefox journey → honestly **BLOCKED_PENDING_HUMAN** via `human-acceptance-wizard` and `manual-evidence.template.json`; **Lighthouse mobile PASS** (13.4.1, Accessibility 100/Best Practices 100/SEO 50/Performance 100, see `docs/evidence/reader-acceptance/lighthouse.json`).
+> Manual matrix: Chromium/Firefox/WebKit-proxy/coarse-pointer, 100/200/400 zoom, text spacing, reduced motion, keyboard-only, no-JS experiential, contrast sampling (WCAG 2.2 AA), Orca+Firefox journey, Lighthouse mobile → honestly **BLOCKED_PENDING_HUMAN** (see lighthouse escalation below) via `human-acceptance-wizard` and `manual-evidence.template.json`.
 > Curated evidence: `docs/evidence/reader-acceptance/contact-sheet.md` (deterministic Chromium matrix, review-not-gate; screenshots fail-closed, width-verified); fan-in simplifications S1–S6 documented as explicit human-fidelity inputs, not waivers.
 > Residual: no invariant waived; human structural/experiential approval blocked until every preceding green and recorded via wizard.
 

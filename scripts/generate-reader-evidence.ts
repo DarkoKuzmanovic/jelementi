@@ -170,7 +170,7 @@ export function buildContactSheetMarkdown(input: ContactSheetInput): string {
     '- Orca + Firefox on Linux journey (shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search initial/result/zero/clear, About, 404, ordinary error) — **BLOCKED_PENDING_HUMAN**',
   );
   lines.push(
-    '- Lighthouse mobile: **PASS** — Accessibility 100, Best Practices 100, Performance 100, SEO 50 (50 expected due to intentional global noindex, see lighthouse.json; thresholds Accessibility 100/Best Practices 100/Performance >=90 met, SEO recorded) — raw artifacts at /tmp (not committed)',
+    '- Lighthouse mobile (Accessibility 100, Best Practices 100, SEO 100, Performance >=90) — **BLOCKED_PENDING_HUMAN**',
   );
   lines.push(
     '- Human structural and experiential fidelity approval — **BLOCKED_PENDING_HUMAN** (only after every preceding green; never waives failed invariant)',
