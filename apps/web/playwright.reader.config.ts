@@ -8,7 +8,6 @@ const scenario = process.env.READER_ACCEPTANCE_SCENARIO ?? 'representative';
 export default defineConfig({
   testDir: './tests/reader-acceptance',
   testMatch: /reader-.*\.spec\.ts/,
->>>>>>> 4b62c7a (feat(reader): deliver quiet column article experience (#101))
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
