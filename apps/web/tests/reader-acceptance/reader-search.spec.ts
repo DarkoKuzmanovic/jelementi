@@ -1,6 +1,37 @@
 import { expect, test } from '@playwright/test';
+import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
 const representativeCatalogSize = 7;
+
+test('Search has no serious or critical accessibility violations with or without enhancement', async ({
+  browser,
+  page,
+}, testInfo) => {
+  await page.goto('/search');
+
+  if (testInfo.project.name === 'reader-no-js') {
+    await expect(page.getByRole('article')).toHaveCount(representativeCatalogSize);
+    const scanContext = await browser.newContext({ javaScriptEnabled: true });
+    const staticPage = await scanContext.newPage();
+    await staticPage.route('**/*', async (route) => {
+      if (route.request().resourceType() === 'script') await route.abort();
+      else await route.continue();
+    });
+    await staticPage.goto(page.url());
+    await expect(staticPage.locator('[data-search-enhanced]')).toHaveCount(0);
+    await expectNoBlockingAccessibilityViolations(staticPage);
+    await scanContext.close();
+    return;
+  }
+
+  await expect(page.locator('[data-search-enhanced="true"]')).toBeVisible();
+  await expectNoBlockingAccessibilityViolations(page);
+  await page
+    .getByRole('searchbox', { name: 'Search published articles' })
+    .fill('no such acceptance article');
+  await expect(page.getByRole('heading', { name: 'No articles found' })).toBeVisible();
+  await expectNoBlockingAccessibilityViolations(page);
+});
 
 test('Search is a complete browseable catalog before interaction and without JavaScript', async ({
   page,
