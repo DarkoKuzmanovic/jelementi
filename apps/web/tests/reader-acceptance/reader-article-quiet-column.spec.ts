@@ -130,10 +130,28 @@ test('text resize, 400% zoom equivalent, and WCAG text spacing preserve one cont
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Continue reading' })).toBeVisible();
 
-  await page.addStyleTag({
-    content:
-      '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }',
-  });
+  await page.evaluate((content) => {
+    const style = document.createElement('style');
+    style.dataset.acceptanceTextSpacing = 'true';
+    style.textContent = content;
+    document.head.appendChild(style);
+  }, '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }');
+  const appliedSpacing = await page
+    .locator('article#article-top p')
+    .first()
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        letterSpacing: Number.parseFloat(style.letterSpacing),
+        wordSpacing: Number.parseFloat(style.wordSpacing),
+        marginBottom: Number.parseFloat(style.marginBottom),
+        rulePresent: document.querySelector('style[data-acceptance-text-spacing]') !== null,
+      };
+    });
+  expect(appliedSpacing.rulePresent).toBe(true);
+  expect(appliedSpacing.letterSpacing).toBeGreaterThan(0);
+  expect(appliedSpacing.wordSpacing).toBeGreaterThan(0);
+  expect(appliedSpacing.marginBottom).toBeGreaterThan(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
