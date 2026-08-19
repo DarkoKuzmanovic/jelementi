@@ -13,3 +13,48 @@
   margin: 0 auto;
   padding: var(--space-8) 0 var(--space-12);
 }
+
+/* Shared reader primitives — single definition replaces duplicate scoped
+   page-intro/kicker/divided-list declarations across category routes and
+   search. Keeps overflow-wrap for 320px reflow and preserves theme tokens. */
+.page-intro {
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--foundation-rule);
+}
+.page-intro h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-serif);
+  font-size: clamp(2.5rem, 7vw, 5.4rem);
+  line-height: var(--leading-heading);
+  letter-spacing: -0.035em;
+}
+.page-intro > p:last-child {
+  max-width: 47rem;
+  margin: var(--space-3) 0 0;
+  color: var(--foundation-muted);
+  font-family: var(--font-serif);
+  font-size: clamp(1.08rem, 2.2vw, 1.35rem);
+}
+.kicker {
+  margin: 0 0 var(--space-2);
+  color: var(--foundation-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-compact);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.kicker a {
+  color: var(--foundation-accent);
+}
+.divided-list {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--foundation-rule);
+  list-style: none;
+}
+.divided-list > li {
+  padding: var(--space-6) 0;
+  border-bottom: 1px solid var(--foundation-rule);
+}

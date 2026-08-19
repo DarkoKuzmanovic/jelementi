@@ -43,8 +43,8 @@
   aria-labelledby="search-heading"
   data-search-enhanced={enhanced ? 'true' : undefined}
 >
-  <header class="search__intro">
-    <p class="search__kicker">Find a story</p>
+  <header class="page-intro search__intro">
+    <p class="kicker">Find a story</p>
     <h1 id="search-heading">Search</h1>
     <p>Browse every published article, or filter the catalog.</p>
   </header>
@@ -79,7 +79,6 @@
 
   {#if results.length === 0}
     <section class="empty-state" aria-labelledby="empty-search-heading">
-      <p class="empty-state__mark" aria-hidden="true">0</p>
       <div>
         <h2 id="empty-search-heading">No articles found</h2>
         <p>Try a different search, clear the query, or browse all categories.</p>
@@ -100,7 +99,7 @@
         <button type="button" onclick={clearSearch}>Clear search</button>
       {/if}
     </div>
-    <ul class="article-list">
+    <ul class="article-list divided-list">
       {#each results as article (article.slug)}
         <li>
           <ArticleSummary {article} />
@@ -111,36 +110,6 @@
 </section>
 
 <style>
-  .search__intro {
-    max-width: 47rem;
-    margin-bottom: var(--space-8);
-  }
-
-  .search__intro h1 {
-    margin: 0;
-    font-family: var(--font-serif);
-    font-size: var(--text-h1);
-    line-height: var(--leading-heading);
-  }
-
-  .search__intro > p:last-child {
-    max-width: 42rem;
-    margin-bottom: 0;
-    color: var(--foundation-muted);
-    font-family: var(--font-serif);
-    font-size: 1.125rem;
-  }
-
-  .search__kicker {
-    margin: 0 0 var(--space-2);
-    color: var(--foundation-accent);
-    font-family: var(--font-mono);
-    font-size: var(--text-compact);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
   .search-form {
     max-width: 47rem;
     margin-bottom: var(--space-8);
@@ -216,32 +185,18 @@
   }
 
   .article-list {
-    margin: var(--space-3) 0 0;
-    padding: 0;
-    border-top: 1px solid var(--foundation-rule);
-    list-style: none;
+    margin-top: var(--space-3);
   }
 
   .article-list li {
     padding: var(--space-3) 0;
-    border-bottom: 1px solid var(--foundation-rule);
   }
 
   .empty-state {
     display: grid;
-    grid-template-columns: auto minmax(0, 38rem);
-    gap: var(--space-6) var(--space-8);
-    align-items: start;
-    padding: var(--space-8) 0;
-    border-block: 3px double var(--foundation-rule);
-  }
-
-  .empty-state__mark {
-    margin: 0;
-    color: var(--foundation-muted);
-    font-family: var(--font-serif);
-    font-size: 6rem;
-    line-height: 0.8;
+    gap: var(--space-4);
+    padding: var(--space-6) 0;
+    border-block: 1px solid var(--foundation-rule);
   }
 
   .empty-state h2 {
@@ -267,13 +222,18 @@
     .search-form__row button {
       width: 100%;
     }
+  }
+  .search__intro {
+    max-width: 47rem;
+    margin-bottom: var(--space-8);
+  }
 
-    .empty-state {
-      grid-template-columns: 1fr;
-    }
+  .search__intro h1 {
+    font-size: var(--text-h1);
+  }
 
-    .empty-state__mark {
-      font-size: 4rem;
-    }
+  .search__intro > p:last-child {
+    max-width: 42rem;
+    font-size: 1.125rem;
   }
 </style>

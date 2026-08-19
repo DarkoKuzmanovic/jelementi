@@ -97,9 +97,6 @@
   }
 
   .article-opening__tags li {
-    padding: 0.15rem 0.6rem;
-    border: 1px solid var(--foundation-rule);
-    border-radius: var(--radius-pill);
     font-size: var(--text-small);
     color: var(--foundation-muted);
   }

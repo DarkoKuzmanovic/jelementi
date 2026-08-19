@@ -34,7 +34,7 @@
     <h1 id="categories-heading">Categories</h1>
     <p>Every thread, ordered by the number of published articles.</p>
   </header>
-  <ol class="category-index" aria-label="Categories">
+  <ol class="category-index divided-list" aria-label="Categories">
     {#each data.categories as category (category.slug)}
       <li class="category-entry">
         <div>
@@ -62,55 +62,15 @@
     gap: var(--space-8);
   }
 
-  .page-intro {
-    padding-bottom: var(--space-6);
-    border-bottom: 3px double var(--foundation-rule);
-  }
-
-  .page-intro h1 {
-    margin: 0;
-    font-family: var(--font-serif);
-    font-size: clamp(2.5rem, 7vw, 5.4rem);
-    line-height: var(--leading-heading);
-    letter-spacing: -0.035em;
-  }
-
-  .page-intro > p:last-child {
-    max-width: 47rem;
-    margin: var(--space-3) 0 0;
-    color: var(--foundation-muted);
-    font-family: var(--font-serif);
-    font-size: clamp(1.08rem, 2.2vw, 1.35rem);
-  }
-
-  .kicker,
   .category-count,
   .category-newest__label {
     font-family: var(--font-mono);
-  }
-
-  .kicker {
-    margin: 0 0 var(--space-2);
-    color: var(--foundation-accent);
-    font-size: var(--text-compact);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .category-index {
-    margin: 0;
-    padding: 0;
-    border-top: 1px solid var(--foundation-rule);
-    list-style: none;
   }
 
   .category-entry {
     display: grid;
     grid-template-columns: minmax(12rem, 0.8fr) minmax(0, 1.6fr);
     gap: var(--space-4) var(--space-12);
-    padding: var(--space-6) 0;
-    border-bottom: 1px solid var(--foundation-rule);
   }
 
   .category-entry h2 {
@@ -122,7 +82,7 @@
 
   .category-entry a {
     color: var(--foundation-ink);
-    text-decoration-color: color-mix(in srgb, var(--foundation-ink) 28%, transparent);
+    text-decoration-color: var(--foundation-rule);
     text-underline-offset: 0.18em;
   }
 

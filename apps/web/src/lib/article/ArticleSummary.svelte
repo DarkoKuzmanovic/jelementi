@@ -39,7 +39,7 @@
   .article-summary__title a {
     color: var(--foundation-ink);
     text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, var(--foundation-ink) 28%, transparent);
+    text-decoration-color: var(--foundation-rule);
     text-underline-offset: 0.18em;
     text-decoration-thickness: 1px;
   }
