@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en" data-variant="A">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta
+      name="description"
+      content="Throwaway comparison prototype for Jelementi secondary public reader routes."
+    />
+    <title>Secondary reader routes — Jelementi prototype</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./prototype.css" />
+    <script src="./prototype.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#prototype-main">Skip to main content</a>
+    <aside class="prototype-ribbon" aria-label="Prototype notice">
+      <strong>Prototype only · ticket #94 · not production</strong>
+      <span>Extends Editorial front + The Quiet Column; does not reopen them.</span>
+    </aside>
+
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a
+          class="identity"
+          href="https://github.com/DarkoKuzmanovic/jelementi/tree/d2648cf/prototypes/public-home-discovery"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Jelementi <span>small stories, wide horizons</span>
+        </a>
+        <nav aria-label="Primary navigation">
+          <a
+            href="https://github.com/DarkoKuzmanovic/jelementi/tree/d2648cf/prototypes/public-home-discovery"
+            target="_blank"
+            rel="noreferrer"
+            >Home</a
+          >
+          <a href="?route=categories" data-route-link="categories">Categories</a>
+          <a href="?route=search" data-route-link="search">Search</a>
+          <a href="?route=about" data-route-link="about">About</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="prototype-main" tabindex="-1">
+      <section class="route" data-route="categories" aria-labelledby="categories-title">
+        <header class="page-intro">
+          <p class="kicker">Browse the publication</p>
+          <h1 id="categories-title">Categories</h1>
+          <p>Every thread, ordered by the number of published articles.</p>
+        </header>
+        <ol class="category-index" id="category-index" aria-label="Categories"></ol>
+      </section>
+
+      <section class="route" data-route="category" aria-labelledby="category-title" hidden>
+        <header class="page-intro page-intro--with-aside">
+          <div>
+            <p class="kicker">
+              <a href="?route=categories" data-route-link="categories">Categories</a>
+            </p>
+            <h1 id="category-title">Culture</h1>
+            <p><span id="category-count">2 articles</span>, newest first.</p>
+          </div>
+          <p class="page-note" aria-hidden="true">One thread,<br />read in sequence.</p>
+        </header>
+        <div class="article-results" id="category-results"></div>
+        <p class="return-link">
+          <a href="?route=categories" data-route-link="categories">← All categories</a>
+        </p>
+      </section>
+
+      <section class="route" data-route="search" aria-labelledby="search-title" hidden>
+        <header class="page-intro">
+          <p class="kicker">Find a story</p>
+          <h1 id="search-title">Search</h1>
+          <p>Search titles, excerpts, categories, and tags.</p>
+        </header>
+        <form class="search-form" role="search" id="search-form">
+          <label for="search-input">Search published articles</label>
+          <div class="search-form__row">
+            <input id="search-input" name="query" type="search" autocomplete="off" />
+            <button type="submit">Search</button>
+          </div>
+        </form>
+        <div class="search-heading" aria-live="polite">
+          <h2 id="search-state-title">All published articles</h2>
+          <button type="button" id="clear-search" hidden>Clear search</button>
+        </div>
+        <div class="article-results article-results--dense" id="search-results"></div>
+        <div class="empty-state" id="search-empty" hidden>
+          <p class="empty-state__mark" aria-hidden="true">0</p>
+          <div>
+            <h2>No articles found</h2>
+            <p>Try a different search, clear the query, or browse all categories.</p>
+            <p class="recovery-links">
+              <button type="button" id="empty-clear">Clear search</button>
+              <a href="?route=categories" data-route-link="categories">Browse Categories</a>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="route" data-route="about" aria-labelledby="about-title" hidden>
+        <div class="about-layout">
+          <header class="page-intro">
+            <p class="kicker">About the publication</p>
+            <h1 id="about-title">Small stories,<br />wide horizons.</h1>
+            <p class="about-dek">
+              Jelementi is an independent publication for curious, carefully told stories about
+              places, people, nature, culture, and the details that reward a slower look.
+            </p>
+          </header>
+          <div class="about-body">
+            <section aria-labelledby="about-publishes">
+              <h2 id="about-publishes">What we publish</h2>
+              <p>
+                Reported notes, essays, and field observations that make unfamiliar subjects feel
+                close without making them small.
+              </p>
+            </section>
+            <section aria-labelledby="about-approach">
+              <h2 id="about-approach">How we work</h2>
+              <p>
+                Each article is edited for clarity, supported by sources where they matter, and
+                designed to remain readable without noise around it.
+              </p>
+            </section>
+            <p class="about-fact">
+              This prototype invents no contact or ownership details. Production should show them
+              only when real information exists.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="route" data-route="404" aria-labelledby="not-found-title" hidden>
+        <div class="recovery">
+          <p class="recovery__code" aria-hidden="true">404</p>
+          <div>
+            <p class="kicker">Page not found</p>
+            <h1 id="not-found-title">This page is not available.</h1>
+            <p>The address may be incorrect, or the page may have moved.</p>
+            <nav class="recovery-links" aria-label="Page recovery">
+              <a
+                href="https://github.com/DarkoKuzmanovic/jelementi/tree/d2648cf/prototypes/public-home-discovery"
+                target="_blank"
+                rel="noreferrer"
+                >Home</a
+              >
+              <a href="?route=search" data-route-link="search">Search</a>
+              <a href="?route=categories" data-route-link="categories">Categories</a>
+            </nav>
+          </div>
+        </div>
+      </section>
+
+      <section class="route" data-route="error" aria-labelledby="error-title" hidden>
+        <div class="recovery">
+          <p class="recovery__code" aria-hidden="true">!</p>
+          <div>
+            <p class="kicker">Something went wrong</p>
+            <h1 id="error-title">The page could not be loaded.</h1>
+            <p>Try again. If the problem continues, use another route.</p>
+            <nav class="recovery-links" aria-label="Error recovery">
+              <button type="button" id="try-again">Try again</button>
+              <a
+                href="https://github.com/DarkoKuzmanovic/jelementi/tree/d2648cf/prototypes/public-home-discovery"
+                target="_blank"
+                rel="noreferrer"
+                >Home</a
+              >
+              <a href="?route=search" data-route-link="search">Search</a>
+              <a href="?route=categories" data-route-link="categories">Categories</a>
+            </nav>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <section class="boundary-note" aria-label="Approved direction boundary">
+      <strong>Fixed context</strong>
+      <span>Home remains A — Editorial front.</span>
+      <span>Articles remain A — The Quiet Column.</span>
+      <span>Only the secondary-route treatment is being compared here.</span>
+    </section>
+
+    <footer class="site-footer">
+      <a
+        class="identity"
+        href="https://github.com/DarkoKuzmanovic/jelementi/tree/d2648cf/prototypes/public-home-discovery"
+        target="_blank"
+        rel="noreferrer"
+        >Jelementi</a
+      >
+      <nav aria-label="Footer navigation">
+        <a
+          href="https://github.com/DarkoKuzmanovic/jelementi/tree/d2648cf/prototypes/public-home-discovery"
+          target="_blank"
+          rel="noreferrer"
+          >Home</a
+        >
+        <a href="?route=categories" data-route-link="categories">Categories</a>
+        <a href="?route=search" data-route-link="search">Search</a>
+        <a href="?route=about" data-route-link="about">About</a>
+      </nav>
+      <p>Representative prototype data · no production routes or contracts are connected.</p>
+    </footer>
+
+    <aside class="state-panel" aria-live="polite" aria-label="Current prototype state">
+      <strong id="state-variant">A — Quiet index</strong>
+      <span id="state-route">/categories</span>
+      <span id="state-width">wide viewport</span>
+      <p id="state-thesis">A calm ruled directory that lets article titles carry the page.</p>
+    </aside>
+
+    <aside class="prototype-switcher" aria-label="Prototype controls">
+      <div class="variant-control">
+        <button type="button" id="previous-variant" aria-label="Previous variant">←</button>
+        <div>
+          <span>Secondary-route treatment</span>
+          <strong id="variant-label">A — Quiet index</strong>
+        </div>
+        <button type="button" id="next-variant" aria-label="Next variant">→</button>
+      </div>
+      <label>
+        <span>Surface</span>
+        <select id="route-select">
+          <option value="categories">Categories index</option>
+          <option value="category">Category listing</option>
+          <option value="search">Search</option>
+          <option value="about">About</option>
+          <option value="404">404 recovery</option>
+          <option value="error">Other error</option>
+        </select>
+      </label>
+    </aside>
+  </body>
+</html>
