@@ -65,8 +65,23 @@ test('smokes the complete canonical generated Reader inventory independently of 
 
   await page.goto(`/articles/${expectedLead.slug}`);
   await expect(page.getByRole('heading', { level: 1, name: expectedLead.title })).toBeVisible();
+  const opening = page.locator('.article-opening');
+  await expect(opening.getByText('By Jelementi')).toBeVisible();
+  await expect(opening.getByText(/min read/)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
+  const continuation = page.getByRole('navigation', { name: 'Continue reading' });
+  await expect(continuation.getByRole('link', { name: /Return to/ })).toBeVisible();
+  const measures = await page.evaluate(() => {
+    const page = document.querySelector('.article-page');
+    const body = document.querySelector('.article-body');
+    if (!(page instanceof HTMLElement) || !(body instanceof HTMLElement)) {
+      throw new Error('Canonical article measures are missing.');
+    }
+    return { page: page.getBoundingClientRect().width, body: body.getBoundingClientRect().width };
+  });
+  expect(measures.page).toBeLessThanOrEqual(52 * 16);
+  expect(measures.body).toBeLessThanOrEqual(50 * 16);
   await expect(page.locator('meta[name="jelementi-content-version"]')).toHaveCount(1);
 
   await page.goto('/search');

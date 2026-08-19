@@ -132,11 +132,25 @@ test('text resize, 400% zoom equivalent, and WCAG text spacing preserve one cont
 
   await page.addStyleTag({
     content:
-      '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }',
+      '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }',
   });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  const clipped = await page
+    .locator('article#article-top h1, article#article-top p, article#article-top a')
+    .evaluateAll((elements) =>
+      elements
+        .filter((element) => {
+          const box = element.getBoundingClientRect();
+          return box.left < 0 || box.right > window.innerWidth || box.width === 0;
+        })
+        .map((element) => element.textContent?.trim() ?? element.tagName),
+    );
+  expect(clipped).toEqual([]);
+  await expect(
+    page.getByRole('navigation', { name: 'Continue reading' }).getByRole('link').first(),
+  ).toBeVisible();
 
   // A 1280px page at 400% zoom has a 320 CSS px effective viewport.
   await page.setViewportSize({ width: 320, height: 900 });
@@ -201,6 +215,27 @@ test('missing article 404s with the shared error surface and no next-older', asy
   const response = await page.goto('/articles/missing-reader-acceptance-article');
   expect(response?.status()).toBe(404);
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Continue reading' })).toHaveCount(0);
+});
+
+test('article semantics name figures, audio, landmarks, footnotes, and backlinks', async ({
+  page,
+}) => {
+  await page.goto('/articles/acceptance-rich-column');
+  await expect(page.getByRole('banner')).toHaveCount(1);
+  await expect(page.getByRole('main')).toHaveCount(1);
+  await expect(page.getByRole('contentinfo')).toHaveCount(1);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+  await expect(page.getByRole('figure', { name: 'Abstract acceptance cover' })).toBeVisible();
+  await expect(page.locator('article#article-top figure figcaption')).toContainText(
+    'conventional source link',
+  );
+  await expect(page.locator('audio')).toHaveAttribute(
+    'aria-label',
+    'Audio for Čačak Field Notes: Every Reader Structure',
+  );
+  await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Back to footnote reference/ })).toHaveCount(2);
 });
 
 test('article has zero serious or critical accessibility findings', async ({ page }, testInfo) => {

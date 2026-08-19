@@ -56,7 +56,7 @@ test('preview width selection is contained and the narrow canvas is 320px', asyn
 
   const preview = page.getByRole('article', { name: 'Reader preview' });
   const canvas = preview.locator('.article-preview');
-  await expect(preview.getByRole('radio', { name: 'Wide (52rem)' })).toBeChecked();
+  await expect(preview.locator('input[value="wide"]')).toBeChecked();
   const wideDimensions = await canvas.evaluate((element) => ({
     width: element.getBoundingClientRect().width,
     rootFontSize: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
@@ -81,8 +81,9 @@ test('preview width selection is contained and the narrow canvas is 320px', asyn
   expect(typography.actual).toEqual(typography.expected);
 
   if (testInfo.project.name.includes('no-js')) {
-    // Width switching is progressive enhancement; the no-JS default is the
-    // wide Reader measure and stays contained.
+    // Width switching is progressive enhancement; unavailable controls are
+    // hidden while the default wide Reader measure remains contained.
+    await expect(preview.locator('.preview-width-controls')).toBeHidden();
     await expect(canvas).toHaveClass(/article-preview--wide/);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -90,6 +91,7 @@ test('preview width selection is contained and the narrow canvas is 320px', asyn
     return;
   }
 
+  await expect(preview.getByRole('radio', { name: 'Wide (52rem)' })).toBeVisible();
   await preview.getByRole('radio', { name: 'Narrow (320px)' }).check();
   await expect(canvas).toHaveClass(/article-preview--narrow/);
   const width = await canvas.evaluate((el) => el.getBoundingClientRect().width);

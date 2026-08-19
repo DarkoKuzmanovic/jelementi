@@ -89,12 +89,16 @@
   }
 
   .preview-width-controls {
-    display: flex;
+    display: none;
     flex-wrap: wrap;
     gap: var(--studio-space-2) var(--studio-space-6);
     margin: 0 0 var(--studio-space-4);
     padding: 0;
     border: 0;
+  }
+
+  :global(html[data-studio-hydrated='true']) .preview-width-controls {
+    display: flex;
   }
 
   .preview-width-controls label {

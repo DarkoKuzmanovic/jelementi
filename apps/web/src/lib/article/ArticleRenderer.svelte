@@ -28,7 +28,7 @@
 <article id="article-top">
   <ArticleOpening article={document} />
   <ArticleAudio article={document} />
-  <figure class="article-cover">
+  <figure class="article-cover" aria-label={document.cover.alt}>
     <img src={document.cover.src} alt={document.cover.alt} loading="eager" />
   </figure>
   <div class="article-body">
