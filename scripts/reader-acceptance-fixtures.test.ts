@@ -26,6 +26,9 @@ describe('Reader acceptance fixture catalogs', () => {
     expect(representative.index).toHaveLength(8);
     expect(Object.keys(representative.articles)).toHaveLength(representative.index.length);
     expect(representative.index.every((entry) => entry.searchText.length > 0)).toBe(true);
+    expect(
+      representative.index.find((entry) => entry.slug === 'acceptance-long-category')?.excerpt,
+    ).toBe('unbroken-content-token-that-must-reflow-without-page-level-overflow');
     expect(representative.index.map((entry) => entry.title)).not.toEqual(
       expect.arrayContaining([...READER_ACCEPTANCE_EXCLUDED_TITLES]),
     );

@@ -130,6 +130,9 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
   });
   await page.setViewportSize({ width: 320, height: 800 });
 
+  await expect(
+    page.getByText('unbroken-content-token-that-must-reflow-without-page-level-overflow'),
+  ).toBeVisible();
   const noHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
   );
@@ -150,9 +153,27 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
   ]);
   await expect(page.locator('.home-catalog [tabindex]')).toHaveCount(0);
 
-  const keyboardArticleHrefs: string[] = [];
-  let firstArticleOutline: { style: string; width: string } | undefined;
-  for (let step = 0; step < 40 && keyboardArticleHrefs.length < articleHrefs.length; step += 1) {
+  const expectedKeyboardHrefs = [
+    '/articles/acceptance-rich-column',
+    '/categories/field-notes',
+    '/articles/acceptance-field-middle',
+    '/categories/field-notes',
+    '/articles/acceptance-culture-new',
+    '/categories/culture',
+    '/articles/acceptance-science-new',
+    '/categories/science',
+    '/articles/acceptance-field-oldest',
+    '/categories/field-notes',
+    '/articles/acceptance-culture-old',
+    '/categories/culture',
+    '/articles/acceptance-science-old',
+    '/categories/science',
+    '/articles/acceptance-long-category',
+    '/categories/a-deliberately-long-category-name-for-narrow-readers',
+  ];
+  const keyboardHrefs: string[] = [];
+  const focusOutlines: Array<{ style: string; width: string }> = [];
+  for (let step = 0; step < 60 && keyboardHrefs.length < expectedKeyboardHrefs.length; step += 1) {
     await page.keyboard.press('Tab');
     const focused = await page.evaluate(() => {
       const element = document.activeElement;
@@ -163,13 +184,15 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
         outline: { style: style.outlineStyle, width: style.outlineWidth },
       };
     });
-    if (focused?.href?.startsWith('/articles/')) {
-      keyboardArticleHrefs.push(focused.href);
-      firstArticleOutline ??= focused.outline;
+    if (focused?.href && expectedKeyboardHrefs.includes(focused.href)) {
+      keyboardHrefs.push(focused.href);
+      focusOutlines.push(focused.outline);
     }
   }
-  expect(keyboardArticleHrefs).toEqual(articleHrefs);
-  expect(firstArticleOutline).toEqual({ style: 'solid', width: '3px' });
+  expect(keyboardHrefs).toEqual(expectedKeyboardHrefs);
+  expect(focusOutlines).toEqual(
+    expectedKeyboardHrefs.map(() => ({ style: 'solid', width: '3px' })),
+  );
 });
 
 test('Home has zero serious or critical Axe findings across width and theme roles', async ({

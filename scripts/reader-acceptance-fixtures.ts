@@ -111,6 +111,7 @@ interface MinimalDocumentOptions {
   title: string;
   category: string;
   publishedAt: string;
+  excerpt?: string;
   tags?: string[];
 }
 
@@ -119,13 +120,14 @@ function minimalDocument({
   title,
   category,
   publishedAt,
+  excerpt = `Deterministic summary for ${title}.`,
   tags = [],
 }: MinimalDocumentOptions): ArticleDocument {
   return ArticleDocumentSchema.parse({
     schemaVersion: 1,
     slug,
     title,
-    excerpt: `Deterministic summary for ${title}.`,
+    excerpt,
     status: 'published',
     publishedAt,
     updatedAt: publishedAt,
@@ -183,7 +185,7 @@ const representativeDocuments = [
     title: 'A Single Thread at Narrow Width',
     category: 'A Deliberately Long Category Name for Narrow Readers',
     publishedAt: '2026-07-28',
-    tags: ['unbroken-content-token-that-must-reflow-without-page-level-overflow'],
+    excerpt: 'unbroken-content-token-that-must-reflow-without-page-level-overflow',
   }),
 ] as const;
 
