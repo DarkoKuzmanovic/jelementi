@@ -119,6 +119,29 @@ export function verifyPublicClientBundles(files: readonly ClientBundleFile[]): v
   }
 }
 
+const readerAcceptanceCapabilityPattern =
+  /READER_ACCEPTANCE_|reader-acceptance-fixtures|jelementi-reader-acceptance-fixture|acceptance-rich-column/i;
+
+/** Proves test-only Reader data and mode selection are absent from every deployable artifact. */
+export function verifyNoReaderAcceptanceCapability(files: readonly ClientBundleFile[]): void {
+  for (const file of files) {
+    if (readerAcceptanceCapabilityPattern.test(file.source)) {
+      throw new Error(`Production output contains Reader acceptance capability: ${file.path}.`);
+    }
+  }
+}
+
+/** Production-only configs must not import, select, or embed any fixture capability. */
+export function verifyReaderProductionConfig(files: readonly ClientBundleFile[]): void {
+  for (const file of files) {
+    if (readerAcceptanceCapabilityPattern.test(file.source)) {
+      throw new Error(
+        `Reader acceptance capability is present in production configuration: ${file.path}.`,
+      );
+    }
+  }
+}
+
 async function readHtmlFiles(directory: string, root = directory): Promise<Record<string, string>> {
   const pages: Record<string, string> = {};
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -136,12 +159,16 @@ async function readHtmlFiles(directory: string, root = directory): Promise<Recor
   return pages;
 }
 
-async function readClientBundles(directory: string, root = directory): Promise<ClientBundleFile[]> {
+async function readTextFiles(
+  directory: string,
+  extensions: readonly string[],
+  root = directory,
+): Promise<ClientBundleFile[]> {
   const files: ClientBundleFile[] = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...(await readClientBundles(path, root)));
-    if (entry.isFile() && entry.name.endsWith('.js')) {
+    if (entry.isDirectory()) files.push(...(await readTextFiles(path, extensions, root)));
+    if (entry.isFile() && extensions.some((extension) => entry.name.endsWith(extension))) {
       files.push({
         path: relative(root, path).replace(/\\/g, '/'),
         source: await readFile(path, 'utf8'),
@@ -166,7 +193,20 @@ async function main(): Promise<void> {
   const outputRoot = join(root, '.svelte-kit/cloudflare');
   const pages = await readHtmlFiles(outputRoot);
   verifyRenderedPages(pages, await loadExpectations(root));
-  verifyPublicClientBundles(await readClientBundles(join(outputRoot, '_app/immutable')));
+  verifyPublicClientBundles(await readTextFiles(join(outputRoot, '_app/immutable'), ['.js']));
+  verifyNoReaderAcceptanceCapability(
+    await readTextFiles(outputRoot, ['.html', '.js', '.json', '.css']),
+  );
+  verifyReaderProductionConfig(
+    await Promise.all(
+      [
+        'apps/web/vite.config.ts',
+        'apps/web/svelte.config.js',
+        'wrangler.jsonc',
+        'wrangler.m2.jsonc',
+      ].map(async (path) => ({ path, source: await readFile(join(root, path), 'utf8') })),
+    ),
+  );
 }
 
 function isMainEntry(): boolean {
