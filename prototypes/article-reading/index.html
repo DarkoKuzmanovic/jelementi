@@ -1,0 +1,1143 @@
+<!doctype html>
+<html lang="en" data-variant="A">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Article reading directions — Jelementi prototype</title>
+    <style>
+      /* PROTOTYPE ONLY — throwaway decision artifact for #93, never production styling. */
+      :root {
+        color-scheme: light;
+        --paper: #f7f1e7;
+        --paper-deep: #eee3d3;
+        --ink: #24221f;
+        --muted: #6b645c;
+        --rule: #cfc1ad;
+        --red: #a43f2c;
+        --red-dark: #752819;
+        --sage: #4d6653;
+        --ochre: #a46918;
+        --night: #202521;
+        --serif: Georgia, 'Times New Roman', serif;
+        --sans: Inter, ui-sans-serif, system-ui, sans-serif;
+        --mono: 'SFMono-Regular', Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        min-width: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font-family: var(--serif);
+        font-size: 18px;
+        line-height: 1.72;
+        overflow-wrap: anywhere;
+        padding-bottom: 9rem;
+      }
+      a {
+        color: var(--red-dark);
+        text-underline-offset: 0.18em;
+      }
+      a:hover {
+        color: var(--red);
+      }
+      a:focus-visible,
+      button:focus-visible {
+        outline: 3px solid var(--red);
+        outline-offset: 4px;
+        border-radius: 2px;
+      }
+      button {
+        font: inherit;
+      }
+      img,
+      svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+      .skip-link {
+        position: fixed;
+        left: 1rem;
+        top: -5rem;
+        z-index: 1000;
+        padding: 0.6rem 0.9rem;
+        background: var(--ink);
+        color: white;
+        font: 700 0.85rem var(--sans);
+      }
+      .skip-link:focus {
+        top: 1rem;
+      }
+      .prototype-ribbon {
+        padding: 0.32rem 1rem;
+        color: #fff6df;
+        background: var(--night);
+        text-align: center;
+        font: 700 0.7rem/1.4 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .site-header {
+        border-bottom: 1px solid var(--rule);
+        background: color-mix(in srgb, var(--paper) 94%, transparent);
+      }
+      .site-nav {
+        width: min(76rem, 100%);
+        margin: auto;
+        padding: 1rem clamp(1rem, 3vw, 2rem);
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.55rem 1.2rem;
+        font-family: var(--sans);
+      }
+      .wordmark {
+        color: var(--ink);
+        text-decoration: none;
+        font: 700 1.4rem var(--serif);
+      }
+      .wordmark small {
+        margin-left: 0.45rem;
+        color: var(--muted);
+        font: 600 0.66rem var(--sans);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem 1.1rem;
+      }
+      .nav-links a {
+        color: var(--ink);
+        font-size: 0.84rem;
+        text-decoration-thickness: 1px;
+      }
+
+      .article-stage {
+        width: min(90rem, 100%);
+        margin: auto;
+      }
+      .article-layout {
+        min-width: 0;
+      }
+      .article {
+        min-width: 0;
+      }
+      .article-header,
+      .article-body,
+      .endmatter {
+        min-width: 0;
+      }
+      .eyebrow,
+      .meta,
+      .tags,
+      .caption,
+      .audio,
+      .context-rail,
+      .margin-rail,
+      .continuation,
+      .section-kicker,
+      .prototype-question {
+        font-family: var(--sans);
+      }
+      .article-header {
+        padding: clamp(2.5rem, 7vw, 6rem) 1rem 1.4rem;
+      }
+      .eyebrow {
+        display: inline-block;
+        margin-bottom: 0.8rem;
+        color: var(--sage);
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+      h1 {
+        max-width: 18ch;
+        margin: 0;
+        font-size: clamp(2.45rem, 7vw, 5.6rem);
+        line-height: 0.98;
+        letter-spacing: -0.045em;
+      }
+      .dek {
+        max-width: 44rem;
+        margin: 1.4rem 0 1.2rem;
+        color: var(--muted);
+        font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+        line-height: 1.45;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem 1rem;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+      .meta strong {
+        color: var(--ink);
+      }
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin: 0.8rem 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .tags li {
+        padding: 0.15rem 0.46rem;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        font-size: 0.68rem;
+      }
+
+      .cover {
+        margin: 1rem 0 2rem;
+      }
+      .cover svg {
+        width: 100%;
+        background: #c7c2b3;
+      }
+      .caption {
+        margin: 0.55rem 1rem 0;
+        color: var(--muted);
+        font-size: 0.72rem;
+        line-height: 1.5;
+      }
+      .audio {
+        margin: 1.4rem 0 2.2rem;
+        padding: 1rem;
+        border: 1px solid var(--rule);
+        background: var(--paper-deep);
+      }
+      .audio-top,
+      .audio-controls {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.65rem 1rem;
+      }
+      .audio-top {
+        justify-content: space-between;
+        margin-bottom: 0.7rem;
+        font-size: 0.72rem;
+      }
+      .audio-title {
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .play {
+        min-height: 44px;
+        border: 0;
+        border-radius: 999px;
+        padding: 0.55rem 0.9rem;
+        color: white;
+        background: var(--red-dark);
+        cursor: pointer;
+        font-weight: 750;
+      }
+      .timeline {
+        flex: 1 1 10rem;
+        height: 0.42rem;
+        border-radius: 2rem;
+        background: #c0b29e;
+        overflow: hidden;
+      }
+      .timeline::before {
+        content: '';
+        display: block;
+        width: 31%;
+        height: 100%;
+        background: var(--red);
+      }
+      .audio a {
+        font-size: 0.72rem;
+      }
+
+      .article-body {
+        font-size: clamp(1.04rem, 1.4vw, 1.14rem);
+      }
+      .article-body > p,
+      .article-body > h2,
+      .article-body > h3,
+      .article-body > ul,
+      .article-body > ol,
+      .article-body > blockquote,
+      .article-body > aside,
+      .article-body > hr {
+        max-width: 39rem;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .article-body p {
+        margin-top: 0;
+        margin-bottom: 1.55rem;
+      }
+      .article-body h2 {
+        margin-top: 3.8rem;
+        margin-bottom: 1.1rem;
+        font-size: clamp(1.85rem, 4vw, 2.7rem);
+        line-height: 1.12;
+      }
+      .article-body h3 {
+        margin-top: 2.4rem;
+        margin-bottom: 0.75rem;
+        font-size: 1.27rem;
+        line-height: 1.2;
+      }
+      .section-kicker {
+        display: block;
+        margin-bottom: 0.55rem;
+        color: var(--red);
+        font-size: 0.66rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      code {
+        padding: 0.08em 0.25em;
+        border: 1px solid var(--rule);
+        background: var(--paper-deep);
+        font: 0.82em var(--mono);
+      }
+      sup a {
+        font: 700 0.68rem var(--sans);
+        text-decoration: none;
+      }
+      .inline-figure {
+        width: min(52rem, 100%);
+        margin: 2.6rem auto;
+      }
+      .inline-figure svg {
+        width: 100%;
+        border: 1px solid var(--rule);
+      }
+      .article-body ul,
+      .article-body ol {
+        padding-left: 1.45rem;
+      }
+      .article-body li {
+        margin-bottom: 0.45rem;
+      }
+      blockquote {
+        padding: 1.3rem 0;
+        border-block: 1px solid var(--red);
+        color: var(--red-dark);
+        font-size: clamp(1.35rem, 3vw, 2rem);
+        line-height: 1.35;
+      }
+      blockquote p {
+        margin-bottom: 0.6rem !important;
+      }
+      blockquote cite {
+        color: var(--muted);
+        font: 0.72rem var(--sans);
+      }
+      .callout {
+        padding: 1rem 1.1rem;
+        border-left: 4px solid var(--sage);
+        background: #edf0e9;
+        font-size: 0.94rem;
+      }
+      .callout.note {
+        border-color: var(--ochre);
+        background: #f7ead1;
+      }
+      .callout.warning {
+        border-color: var(--red);
+        background: #f3ddd6;
+      }
+      .callout strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        font: 800 0.7rem var(--sans);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .ornament {
+        border: 0;
+        border-top: 1px solid var(--rule);
+        margin-block: 3rem !important;
+      }
+      .ornament::after {
+        content: '◆';
+        display: block;
+        width: 2rem;
+        margin: -0.82rem auto 0;
+        background: var(--paper);
+        color: var(--red);
+        text-align: center;
+      }
+
+      .endmatter {
+        max-width: 44rem;
+        margin: 4rem auto 0;
+        padding: 0 1rem;
+      }
+      .end-section {
+        padding-top: 1.4rem;
+        border-top: 1px solid var(--rule);
+      }
+      .end-section + .end-section {
+        margin-top: 2.3rem;
+      }
+      .end-section h2 {
+        font: 800 0.78rem var(--sans);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .end-section li {
+        margin-bottom: 0.65rem;
+        font-size: 0.9rem;
+      }
+      .backlink {
+        margin-left: 0.35rem;
+        font: 700 0.7rem var(--sans);
+      }
+      .continuation {
+        max-width: 58rem;
+        margin: 4rem auto 0;
+        padding: 1.2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        border-block: 1px solid var(--rule);
+      }
+      .continuation a {
+        font-weight: 750;
+      }
+      .next {
+        margin-left: auto;
+        text-align: right;
+      }
+      .next small {
+        display: block;
+        color: var(--muted);
+        font-size: 0.66rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .site-footer {
+        width: min(76rem, 100%);
+        margin: 5rem auto 0;
+        padding: 2rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem 1.4rem;
+        border-top: 1px solid var(--rule);
+        color: var(--muted);
+        font: 0.78rem var(--sans);
+      }
+
+      .context-rail,
+      .margin-rail {
+        display: none;
+      }
+      .context-rail h2,
+      .margin-rail h2 {
+        font: 800 0.66rem var(--sans);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .context-rail ol {
+        padding-left: 1.2rem;
+      }
+      .context-rail a {
+        color: var(--ink);
+        font-size: 0.78rem;
+      }
+      .margin-card {
+        margin-bottom: 1.2rem;
+        padding: 0.8rem;
+        border-top: 2px solid var(--red);
+        background: var(--paper-deep);
+        font-size: 0.73rem;
+        line-height: 1.5;
+      }
+
+      /* A — The Quiet Column: all framing gives way to the text. */
+      html[data-variant='A'] .article {
+        max-width: 52rem;
+        margin: auto;
+        padding-inline: 1rem;
+      }
+      html[data-variant='A'] .article-header {
+        max-width: 44rem;
+        margin: auto;
+        padding-inline: 0;
+      }
+      html[data-variant='A'] .cover {
+        max-width: 50rem;
+        margin-inline: auto;
+      }
+      html[data-variant='A'] .audio {
+        max-width: 39rem;
+        margin-inline: auto;
+      }
+
+      /* B — The Annotated Edition: publication context and sources live in margins. */
+      html[data-variant='B'] .article-layout {
+        display: grid;
+        grid-template-columns: minmax(9rem, 13rem) minmax(0, 44rem) minmax(10rem, 15rem);
+        gap: clamp(1rem, 3vw, 2.6rem);
+        align-items: start;
+        padding: 0 clamp(1rem, 3vw, 2rem);
+      }
+      html[data-variant='B'] .context-rail,
+      html[data-variant='B'] .margin-rail {
+        display: block;
+        position: sticky;
+        top: 1rem;
+        margin-top: 5rem;
+        color: var(--muted);
+        font-family: var(--sans);
+      }
+      html[data-variant='B'] .article-header {
+        padding-inline: 0;
+      }
+      html[data-variant='B'] h1 {
+        font-size: clamp(2.6rem, 5vw, 4.6rem);
+      }
+      html[data-variant='B'] .cover {
+        width: calc(100% + 4rem);
+        margin-left: -2rem;
+      }
+      html[data-variant='B'] .endmatter {
+        margin-top: 3rem;
+      }
+
+      /* C — The Magazine Opening: image and title form one dramatic threshold. */
+      html[data-variant='C'] .article {
+        display: flex;
+        flex-direction: column;
+      }
+      html[data-variant='C'] .cover {
+        order: -2;
+        margin: 0;
+        position: relative;
+      }
+      html[data-variant='C'] .cover svg {
+        max-height: 74vh;
+        min-height: 27rem;
+        object-fit: cover;
+      }
+      html[data-variant='C'] .cover .caption {
+        max-width: 76rem;
+        margin-inline: auto;
+        padding-inline: 1rem;
+      }
+      html[data-variant='C'] .article-header {
+        order: -1;
+        width: min(68rem, calc(100% - 2rem));
+        margin: -9rem auto 0;
+        padding: 2rem clamp(1.2rem, 4vw, 3rem);
+        position: relative;
+        color: #fff9ec;
+        background: var(--night);
+        box-shadow: 0 1.5rem 3rem #251e1755;
+      }
+      html[data-variant='C'] .article-header .dek,
+      html[data-variant='C'] .article-header .meta {
+        color: #d9d0c0;
+      }
+      html[data-variant='C'] .article-header .meta strong {
+        color: white;
+      }
+      html[data-variant='C'] .article-header .eyebrow,
+      html[data-variant='C'] .article-header a {
+        color: #f2b66d;
+      }
+      html[data-variant='C'] .article-body {
+        margin-top: 3rem;
+        padding-inline: 1rem;
+      }
+      html[data-variant='C'] .audio {
+        width: min(39rem, calc(100% - 2rem));
+        margin-inline: auto;
+      }
+
+      /* D — The Field Guide: visible chapters orient the reader, then get out of the way. */
+      html[data-variant='D'] .article-layout {
+        display: grid;
+        grid-template-columns: minmax(12rem, 16rem) minmax(0, 48rem);
+        gap: clamp(1.5rem, 5vw, 5rem);
+        justify-content: center;
+        padding: 0 clamp(1rem, 4vw, 3rem);
+      }
+      html[data-variant='D'] .context-rail {
+        display: block;
+        position: sticky;
+        top: 1rem;
+        margin-top: 4rem;
+        padding: 1rem;
+        border: 1px solid var(--rule);
+        background: var(--paper-deep);
+        color: var(--muted);
+        font-family: var(--sans);
+      }
+      html[data-variant='D'] .context-rail::before {
+        content: 'FIELD GUIDE 07';
+        display: block;
+        margin-bottom: 1rem;
+        color: var(--red);
+        font: 800 0.66rem var(--mono);
+        letter-spacing: 0.1em;
+      }
+      html[data-variant='D'] .article-header {
+        padding-inline: 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      html[data-variant='D'] h1 {
+        font-size: clamp(2.7rem, 6vw, 5rem);
+      }
+      html[data-variant='D'] .article-body h2 {
+        display: grid;
+        grid-template-columns: 2.5rem 1fr;
+        align-items: start;
+      }
+      html[data-variant='D'] .article-body h2 .section-kicker {
+        margin-top: 0.45rem;
+        font-family: var(--mono);
+      }
+
+      .switcher {
+        position: fixed;
+        left: 50%;
+        bottom: 0.8rem;
+        z-index: 900;
+        width: min(48rem, calc(100% - 1rem));
+        transform: translateX(-50%);
+        padding: 0.75rem;
+        border: 1px solid #5c584f;
+        border-radius: 0.75rem;
+        color: #f8f1e5;
+        background: #171816f2;
+        box-shadow: 0 0.8rem 2.4rem #0006;
+        font-family: var(--sans);
+      }
+      .switcher-top {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+      }
+      .switcher button {
+        min-width: 2.6rem;
+        min-height: 2.6rem;
+        border: 1px solid #646057;
+        border-radius: 0.45rem;
+        color: white;
+        background: #2b2c29;
+        cursor: pointer;
+      }
+      .switcher button:hover {
+        background: #41423e;
+      }
+      .switcher-state {
+        min-width: 0;
+        flex: 1;
+      }
+      .switcher-state strong {
+        display: block;
+        color: #f2b66d;
+        font-size: 0.82rem;
+      }
+      .switcher-state span {
+        display: block;
+        color: #cbc5ba;
+        font-size: 0.69rem;
+        line-height: 1.35;
+      }
+      .variant-buttons {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.35rem;
+        margin-top: 0.55rem;
+      }
+      .variant-buttons button {
+        min-height: 2rem;
+        padding: 0.25rem;
+        font-size: 0.7rem;
+      }
+      .variant-buttons button[aria-pressed='true'] {
+        border-color: #f2b66d;
+        color: #1d1c19;
+        background: #f2b66d;
+        font-weight: 800;
+      }
+      .prototype-question {
+        margin-top: 0.45rem;
+        color: #8f8b82;
+        font-size: 0.61rem;
+        text-align: center;
+      }
+      .no-script {
+        padding: 0.7rem 1rem;
+        color: white;
+        background: var(--red-dark);
+        text-align: center;
+        font: 0.78rem var(--sans);
+      }
+
+      @media (max-width: 900px) {
+        html[data-variant='B'] .article-layout,
+        html[data-variant='D'] .article-layout {
+          display: block;
+          padding-inline: 1rem;
+        }
+        html[data-variant='B'] .context-rail,
+        html[data-variant='B'] .margin-rail,
+        html[data-variant='D'] .context-rail {
+          position: static;
+          margin: 1.2rem 0;
+          padding: 0.9rem;
+          border: 1px solid var(--rule);
+          background: var(--paper-deep);
+        }
+        html[data-variant='B'] .margin-rail {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.8rem;
+        }
+        html[data-variant='B'] .cover {
+          width: 100%;
+          margin-left: 0;
+        }
+        html[data-variant='D'] .context-rail ol {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.4rem 1rem;
+        }
+      }
+      @media (max-width: 520px) {
+        body {
+          font-size: 16px;
+          padding-bottom: 7rem;
+        }
+        .site-nav {
+          align-items: flex-start;
+        }
+        .nav-links {
+          width: 100%;
+          justify-content: space-between;
+          gap: 0.35rem 0.7rem;
+        }
+        .wordmark small {
+          display: none;
+        }
+        h1 {
+          font-size: clamp(2.3rem, 14vw, 3.25rem);
+        }
+        .article-header {
+          padding-top: 2.2rem;
+        }
+        .audio-controls {
+          align-items: stretch;
+        }
+        .timeline {
+          flex-basis: 100%;
+        }
+        html[data-variant='C'] .cover svg {
+          min-height: 20rem;
+        }
+        html[data-variant='C'] .article-header {
+          margin-top: -4.5rem;
+        }
+        html[data-variant='B'] .margin-rail,
+        html[data-variant='D'] .context-rail ol {
+          display: block;
+        }
+        .continuation {
+          align-items: flex-start;
+        }
+        .next {
+          width: 100%;
+          margin-left: 0;
+          text-align: left;
+        }
+        .switcher {
+          bottom: 0.35rem;
+          padding: 0.55rem;
+        }
+        .switcher-state span,
+        .prototype-question {
+          display: none;
+        }
+        .variant-buttons {
+          grid-template-columns: repeat(4, 1fr);
+        }
+        .variant-buttons button {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        *,
+        *::before,
+        *::after {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#article-title">Skip to article</a>
+    <div class="prototype-ribbon">Prototype only · Issue #93 · Not production</div>
+    <noscript
+      ><div class="no-script">
+        Variant A is shown without JavaScript. All article content remains available.
+      </div></noscript
+    >
+
+    <header class="site-header">
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a class="wordmark" href="#">Jelementi <small>small stories, carefully told</small></a>
+        <div class="nav-links">
+          <a href="#">Home</a><a href="#">Categories</a><a href="#">Search</a><a href="#">About</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="article-stage">
+      <div class="article-layout">
+        <aside class="context-rail" aria-label="Article navigation context">
+          <h2>In this article</h2>
+          <ol>
+            <li><a href="#edge">A rock at the edge</a></li>
+            <li><a href="#road">The sea is the road</a></li>
+            <li><a href="#weather">Weather decides</a></li>
+            <li><a href="#sources">Sources & footnotes</a></li>
+          </ol>
+          <p><a href="#">History</a> · Article 4 of 9</p>
+          <p>Next older in History:<br /><a href="#">The Last Lighthouse Keeper</a></p>
+        </aside>
+
+        <article class="article" aria-labelledby="article-title">
+          <header class="article-header">
+            <a class="eyebrow" href="#">History</a>
+            <h1 id="article-title">The 250 People at the End of the World</h1>
+            <p class="dek">
+              The story of the world’s most remote permanent settlement—and the sea, weather, and
+              shared routines that make a life there possible.
+            </p>
+            <div class="meta">
+              <span>By <strong>Jelementi</strong></span
+              ><span>Published <time datetime="2026-07-26">26 July 2026</time></span>
+              <span>Updated <time datetime="2026-07-26">26 July 2026</time></span
+              ><span>6 min read</span>
+            </div>
+            <ul class="tags" aria-label="Tags">
+              <li>remote places</li>
+              <li>islands</li>
+              <li>communities</li>
+            </ul>
+          </header>
+
+          <figure class="cover">
+            <svg viewBox="0 0 1200 680" role="img" aria-labelledby="cover-title cover-desc">
+              <title id="cover-title">Tristan da Cunha rising from the sea</title>
+              <desc id="cover-desc">
+                A restrained illustration of a volcanic island under long cloud bands.
+              </desc>
+              <rect width="1200" height="680" fill="#c9d0c6" />
+              <rect y="450" width="1200" height="230" fill="#748b88" />
+              <path
+                d="M0 518 C230 475 320 525 470 495 C680 455 830 535 1200 478 L1200 680 L0 680Z"
+                fill="#577572"
+              />
+              <path d="M250 484 L520 390 L615 198 L716 382 L975 490Z" fill="#37483e" />
+              <path d="M520 390 L615 198 L652 370Z" fill="#d7d8ca" opacity=".7" />
+              <path
+                d="M55 130 C265 90 350 150 540 111 C735 72 845 138 1140 92"
+                fill="none"
+                stroke="#f2ead9"
+                stroke-width="34"
+                stroke-linecap="round"
+                opacity=".8"
+              />
+              <circle cx="930" cy="238" r="56" fill="#ca7b52" opacity=".8" />
+              <g fill="#eee5d3">
+                <rect x="510" y="447" width="33" height="27" />
+                <rect x="551" y="439" width="38" height="33" />
+                <rect x="600" y="450" width="28" height="25" />
+              </g>
+            </svg>
+            <figcaption class="caption">
+              Tristan da Cunha is reached only by sea. Illustration for prototype evaluation.
+            </figcaption>
+          </figure>
+
+          <section class="audio" aria-label="Listen to this article">
+            <div class="audio-top">
+              <span class="audio-title">Listen to this story</span
+              ><span>14:20 · narrated by Jelementi</span>
+            </div>
+            <div class="audio-controls">
+              <button class="play" type="button" aria-label="Play prototype audio">▶ Play</button>
+              <span class="timeline" aria-hidden="true"></span><span>04:27 / 14:20</span>
+              <a href="#">Transcript</a><a href="#">Download</a>
+            </div>
+          </section>
+
+          <div class="article-body">
+            <p>
+              Pull up a map. Find <em>South America</em> on the left and <strong>Africa</strong> on
+              the right. There is no shortcut. The journey is <code>sea-only</code> and
+              <a href="#source-1">begins in Cape Town</a
+              ><sup><a id="note-ref-1" href="#note-1" aria-label="Footnote 1">1</a></sup
+              >.
+            </p>
+
+            <h2 id="edge"><span class="section-kicker">01</span>A Rock at the Edge of the World</h2>
+            <p>
+              The island has no airport. A ship leaves Cape Town with passengers, post, medicine,
+              and every object the settlement cannot make for itself. Days later, weather
+              permitting, a dark ridge appears where the ocean seemed empty.
+            </p>
+            <h3>A settlement, not a museum</h3>
+            <p>
+              Edinburgh of the Seven Seas is home: houses, a school, a shop, a café, a hospital, and
+              families whose histories overlap. Its remoteness is extraordinary; daily life is not.
+            </p>
+
+            <figure class="inline-figure">
+              <svg viewBox="0 0 1000 460" role="img" aria-labelledby="map-title map-desc">
+                <title id="map-title">Map locating Tristan da Cunha</title>
+                <desc id="map-desc">
+                  A route runs southeast from Cape Town into the South Atlantic.
+                </desc>
+                <rect width="1000" height="460" fill="#e7dfce" />
+                <path
+                  d="M700 20 C630 120 650 210 580 280 C540 330 570 420 520 460 L1000 460 L1000 20Z"
+                  fill="#b1b89f"
+                />
+                <path
+                  d="M665 285 C555 315 445 329 294 310"
+                  fill="none"
+                  stroke="#a43f2c"
+                  stroke-width="5"
+                  stroke-dasharray="10 13"
+                />
+                <circle cx="665" cy="285" r="10" fill="#24221f" />
+                <circle cx="294" cy="310" r="12" fill="#a43f2c" />
+                <text x="680" y="278" font-family="system-ui" font-size="24" fill="#24221f">
+                  Cape Town
+                </text>
+                <text x="116" y="350" font-family="system-ui" font-size="24" fill="#24221f">
+                  Tristan da Cunha
+                </text>
+              </svg>
+              <figcaption class="caption">
+                Roughly 2,400 km from the nearest inhabited land; the route is measured in days, not
+                hours.
+              </figcaption>
+            </figure>
+
+            <aside class="callout" aria-label="Fact callout">
+              <strong>Fact · no runway, no shortcut</strong>The voyage from Cape Town usually takes
+              six days. There is no airport and no plan to build one.
+            </aside>
+
+            <h2 id="road"><span class="section-kicker">02</span>The Sea Is the Only Road Home</h2>
+            <p>
+              Arrival is not a timetable entry. It is a coordination between ship, weather, and the
+              small boats that cross the final water when the harbour is safe enough.
+            </p>
+            <ul>
+              <li>No airport—and no casual arrival.</li>
+              <li>A journey measured in days.</li>
+              <li>Freight shared between every household.</li>
+            </ul>
+            <p>On sailing day, the order is simple:</p>
+            <ol>
+              <li>Check the weather and harbour.</li>
+              <li>Load post, supplies, and passengers.</li>
+              <li>Wait for the island to become visible.</li>
+            </ol>
+
+            <blockquote>
+              <p>“The sea is the only road home.”</p>
+              <cite>— A Tristan resident</cite>
+            </blockquote>
+            <aside class="callout note" aria-label="Note callout">
+              <strong>Note · a living community</strong>The settlement is not an exhibit of
+              remoteness. The design should leave room for ordinary detail, not turn every paragraph
+              into spectacle.
+            </aside>
+
+            <hr class="ornament" />
+            <h2 id="weather"><span class="section-kicker">03</span>Weather Decides</h2>
+            <p>
+              Plans here remain conditional. A low cloud can hide the peak; a swell can postpone
+              landing; a forecast can change a reunion. Patience is not a mood. It is
+              infrastructure.
+            </p>
+            <aside class="callout warning" aria-label="Warning callout">
+              <strong>Weather decides</strong>Sea conditions can delay every arrival and departure.
+              The harbour master’s call is final.
+            </aside>
+          </div>
+
+          <div class="endmatter" id="sources">
+            <section class="end-section" aria-labelledby="sources-title">
+              <h2 id="sources-title">Sources</h2>
+              <ol>
+                <li id="source-1">
+                  <a href="https://www.tristandc.com/history.php"
+                    >Tristan da Cunha Government and history</a
+                  >
+                  — Government of Tristan da Cunha (accessed 26 July 2026)
+                </li>
+                <li>
+                  <a href="#">Island Council shipping reports, 2024–2026</a> — prototype reference
+                </li>
+              </ol>
+            </section>
+            <section class="end-section" aria-labelledby="footnotes-title">
+              <h2 id="footnotes-title">Footnotes</h2>
+              <ol>
+                <li id="note-1">
+                  The nearest inhabited land is roughly 2,400 km away.<a
+                    class="backlink"
+                    href="#note-ref-1"
+                    aria-label="Back to footnote reference 1"
+                    >↩ Back to text</a
+                  >
+                </li>
+              </ol>
+            </section>
+          </div>
+
+          <nav class="continuation" aria-label="Continue reading">
+            <a href="#">← Return to History</a>
+            <a class="next" href="#"
+              ><small>Next older article in History</small>The Last Lighthouse Keeper →</a
+            >
+          </nav>
+        </article>
+
+        <aside class="margin-rail" aria-label="Editorial margin notes">
+          <h2>Edition notes</h2>
+          <div class="margin-card">
+            <strong>Reading context</strong><br />A six-minute article with one map, three rich
+            callouts, audio, and cited endmatter.
+          </div>
+          <div class="margin-card">
+            <strong>Reference 1</strong><br />Government history supplies the settlement and voyage
+            background.
+          </div>
+          <div class="margin-card">
+            <strong>Navigation</strong><br />You are reading the fourth newest article in History.
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <a href="#">Jelementi</a><a href="#">Categories</a><a href="#">Search</a><a href="#">About</a
+      ><span>Prototype #93 · no production data or routes</span>
+    </footer>
+
+    <aside class="switcher" aria-label="Prototype variant switcher">
+      <div class="switcher-top">
+        <button id="previous" type="button" aria-label="Previous variant">←</button>
+        <div class="switcher-state" aria-live="polite">
+          <strong id="variant-name">A — The Quiet Column</strong
+          ><span id="variant-thesis"
+            >Maximum reading calm: a bounded literary column with audio tucked beneath the
+            opening.</span
+          >
+        </div>
+        <button id="next" type="button" aria-label="Next variant">→</button>
+      </div>
+      <div class="variant-buttons" role="group" aria-label="Choose a variant">
+        <button type="button" data-variant="A" aria-pressed="true">A · Quiet</button>
+        <button type="button" data-variant="B" aria-pressed="false">B · Annotated</button>
+        <button type="button" data-variant="C" aria-pressed="false">C · Magazine</button>
+        <button type="button" data-variant="D" aria-pressed="false">D · Field guide</button>
+      </div>
+      <div class="prototype-question">
+        PROTOTYPE — NOT PRODUCTION · Question: which hierarchy best protects uninterrupted reading
+        while keeping context useful?
+      </div>
+    </aside>
+
+    <script>
+      const variants = {
+        A: [
+          'A — The Quiet Column',
+          'Maximum reading calm: a bounded literary column with audio tucked beneath the opening.',
+        ],
+        B: [
+          'B — The Annotated Edition',
+          'Publication context, navigation, and reference cues live in desktop margins and fold into the reading flow on narrow screens.',
+        ],
+        C: [
+          'C — The Magazine Opening',
+          'The cover creates a dramatic threshold; after the opening, the experience returns to one uninterrupted column.',
+        ],
+        D: [
+          'D — The Field Guide',
+          'A visible chapter map supports orientation and long-form scanning without becoming a general client application shell.',
+        ],
+      };
+      const keys = Object.keys(variants);
+      const root = document.documentElement;
+      const name = document.querySelector('#variant-name');
+      const thesis = document.querySelector('#variant-thesis');
+
+      function selectVariant(key, updateUrl = true) {
+        if (!variants[key]) key = 'A';
+        root.dataset.variant = key;
+        name.textContent = variants[key][0];
+        thesis.textContent = variants[key][1];
+        document.querySelectorAll('[data-variant]').forEach((button) => {
+          button.setAttribute('aria-pressed', String(button.dataset.variant === key));
+        });
+        if (updateUrl) {
+          const url = new URL(window.location.href);
+          url.searchParams.set('variant', key);
+          history.replaceState({ variant: key }, '', url);
+        }
+      }
+
+      function cycle(delta) {
+        const current = keys.indexOf(root.dataset.variant || 'A');
+        selectVariant(keys[(current + delta + keys.length) % keys.length]);
+      }
+
+      document.querySelectorAll('[data-variant]').forEach((button) => {
+        button.addEventListener('click', () => selectVariant(button.dataset.variant));
+      });
+      document.querySelector('#previous').addEventListener('click', () => cycle(-1));
+      document.querySelector('#next').addEventListener('click', () => cycle(1));
+      window.addEventListener('keydown', (event) => {
+        const target = event.target;
+        if (target.matches("input, textarea, select, [contenteditable='true']")) return;
+        if (event.key === 'ArrowLeft') cycle(-1);
+        if (event.key === 'ArrowRight') cycle(1);
+      });
+      window.addEventListener('popstate', () =>
+        selectVariant(new URLSearchParams(location.search).get('variant') || 'A', false),
+      );
+      selectVariant(new URLSearchParams(location.search).get('variant') || 'A', false);
+    </script>
+  </body>
+</html>
