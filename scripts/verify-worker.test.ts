@@ -69,7 +69,14 @@ function readerFetch(): {
       if (path === '/') return html(`${noindex}<h1>Jelementi</h1>`);
       if (path === '/articles/tristan-da-cunha')
         return html(`${noindex}<h1>A Rock at the Edge of the World</h1>Sources Footnotes`);
+      if (path === '/categories') return html(`${noindex}<h1>Categories</h1>`);
       if (path === '/categories/history') return html(`${noindex}<h1>History</h1>`);
+      if (path === '/categories/missing-worker-category')
+        return {
+          status: 404,
+          body: `${noindex}${bootstrap}<h1>Page not found</h1><a href="/categories">Categories</a>`,
+          headers: new Headers({ 'content-type': 'text/html' }),
+        };
       if (path === '/search' || path === '/search?query=tristan')
         return html(`${noindex}${bootstrap}<h1>Search</h1>`);
       if (path === '/about') return html(`${noindex}<h1>About</h1>`);
@@ -82,7 +89,7 @@ function readerFetch(): {
       if (path === '/not-found')
         return {
           status: 404,
-          body: `${noindex}${bootstrap}<h1>Page not found</h1>The page you requested is not available.`,
+          body: `${noindex}${bootstrap}`,
           headers: new Headers({ 'content-type': 'text/html' }),
         };
       throw new Error(`Unexpected request: ${path}`);
@@ -94,6 +101,7 @@ describe('local Worker smoke verifier', () => {
   it('polls the local Worker, validates reader and 404 behavior, then reaps it', async () => {
     const child = createFakeChild({ exitOnTerm: true });
     const { fetch, requested } = readerFetch();
+    let browserBaseUrl: string | undefined;
 
     await expect(
       verifyWorker({
@@ -106,11 +114,17 @@ describe('local Worker smoke verifier', () => {
         now: counter(10),
         timeoutMs: 100,
         staticAssetPath: '/_app/immutable/entry/start.js',
+        browserVerify: async (baseUrl) => {
+          browserBaseUrl = baseUrl;
+        },
       }),
     ).resolves.toBeUndefined();
 
+    expect(requested).toContain('/categories');
+    expect(requested).toContain('/categories/missing-worker-category');
     expect(requested).toContain('/search?query=tristan');
     expect(requested).toContain('/not-found');
+    expect(browserBaseUrl).toBe('http://127.0.0.1:8787');
     expect(child.signals).toEqual(['SIGTERM']);
   });
 

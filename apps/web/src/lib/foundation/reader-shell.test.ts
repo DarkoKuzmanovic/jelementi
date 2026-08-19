@@ -4,12 +4,20 @@ import { render } from 'svelte/server';
 import { createRawSnippet } from 'svelte';
 
 const { mockedPage } = vi.hoisted(() => ({
-  mockedPage: { url: new URL('https://jelementi.quz.ma/'), params: {}, route: { id: '/' } },
+  mockedPage: {
+    url: new URL('https://jelementi.quz.ma/'),
+    params: {},
+    route: { id: '/' },
+    status: 200,
+    error: null as { message: string } | null,
+  },
 }));
 
 vi.mock('$app/state', () => ({ page: mockedPage }));
 
 import ReaderLayout from '../../routes/(reader)/+layout.svelte';
+import RootError from '../../routes/+error.svelte';
+import StudioError from '../../routes/studio/+error.svelte';
 import StudioShell from '../studio/StudioShell.svelte';
 
 const childSnippet = createRawSnippet(() => ({ render: () => '<p>page-content</p>' }));
@@ -17,6 +25,20 @@ const childSnippet = createRawSnippet(() => ({ render: () => '<p>page-content</p
 function renderReaderAt(pathname: string) {
   mockedPage.url = new URL(`https://jelementi.quz.ma${pathname}`);
   return render(ReaderLayout, { props: { children: childSnippet } });
+}
+
+function renderRootErrorAt(pathname: string, status: number) {
+  mockedPage.url = new URL(`https://jelementi.quz.ma${pathname}`);
+  mockedPage.status = status;
+  mockedPage.error = { message: 'Internal detail that must not reach Reader recovery.' };
+  return render(RootError);
+}
+
+function renderStudioErrorAt(status: number) {
+  mockedPage.url = new URL('https://jelementi.quz.ma/studio/missing');
+  mockedPage.status = status;
+  mockedPage.error = { message: 'Preserved Studio error detail.' };
+  return render(StudioError);
 }
 
 function renderStudio() {
@@ -52,6 +74,33 @@ describe('reader shell public contract', () => {
       expect(body.indexOf('id="main-content"')).toBeLessThan(body.indexOf('page-content'));
     });
   }
+
+  it('keeps Studio errors in a Studio-owned boundary with unchanged behavior', () => {
+    const notFound = renderStudioErrorAt(404).body;
+    expect(notFound).toContain('Page not found');
+    expect(notFound).toContain('The page you requested is not available.');
+    expect(notFound).toContain('<a href="/">Return to the reader</a>');
+    expect(notFound).not.toContain('site-header');
+
+    const ordinary = renderStudioErrorAt(500).body;
+    expect(ordinary).toContain('Something went wrong');
+    expect(ordinary).toContain('Preserved Studio error detail.');
+    expect(ordinary).toContain('<a href="/">Return to the reader</a>');
+  });
+
+  it('renders the static fallback client through the normal shell with exact 404 recovery', () => {
+    const { body } = renderRootErrorAt('/unknown-route', 404);
+
+    expect(body.match(/<main\b/g) ?? []).toHaveLength(1);
+    expect(body).toContain('<header');
+    expect(body).toContain('<footer');
+    expect(body).toContain('This page is not available.');
+    expect(body).toContain('aria-label="Page recovery"');
+    for (const href of ['href="/"', 'href="/search"', 'href="/categories"']) {
+      expect(body).toContain(href);
+    }
+    expect(body).not.toContain('Try again');
+  });
 
   it('provides exactly one main landmark with a working skip target', () => {
     const { body } = renderReaderAt('/');
@@ -89,12 +138,12 @@ describe('reader shell public contract', () => {
     // Assert on rendered CSS presence via layout source is stable public seam:
     // the spec requires conventional wrapping, so we verify the layout's style
     // contains flex-wrap and the narrow reflow container pattern.
-    const layoutSource = readFileSync(
-      new URL('../../routes/(reader)/+layout.svelte', import.meta.url),
+    const shellSource = readFileSync(
+      new URL('../../routes/(reader)/ReaderShell.svelte', import.meta.url),
       'utf8',
     );
-    expect(layoutSource).toContain('flex-wrap: wrap');
-    expect(layoutSource).toContain('min(42rem, calc(100% - 2rem))');
+    expect(shellSource).toContain('flex-wrap: wrap');
+    expect(shellSource).toContain('min(42rem, calc(100% - 2rem))');
     // Ensure landmark links are not hidden via inline hidden/styles
     expect(body).not.toContain(' hidden');
   });
@@ -114,11 +163,13 @@ describe('reader shell public contract', () => {
       new URL('../../routes/+layout.svelte', import.meta.url),
       'utf8',
     );
+    const rootError = readFileSync(new URL('../../routes/+error.svelte', import.meta.url), 'utf8');
     expect(rootLayout).not.toMatch(/isStudio/);
     expect(rootLayout).not.toMatch(/\/studio/);
     expect(rootLayout).not.toMatch(/#if.*isStudio/);
     expect(rootLayout).not.toContain('site-header');
     expect(rootLayout).not.toContain('site-footer');
+    expect(rootError).not.toMatch(/studioPath|\/studio/);
     // Root layout only imports foundation and renders children
     expect(rootLayout).toContain("import '../app.css'");
     expect(rootLayout).toContain('{@render children()}');

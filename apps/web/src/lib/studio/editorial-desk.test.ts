@@ -108,6 +108,62 @@ describe('StudioPreviewPane', () => {
     expect(body).toContain('GitHub.');
     expect(body).toContain('UNSUPPORTED_NODE');
   });
+
+  it('mounts the authoritative renderer with Reader tokens at a selected width and no Reader chrome', () => {
+    const { body } = render(StudioPreviewPane, {
+      props: {
+        preview: {
+          kind: 'preview_ok',
+          document: {
+            schemaVersion: 1,
+            slug: 'preview-draft',
+            title: 'A Draft Preview',
+            excerpt: 'Preview excerpt.',
+            status: 'draft',
+            updatedAt: '2026-08-01',
+            category: 'Ideas',
+            tags: ['preview'],
+            author: 'Studio Operator',
+            cover: { src: 'articles/preview-draft/cover.svg', alt: 'A preview cover' },
+            audio: {
+              src: 'articles/preview-draft/audio.m4a',
+              durationSeconds: 12,
+            },
+            readingTimeMinutes: 3,
+            blocks: [
+              {
+                type: 'paragraph',
+                children: [{ type: 'text', value: 'Preview body.' }],
+              },
+            ],
+            footnotes: [],
+            references: [],
+          },
+          compileIssues: [],
+        },
+      },
+    });
+
+    // Width selection controls default to the wide Reader measure.
+    expect(body).toContain('Wide (52rem)');
+    expect(body).toContain('Narrow (320px)');
+    expect(body).toContain('value="wide" checked');
+    expect(body).toContain('article-preview--wide');
+    expect(body).not.toContain('article-preview--narrow');
+
+    // The exact authoritative renderer mounts the complete content hierarchy.
+    expect(body).toContain('A Draft Preview');
+    expect(body).toContain('Preview body.');
+    expect(body).toContain('<audio');
+    expect(body).toContain('article-cover');
+
+    // No Reader shell chrome, header, footer, or navigation inside the preview.
+    expect(body).not.toContain('site-header');
+    expect(body).not.toContain('site-footer');
+    expect(body).not.toContain('Primary navigation');
+    expect(body).not.toContain('Continue reading');
+    expect(body).not.toContain('Return to');
+  });
 });
 
 describe('StudioPublishPanel', () => {

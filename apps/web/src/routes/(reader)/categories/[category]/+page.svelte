@@ -5,25 +5,32 @@
 </script>
 
 <svelte:head><title>{data.category} — Jelementi</title></svelte:head>
-<section aria-labelledby="category-heading">
-  <h1 id="category-heading">{data.category}</h1>
-  <ul class="article-list">
+<section class="category-listing" aria-labelledby="category-heading">
+  <header class="page-intro">
+    <p class="kicker"><a href="/categories">Categories</a></p>
+    <h1 id="category-heading">{data.category}</h1>
+    <p>
+      {data.articles.length}
+      {data.articles.length === 1 ? 'article' : 'articles'}, newest first.
+    </p>
+  </header>
+  <ul class="category-articles divided-list">
     {#each data.articles as article (article.slug)}
       <li>
         <ArticleSummary {article} />
       </li>
     {/each}
   </ul>
+  <p class="return-link"><a href="/categories">← All categories</a></p>
 </section>
 
 <style>
-  .article-list {
-    list-style: none;
-    padding: 0;
+  .category-listing {
+    display: grid;
+    gap: var(--space-8);
   }
 
-  .article-list li {
-    padding: var(--space-4) 0;
-    border-top: 1px solid var(--foundation-rule);
+  .return-link {
+    margin: 0;
   }
 </style>

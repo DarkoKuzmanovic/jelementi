@@ -19,15 +19,64 @@ describe('Reader browser acceptance execution seam', () => {
     );
   });
 
-  it('runs fixture JS/no-JS acceptance and the real generated-content smoke path', () => {
+  it('runs representative, intermediate, sparse, and real generated-content browser surfaces', () => {
     const executePlaywright = vi.fn(() => 0);
 
     expect(runReaderBrowserAcceptance({ env: {}, executePlaywright })).toBe(0);
     expect(executePlaywright.mock.calls).toEqual([
       [['install', 'chromium']],
-      [['test', '-c', 'apps/web/playwright.reader.config.ts']],
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts'],
+        { READER_ACCEPTANCE_SCENARIO: 'representative' },
+      ],
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts', '--grep', '@home-catalog-scenario'],
+        { READER_ACCEPTANCE_SCENARIO: 'intermediate' },
+      ],
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts', '--grep', '@home-catalog-scenario'],
+        { READER_ACCEPTANCE_SCENARIO: 'sparse' },
+      ],
       [['test', '-c', 'apps/web/playwright.reader-smoke.config.ts']],
     ]);
+  });
+
+  it('does not provision Chromium again when CI explicitly preinstalled it', () => {
+    const executePlaywright = vi.fn(() => 0);
+
+    expect(
+      runReaderBrowserAcceptance({
+        env: { PLAYWRIGHT_BROWSERS_PREINSTALLED: '1' },
+        executePlaywright,
+      }),
+    ).toBe(0);
+    expect(executePlaywright.mock.calls).toEqual([
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts'],
+        { READER_ACCEPTANCE_SCENARIO: 'representative' },
+      ],
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts', '--grep', '@home-catalog-scenario'],
+        { READER_ACCEPTANCE_SCENARIO: 'intermediate' },
+      ],
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts', '--grep', '@home-catalog-scenario'],
+        { READER_ACCEPTANCE_SCENARIO: 'sparse' },
+      ],
+      [['test', '-c', 'apps/web/playwright.reader-smoke.config.ts']],
+    ]);
+  });
+
+  it('does not trust a non-exact preinstalled marker', () => {
+    const executePlaywright = vi.fn(() => 0);
+
+    expect(
+      runReaderBrowserAcceptance({
+        env: { PLAYWRIGHT_BROWSERS_PREINSTALLED: 'true' },
+        executePlaywright,
+      }),
+    ).toBe(0);
+    expect(executePlaywright.mock.calls[0]).toEqual([['install', 'chromium']]);
   });
 
   it('stops at the first failed browser phase', () => {
@@ -37,6 +86,8 @@ describe('Reader browser acceptance execution seam', () => {
       .mockReturnValueOnce(19);
     const smokeFailure = vi
       .fn<(args: readonly string[]) => number>()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(23);

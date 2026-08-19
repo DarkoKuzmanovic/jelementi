@@ -1,20 +1,40 @@
 import { describe, expect, it } from 'vitest';
+import {
+  projectCategoryArticles,
+  projectCategoryDirectory,
+} from '../apps/web/src/lib/category-projection';
 import { filterArticles } from '../apps/web/src/lib/generated-content';
 import {
   loadReaderAcceptanceContent,
+  READER_ACCEPTANCE_EXCLUDED_TITLES,
   READER_ACCEPTANCE_FIXTURE_MARKER,
 } from './reader-acceptance-fixtures';
 
 describe('Reader acceptance fixture catalogs', () => {
-  it('provides validated sparse and representative published catalogs', () => {
+  it('provides validated sparse, intermediate, and representative published catalogs', () => {
     const sparse = loadReaderAcceptanceContent('sparse');
+    const intermediate = loadReaderAcceptanceContent('intermediate');
     const representative = loadReaderAcceptanceContent('representative');
 
     expect(sparse.index).toHaveLength(1);
     expect(Object.keys(sparse.articles)).toEqual([sparse.index[0]?.slug]);
-    expect(representative.index.length).toBeGreaterThanOrEqual(6);
+    expect(projectCategoryDirectory(sparse.index).map(({ name, count }) => [name, count])).toEqual([
+      ['Solo', 1],
+    ]);
+    expect(intermediate.index).toHaveLength(4);
+    expect(Object.keys(intermediate.articles)).toHaveLength(intermediate.index.length);
+    expect(representative.index).toHaveLength(9);
     expect(Object.keys(representative.articles)).toHaveLength(representative.index.length);
     expect(representative.index.every((entry) => entry.searchText.length > 0)).toBe(true);
+    expect(
+      representative.index.find((entry) => entry.slug === 'acceptance-long-category')?.excerpt,
+    ).toBe('unbroken-content-token-that-must-reflow-without-page-level-overflow');
+    expect(representative.index.map((entry) => entry.title)).not.toEqual(
+      expect.arrayContaining([...READER_ACCEPTANCE_EXCLUDED_TITLES]),
+    );
+    expect(
+      Object.values(representative.articles).every((article) => article.status === 'published'),
+    ).toBe(true);
     expect(READER_ACCEPTANCE_FIXTURE_MARKER).toMatch(/reader-acceptance/i);
   });
 
@@ -34,15 +54,37 @@ describe('Reader acceptance fixture catalogs', () => {
     expect(JSON.stringify(rich.blocks)).toContain('strikethrough');
   });
 
-  it('makes ordering ties, continuation, no-continuation, and search states deterministic', () => {
+  it('makes category count ties, newest projections, and one/many listings deterministic', () => {
     const content = loadReaderAcceptanceContent('representative');
-    const counts = new Map<string, number>();
-    for (const entry of content.index) {
-      counts.set(entry.categorySlug, (counts.get(entry.categorySlug) ?? 0) + 1);
-    }
 
-    expect([...counts.values()].filter((count) => count === 2).length).toBeGreaterThanOrEqual(2);
-    expect(content.index.filter((entry) => entry.categorySlug === 'field-notes')).toHaveLength(3);
+    expect(
+      projectCategoryDirectory(content.index).map(({ name, count, newest }) => ({
+        name,
+        count,
+        newest: newest.slug,
+      })),
+    ).toEqual([
+      { name: 'Field Notes', count: 3, newest: 'acceptance-rich-column' },
+      { name: 'Culture', count: 2, newest: 'acceptance-culture-new' },
+      { name: 'Science', count: 2, newest: 'acceptance-science-new' },
+      {
+        name: 'A Deliberately Long Category Name for Narrow Readers',
+        count: 1,
+        newest: 'acceptance-long-category',
+      },
+      { name: 'Solo', count: 1, newest: 'acceptance-no-audio-long-column' },
+    ]);
+    expect(projectCategoryArticles(content.index, 'field-notes')).toHaveLength(3);
+    expect(
+      projectCategoryArticles(
+        content.index,
+        'a-deliberately-long-category-name-for-narrow-readers',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('keeps continuation and search states deterministic', () => {
+    const content = loadReaderAcceptanceContent('representative');
     expect(filterArticles(content.index, '')).toHaveLength(content.index.length);
     expect(filterArticles(content.index, 'ČAČAK').map((entry) => entry.slug)).toEqual([
       'acceptance-rich-column',
@@ -50,9 +92,24 @@ describe('Reader acceptance fixture catalogs', () => {
     expect(filterArticles(content.index, 'no such acceptance article')).toEqual([]);
   });
 
-  it('offers an explicit ordinary-error scenario that fails instead of falling back to real data', () => {
+  it('provides a no-audio sparse article with contained long unbroken content', () => {
+    const content = loadReaderAcceptanceContent('representative');
+    const sparse = content.articles['acceptance-no-audio-long-column'];
+    if (sparse === undefined) throw new Error('Sparse fixture is missing.');
+
+    expect(sparse.audio).toBeUndefined();
+    expect(sparse.blocks.length).toBeGreaterThanOrEqual(3);
+    expect(JSON.stringify(sparse.blocks)).toContain('x'.repeat(180));
+    // Wide media still renders with its caption in one flow.
+    expect(sparse.blocks.some((block) => block.type === 'image')).toBe(true);
+  });
+
+  it('offers explicit ordinary-error scenarios that fail instead of falling back to real data', () => {
     expect(() => loadReaderAcceptanceContent('ordinary-error')).toThrow(
       'Reader acceptance ordinary error',
+    );
+    expect(() => loadReaderAcceptanceContent('retryable-error')).toThrow(
+      'Reader acceptance retryable error',
     );
     expect(() => loadReaderAcceptanceContent('unknown' as never)).toThrow('Unknown Reader');
   });

@@ -2,7 +2,13 @@
   import ArticleRenderer from '../article/ArticleRenderer.svelte';
   import type { StudioPreviewResult } from './contracts';
 
+  const PREVIEW_WIDTHS = [
+    { value: 'wide', label: 'Wide (52rem)' },
+    { value: 'narrow', label: 'Narrow (320px)' },
+  ] as const;
+
   let { preview }: { preview?: StudioPreviewResult } = $props();
+  let selectedWidth: 'wide' | 'narrow' = $state('wide');
 </script>
 
 <section class="studio-preview-pane" aria-labelledby="studio-preview-heading">
@@ -33,13 +39,34 @@
       <article aria-labelledby="preview-result-heading">
         <h3 id="preview-result-heading">Reader preview</h3>
         <!--
-          Authoritative ArticleRenderer contract (#98): Studio preview reuses
-          the exact shared Reader content renderer and foundation typography
-          at the selected width. It deliberately imports no Reader page
-          chrome — no shell, header, footer, or navigation.
+          Authoritative ArticleRenderer contract (#98, #101): Studio preview
+          mounts the exact shared Reader content renderer and Reader content
+          tokens/typography at the selected responsive width. It deliberately
+          imports no Reader page chrome — no shell, header, footer, or
+          navigation — and no lifecycle meaning changes.
         -->
-        <div class="article-preview">
-          <ArticleRenderer document={preview.document} />
+        <fieldset class="preview-width-controls">
+          <legend class="visually-hidden">Preview width</legend>
+          {#each PREVIEW_WIDTHS as option (option.value)}
+            <label>
+              <input
+                type="radio"
+                name="preview-width"
+                value={option.value}
+                bind:group={selectedWidth}
+              />
+              {option.label}
+            </label>
+          {/each}
+        </fieldset>
+        <div class="article-preview-viewport">
+          <div
+            class="article-preview"
+            class:article-preview--narrow={selectedWidth === 'narrow'}
+            class:article-preview--wide={selectedWidth === 'wide'}
+          >
+            <ArticleRenderer document={preview.document} />
+          </div>
         </div>
       </article>
     {/if}
@@ -61,17 +88,54 @@
     font-size: var(--studio-text-compact);
   }
 
-  .studio-preview-pane :global(img),
-  .studio-preview-pane :global(pre),
-  .studio-preview-pane :global(code) {
-    max-width: 100%;
+  .preview-width-controls {
+    display: none;
+    flex-wrap: wrap;
+    gap: var(--studio-space-2) var(--studio-space-6);
+    margin: 0 0 var(--studio-space-4);
+    padding: 0;
+    border: 0;
   }
 
-  .studio-preview-pane :global(pre) {
+  :global(html[data-studio-hydrated='true']) .preview-width-controls {
+    display: flex;
+  }
+
+  .preview-width-controls label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--studio-space-2);
+    color: var(--studio-text-muted);
+    font-size: var(--studio-text-compact);
+  }
+
+  /* Exact Reader content tokens/typography at the selected responsive width,
+     contained within the Studio pane: the preview canvas may scroll locally
+     but must never widen the Studio page. */
+  .article-preview-viewport {
+    max-width: 100%;
     overflow-x: auto;
   }
 
   .article-preview {
     min-width: 0;
+  }
+
+  .article-preview--narrow {
+    width: 320px;
+  }
+
+  .article-preview--wide {
+    width: 52rem;
+  }
+
+  .article-preview :global(img),
+  .article-preview :global(pre),
+  .article-preview :global(code) {
+    max-width: 100%;
+  }
+
+  .article-preview :global(pre) {
+    overflow-x: auto;
   }
 </style>

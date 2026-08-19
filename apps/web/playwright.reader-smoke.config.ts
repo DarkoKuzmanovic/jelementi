@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4322;
+const PORT = 44_106;
 
 /** Separate smoke surface using only canonical generated content and normal Vite config. */
 export default defineConfig({
@@ -18,7 +18,7 @@ export default defineConfig({
   },
   projects: [{ name: 'reader-real-generated-catalog' }],
   webServer: {
-    command: `pnpm exec vite dev --host 127.0.0.1 --port ${PORT}`,
+    command: `pnpm exec vite dev --config vite.reader-smoke.config.ts --host 127.0.0.1 --port ${PORT}`,
     port: PORT,
     reuseExistingServer: false,
     timeout: 60_000,

@@ -11,7 +11,8 @@ import {
 } from '../apps/web/src/lib/generated-content';
 
 export const READER_ACCEPTANCE_FIXTURE_MARKER = 'jelementi-reader-acceptance-fixture-v1';
-export type ReaderAcceptanceScenario = 'representative' | 'sparse' | 'ordinary-error';
+export type ReaderAcceptanceScenario =
+  'representative' | 'intermediate' | 'sparse' | 'ordinary-error' | 'retryable-error';
 
 const mediaOrigin = 'https://reader-acceptance.invalid/';
 
@@ -110,6 +111,7 @@ interface MinimalDocumentOptions {
   title: string;
   category: string;
   publishedAt: string;
+  excerpt?: string;
   tags?: string[];
 }
 
@@ -118,13 +120,14 @@ function minimalDocument({
   title,
   category,
   publishedAt,
+  excerpt = `Deterministic summary for ${title}.`,
   tags = [],
 }: MinimalDocumentOptions): ArticleDocument {
   return ArticleDocumentSchema.parse({
     schemaVersion: 1,
     slug,
     title,
-    excerpt: `Deterministic summary for ${title}.`,
+    excerpt,
     status: 'published',
     publishedAt,
     updatedAt: publishedAt,
@@ -177,7 +180,73 @@ const representativeDocuments = [
     category: 'Science',
     publishedAt: '2026-08-01',
   }),
+  minimalDocument({
+    slug: 'acceptance-long-category',
+    title: 'A Single Thread at Narrow Width',
+    category: 'A Deliberately Long Category Name for Narrow Readers',
+    publishedAt: '2026-07-28',
+    excerpt: 'unbroken-content-token-that-must-reflow-without-page-level-overflow',
+  }),
+  ArticleDocumentSchema.parse({
+    schemaVersion: 1,
+    slug: 'acceptance-no-audio-long-column',
+    title: 'A Sparse Column Without Audio',
+    excerpt: 'A deterministic sparse article with no audio and long content.',
+    status: 'published',
+    publishedAt: '2026-07-28',
+    updatedAt: '2026-07-28',
+    category: 'Solo',
+    tags: ['sparse', 'quiet'],
+    author: 'Jelementi',
+    cover: { src: `${mediaOrigin}sparse-cover.webp`, alt: 'Sparse cover' },
+    readingTimeMinutes: 2,
+    blocks: [
+      {
+        type: 'paragraph',
+        children: [
+          text('A very long unbroken token that must stay contained inside the bounded column: '),
+          text('x'.repeat(180)),
+        ],
+      },
+      {
+        type: 'image',
+        src: `${mediaOrigin}wide-image.webp`,
+        alt: 'A wide deterministic fixture landscape',
+        caption: [text('A wide media caption that also stays contained.')],
+        width: 1600,
+        height: 900,
+      },
+      { type: 'divider' },
+    ],
+    footnotes: [],
+    references: [],
+  }),
 ] as const;
+
+const excludedDocuments = [
+  ArticleDocumentSchema.parse({
+    ...minimalDocument({
+      slug: 'acceptance-private-draft',
+      title: 'Acceptance Draft Must Stay Private',
+      category: 'Private',
+      publishedAt: '2026-08-20',
+    }),
+    status: 'draft',
+  }),
+  ArticleDocumentSchema.parse({
+    ...minimalDocument({
+      slug: 'acceptance-archived-article',
+      title: 'Acceptance Archive Must Stay Private',
+      category: 'Private',
+      publishedAt: '2026-08-19',
+    }),
+    status: 'archived',
+  }),
+] as const;
+
+export const READER_ACCEPTANCE_EXCLUDED_TITLES = excludedDocuments.map(
+  (document) => document.title,
+);
 
 const sparseDocuments = [
   minimalDocument({
@@ -223,14 +292,23 @@ function validatedCatalog(documents: readonly ArticleDocument[]): GeneratedConte
   return validateGeneratedContent(index, articles);
 }
 
-const representative = validatedCatalog(representativeDocuments);
+const representative = validatedCatalog(
+  [...representativeDocuments, ...excludedDocuments].filter(
+    (document) => document.status === 'published',
+  ),
+);
+const intermediate = validatedCatalog(representativeDocuments.slice(0, 4));
 const sparse = validatedCatalog(sparseDocuments);
 
 export function loadReaderAcceptanceContent(scenario: ReaderAcceptanceScenario): GeneratedContent {
   if (scenario === 'representative') return representative;
+  if (scenario === 'intermediate') return intermediate;
   if (scenario === 'sparse') return sparse;
   if (scenario === 'ordinary-error') {
     throw new Error('Reader acceptance ordinary error: deterministic route-data failure.');
+  }
+  if (scenario === 'retryable-error') {
+    throw new Error('Reader acceptance retryable error: deterministic route-data failure.');
   }
   throw new Error(`Unknown Reader acceptance scenario: ${String(scenario)}.`);
 }

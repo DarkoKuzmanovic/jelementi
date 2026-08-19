@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { categorySlug, type ArticleDocument } from '@jelementi/article-model';
+  import type { ArticleDocument } from '@jelementi/article-model';
   import ParagraphBlock from './blocks/ParagraphBlock.svelte';
   import HeadingBlock from './blocks/HeadingBlock.svelte';
   import ImageBlock from './blocks/ImageBlock.svelte';
@@ -8,6 +8,7 @@
   import CalloutBlock from './blocks/CalloutBlock.svelte';
   import DividerBlock from './blocks/DividerBlock.svelte';
   import InlineContent from './InlineContent.svelte';
+  import ArticleOpening from './ArticleOpening.svelte';
   import { assertExhaustiveBlock } from './exhaustive';
   import { footnoteReferenceTargets } from './footnotes';
 
@@ -16,36 +17,43 @@
   const footnoteTargets = $derived(footnoteReferenceTargets(document.blocks));
 </script>
 
+<!--
+  Authoritative article renderer (spec #96, ticket #98): the ONE shared
+  content renderer consumed by the public article route and Studio preview.
+  Quiet Column composition (#101): compact opening, optional audio directly
+  beneath it, cover, then the in-flow block sequence, and restrained
+  endmatter. Reader-only continuation/navigation chrome never lives here —
+  Studio preview must receive exactly this content-only renderer.
+-->
 <article id="article-top">
-  <header class="article-opening">
-    <p class="article-opening__category">
-      <a href={`/categories/${categorySlug(document.category)}`}>{document.category}</a>
-    </p>
-    <h1 class="article-opening__title">{document.title}</h1>
-    <p class="article-opening__excerpt">{document.excerpt}</p>
-  </header>
+  <ArticleOpening article={document} />
   <ArticleAudio article={document} />
-  {#each document.blocks as block, index (index)}
-    {#if block.type === 'paragraph'}
-      <ParagraphBlock {block} scope={`block-${index}`} />
-    {:else if block.type === 'heading'}
-      <HeadingBlock {block} scope={`block-${index}`} />
-    {:else if block.type === 'image'}
-      <ImageBlock {block} scope={`block-${index}`} />
-    {:else if block.type === 'list'}
-      <ListBlock {block} scope={`block-${index}`} />
-    {:else if block.type === 'quote'}
-      <QuoteBlock {block} scope={`block-${index}`} />
-    {:else if block.type === 'callout'}
-      <CalloutBlock {block} scope={`block-${index}`} />
-    {:else if block.type === 'divider'}
-      <DividerBlock />
-    {:else}
-      {assertExhaustiveBlock(block)}
-    {/if}
-  {/each}
+  <figure class="article-cover" aria-label={document.cover.alt}>
+    <img src={document.cover.src} alt={document.cover.alt} loading="eager" />
+  </figure>
+  <div class="article-body">
+    {#each document.blocks as block, index (index)}
+      {#if block.type === 'paragraph'}
+        <ParagraphBlock {block} scope={`block-${index}`} />
+      {:else if block.type === 'heading'}
+        <HeadingBlock {block} scope={`block-${index}`} />
+      {:else if block.type === 'image'}
+        <ImageBlock {block} scope={`block-${index}`} />
+      {:else if block.type === 'list'}
+        <ListBlock {block} scope={`block-${index}`} />
+      {:else if block.type === 'quote'}
+        <QuoteBlock {block} scope={`block-${index}`} />
+      {:else if block.type === 'callout'}
+        <CalloutBlock {block} scope={`block-${index}`} />
+      {:else if block.type === 'divider'}
+        <DividerBlock />
+      {:else}
+        {assertExhaustiveBlock(block)}
+      {/if}
+    {/each}
+  </div>
   {#if document.references.length > 0}
-    <section aria-labelledby="sources-heading">
+    <section class="article-endmatter" aria-labelledby="sources-heading">
       <h2 class="endmatter-heading" id="sources-heading">Sources</h2>
       <ul>
         {#each document.references as reference, index (index)}
@@ -61,7 +69,7 @@
     </section>
   {/if}
   {#if document.footnotes.length > 0}
-    <section aria-labelledby="footnotes-heading">
+    <section class="article-endmatter" aria-labelledby="footnotes-heading">
       <h2 class="endmatter-heading" id="footnotes-heading">Footnotes</h2>
       <ol>
         {#each document.footnotes as footnote (footnote.id)}
@@ -78,32 +86,86 @@
 </article>
 
 <style>
-  .article-opening__category {
-    margin: 0 0 var(--space-3);
-    font-size: var(--text-small);
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  /* The Quiet Column measure: prose and ordinary blocks hold a calm 39rem
+     line, while figures can open to the 50rem media measure without widening
+     the page. Long intrinsic content scrolls only inside its own box. */
+  .article-body {
+    max-width: 50rem;
+    margin-inline: auto;
+    font-size: clamp(1.04rem, 1.4vw, 1.14rem);
   }
 
-  .article-opening__category a {
-    color: var(--foundation-accent);
+  .article-body :global(> p),
+  .article-body :global(> h2),
+  .article-body :global(> h3),
+  .article-body :global(> h4),
+  .article-body :global(> ul),
+  .article-body :global(> ol),
+  .article-body :global(> blockquote),
+  .article-body :global(> aside),
+  .article-body :global(> hr) {
+    max-width: 39rem;
+    margin-left: auto;
+    margin-right: auto;
   }
 
-  .article-opening__title {
-    margin: 0 0 var(--space-4);
+  .article-body :global(> p) {
+    margin-top: 0;
+    margin-bottom: 1.55rem;
+  }
+
+  .article-body :global(> h2) {
+    margin-top: var(--space-12);
+    margin-bottom: var(--space-4);
     font-family: var(--font-serif);
-    font-size: var(--text-h1);
+    font-size: var(--text-h2);
     line-height: var(--leading-heading);
   }
 
-  .article-opening__excerpt {
-    margin: 0;
-    color: var(--foundation-muted);
-    font-size: 1.1rem;
+  .article-body :global(> h3),
+  .article-body :global(> h4) {
+    margin-top: var(--space-8);
+    margin-bottom: var(--space-3);
+    font-family: var(--font-serif);
+    line-height: var(--leading-heading);
+  }
+
+  .article-body :global(> figure) {
+    max-width: 50rem;
+    overflow-x: auto;
+  }
+
+  .article-body :global(code) {
+    overflow-wrap: anywhere;
+  }
+
+  .article-cover {
+    max-width: 50rem;
+    margin: 0 auto var(--space-8);
+  }
+
+  .article-cover img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .article-endmatter {
+    max-width: 44rem;
+    margin: var(--space-12) auto 0;
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--foundation-rule);
+  }
+
+  .article-endmatter :global(li) {
+    margin-bottom: var(--space-2);
+    overflow-wrap: anywhere;
   }
 
   .endmatter-heading {
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
+    font-size: var(--text-small);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 </style>

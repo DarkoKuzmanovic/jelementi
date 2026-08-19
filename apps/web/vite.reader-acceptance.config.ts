@@ -13,9 +13,17 @@ const fixtureModule = fileURLToPath(
 const virtualModule = '\0jelementi-reader-acceptance-generated-content';
 
 function acceptanceScenario(value: string | undefined): ReaderAcceptanceScenario {
-  if (value === 'representative' || value === 'sparse' || value === 'ordinary-error') return value;
+  if (
+    value === 'representative' ||
+    value === 'intermediate' ||
+    value === 'sparse' ||
+    value === 'ordinary-error' ||
+    value === 'retryable-error'
+  ) {
+    return value;
+  }
   throw new Error(
-    'READER_ACCEPTANCE_SCENARIO must explicitly be representative, sparse, or ordinary-error.',
+    'READER_ACCEPTANCE_SCENARIO must explicitly be representative, intermediate, sparse, ordinary-error, or retryable-error.',
   );
 }
 
@@ -43,6 +51,15 @@ export function readerAcceptanceContentPlugin(scenario: ReaderAcceptanceScenario
     },
     load(id) {
       if (id !== virtualModule) return undefined;
+      if (scenario === 'ordinary-error') {
+        return `export const generatedContent = new Proxy({}, { get() { throw new Error('ReaderAcceptanceInternalUnbroken'.repeat(20)); } });`;
+      }
+      if (scenario === 'retryable-error') {
+        return [
+          `import { error } from '@sveltejs/kit';`,
+          `export const generatedContent = new Proxy({}, { get() { throw error(503, 'ReaderAcceptanceInternalUnbroken'.repeat(20)); } });`,
+        ].join('\n');
+      }
       return [
         `import { loadReaderAcceptanceContent } from ${JSON.stringify(fixtureModule)};`,
         `export const generatedContent = loadReaderAcceptanceContent(${JSON.stringify(scenario)});`,
@@ -54,6 +71,8 @@ export function readerAcceptanceContentPlugin(scenario: ReaderAcceptanceScenario
 const scenario = acceptanceScenario(process.env.READER_ACCEPTANCE_SCENARIO);
 
 export default mergeConfig(baseConfig, {
-  cacheDir: `/tmp/jelementi-reader-acceptance-vite-${scenario}`,
+  // Per-process isolation prevents concurrent issue worktrees from sharing
+  // stale transformed routes through one global acceptance cache.
+  cacheDir: `/tmp/jelementi-reader-acceptance-vite-${scenario}-${process.pid}`,
   plugins: [readerAcceptanceContentPlugin(scenario)],
 });
