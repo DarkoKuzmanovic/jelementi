@@ -1,0 +1,81 @@
+{
+  "status": "BLOCKED_PENDING_HUMAN",
+  "generatedAt": "2026-08-19T22:05:00.000Z",
+  "worktreeCommit": "54e2e8f",
+  "invariantsGreen": true,
+  "notes": "Template — fill via `pnpm tsx scripts/human-acceptance-wizard.ts`. No manual evidence is claimed until a human performs and records it.",
+  "entries": [
+    {
+      "id": "asset-ceilings",
+      "outcome": "PASS",
+      "notes": "Automated: pnpm verify:reader:assets PASS — representative HTML 26369/70885, CSS 17942/17943, Search JS 165878/167513",
+      "evidencePath": "scripts/reader-assets.ts + /tmp/verify-deploy-T104.log"
+    },
+    {
+      "id": "chromium-stable",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires human: current stable Chromium desktop wide/320, light/dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS. Record version and per-cell outcomes."
+    },
+    {
+      "id": "firefox-stable",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires human Firefox stable desktop — same matrix. Honestly blocked."
+    },
+    {
+      "id": "webkit-proxy",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires Playwright WebKit explicitly as Safari proxy. Record Playwright/WebKit version."
+    },
+    {
+      "id": "coarse-pointer-touch",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires at least one coarse-pointer/touch mobile viewport capture."
+    },
+    {
+      "id": "zoom-100-200-400",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires representative 100%/200%/400% zoom cells — automated 320 reflow exists, manual zoom still required."
+    },
+    {
+      "id": "text-spacing",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires WCAG 1.4.12 text-spacing overrides manual verification."
+    },
+    {
+      "id": "reduced-motion-manual",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires reduced-motion manual verification beyond automated CSS assertion."
+    },
+    {
+      "id": "keyboard-only-traversal",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires keyboard-only traversal across every route with focus visibility confirmation."
+    },
+    {
+      "id": "no-javascript-manual",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Requires manual JS-disabled verification (reader-no-js project exists but human confirmation pending)."
+    },
+    {
+      "id": "contrast-sampling",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Manual contrast sampling semantic text, links/visited, focus, controls, borders, metadata, every callout state light+dark — WCAG 2.2 AA 4.5:1 / 3:1, no exception."
+    },
+    {
+      "id": "orca-firefox-journey",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Named Orca + current stable Firefox on Linux journey across shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search initial/result/zero/clear, About, 404, ordinary error."
+    },
+    {
+      "id": "lighthouse-mobile",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "Reproducible local mobile Lighthouse: Accessibility 100, Best Practices 100, SEO 100, Performance >=90. Rerun noisy results, not waived."
+    }
+  ],
+  "humanFidelityApproval": {
+    "approved": false,
+    "approver": "",
+    "date": "",
+    "notes": "BLOCKED_PENDING_HUMAN — only after every preceding PASS and invariants green; never waives failed invariant."
+  }
+}

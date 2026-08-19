@@ -1,0 +1,3 @@
+Placeholders for T104 — deterministic byte-identical 1x1 PNGs.
+Real Chromium screenshots will overwrite these when pnpm tsx scripts/generate-reader-evidence.ts runs with browsers.
+Manual Firefox/WebKit/touch captures remain BLOCKED_PENDING_HUMAN.
