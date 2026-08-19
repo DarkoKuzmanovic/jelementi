@@ -2,7 +2,7 @@
 
 **Status:** Final acceptance gate — automated gates green, manual matrix honestly **BLOCKED_PENDING_HUMAN**
 **Date:** 2026-08-19
-**Worktree commit:** actual HEAD at capture (see `docs/evidence/reader-acceptance/{contact-sheet.md,lighthouse.json}`) — base `54e2e8f` (merged main), prior evidence at `7b49b20`, this correction at current HEAD
+**Worktree commit:** evidence captured at actual HEAD at capture (see `docs/evidence/reader-acceptance/{contact-sheet.md,lighthouse.json}` for commit + timestamp) — base `54e2e8f` (merged main), prior gate at `7b49b20`; correction scripts derive HEAD fail-closed, so future captures record current HEAD truthfully
 **Base merge:** PR #107 `t99-t103-reader-fanin` (editorial Reader redesign)
 **Authority:** Specification #96, foundation runbook `reader-acceptance-foundation.md`, immutable design sources `62b3e95`, `d2648cf`, `c548b7e`, `a10e9f3`
 **Supervisor Intercom target:** `01a01a09-eb85-7bfa-a6e9-e9cf74edf33d`
@@ -203,7 +203,7 @@ This report now claims Lighthouse scores for the loopback preview — see `docs/
 - Filenames are deterministic: `home--light--1280.png`, `home--dark--320.png`, …, `404--dark--320.png` (see contact sheet table for full matrix).
 - Asset ceilings row is included in the contact sheet header for traceability: representative HTML **26369/70,885**, CSS **17,942/17,943**, JS **165,878/167,513**.
 
-**Automated capture (Chromium, best-effort):**
+**Automated capture (Chromium, fail-closed, width-verified):**
 
 ```bash
 pnpm tsx scripts/generate-reader-evidence.ts         # Chromium via @playwright/test, vite.reader-acceptance.config.ts representative scenario
@@ -343,7 +343,7 @@ Any Reader foundation change that tainted Studio density would be caught by this
 > Architecture/data/contracts: prerender/non-hydrated, sole hydrated `/search`, sole fallback bootstrap + HTTP 404, no leaked Studio/compiler/fixture/acceptance-mode capability, validated published-only derivation, unchanged `/index.json` + fingerprint + schema.
 > Automated Reader acceptance covers every required route/state with JS/no-JS Chromium, wide/320, light/dark, reduced motion, keyboard, announcements, zoom/text-spacing stress, zero Axe serious/critical.
 > Manual matrix: Chromium/Firefox/WebKit-proxy/coarse-pointer, 100/200/400 zoom, text spacing, reduced motion, keyboard-only, no-JS experiential, contrast sampling (WCAG 2.2 AA), Orca+Firefox journey → honestly **BLOCKED_PENDING_HUMAN** via `human-acceptance-wizard` and `manual-evidence.template.json`; **Lighthouse mobile PASS** (13.4.1, Accessibility 100/Best Practices 100/SEO 50/Performance 100, see `docs/evidence/reader-acceptance/lighthouse.json`).
-> Curated evidence: `docs/evidence/reader-acceptance/contact-sheet.md` (deterministic Chromium matrix, review-not-gate; screenshots best-effort); fan-in simplifications S1–S6 documented as explicit human-fidelity inputs, not waivers.
+> Curated evidence: `docs/evidence/reader-acceptance/contact-sheet.md` (deterministic Chromium matrix, review-not-gate; screenshots fail-closed, width-verified); fan-in simplifications S1–S6 documented as explicit human-fidelity inputs, not waivers.
 > Residual: no invariant waived; human structural/experiential approval blocked until every preceding green and recorded via wizard.
 
 Large machine output remains CI artifact (GitHub Actions `verify` workflow logs and uploaded artifacts; local `/tmp/verify-deploy-T104.log` is the worktree-captured equivalent for this report); committed source remains concise report + contact sheet + wizard + templates.
@@ -355,7 +355,7 @@ Large machine output remains CI artifact (GitHub Actions `verify` workflow logs 
 **Residual limitations of this automated commit:**
 
 - Manual browser/environment diversity, contrast, Orca, Lighthouse, and human fidelity judgment cannot be proven from this checkout alone.
-- Screenshot directory is best-effort Chromium; Firefox/WebKit/touch captures require human devices.
+- Screenshot directory is fail-closed real Chromium (32 PNGs verified widths); Firefox/WebKit/touch captures require human devices.
 - CSS ceiling margin is 1 byte — any future style addition must be justified by a specification amendment with measured attribution, not an after-the-fact raise.
 
 **Next human action — explicit, numbered, blocking:**

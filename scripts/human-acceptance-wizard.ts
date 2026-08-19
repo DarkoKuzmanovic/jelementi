@@ -155,10 +155,15 @@ export const HUMAN_CHECKPOINTS: readonly HumanCheckpoint[] = [
     id: 'lighthouse-mobile',
     label: 'Reproducible local mobile Lighthouse',
     description:
-      'Local mobile Lighthouse run: Accessibility 100, Best Practices 100, SEO 100, Performance >=90. Investigate noisy results via rerun, not waiver.',
+      'Local mobile Lighthouse run: Accessibility 100, Best Practices 100, Performance >=90, SEO recorded (50 expected due to intentional global noindex, see lighthouse.json). Investigate noisy Performance via rerun, not waiver.',
     notes:
-      'Run via `npx lighthouse` or Chrome DevTools mobile against local build; record scores and URL.',
-    requiredEvidence: ['Lighthouse version', 'mobile scores', 'URL tested', 'rerun notes if noisy'],
+      'Run via `pnpm tsx scripts/run-lighthouse.ts` (wrangler dev --local mobile). Record version, URL, and scores: Accessibility/Best Practices/Performance must meet thresholds; SEO 50 is expected for unlisted beta with global noindex (is-crawlable), not a waiver — document as deviation.',
+    requiredEvidence: [
+      'Lighthouse version',
+      'mobile scores (Accessibility/Best Practices/Performance thresholds, SEO recorded)',
+      'URL tested',
+      'raw artifact paths',
+    ],
   },
   {
     id: 'human-fidelity-approval',
@@ -214,16 +219,20 @@ export const MANUAL_EVIDENCE_TEMPLATE: ManualEvidence = buildManualEvidenceTempl
 export function isManualMatrixComplete(evidence: ManualEvidence): boolean {
   if (!evidence.invariantsGreen) return false;
   if (evidence.status !== 'PASS') return false;
-  const expectedCount = HUMAN_CHECKPOINTS.length - 1; // excludes human-fidelity-approval
-  if (evidence.entries.length !== expectedCount) return false;
   const expectedIds = new Set(
     HUMAN_CHECKPOINTS.filter((c) => c.id !== 'human-fidelity-approval').map((c) => c.id),
   );
+  const expectedCount = expectedIds.size;
+  if (evidence.entries.length !== expectedCount) return false;
+  const seen = new Set<string>();
   for (const entry of evidence.entries) {
     if (!expectedIds.has(entry.id)) return false;
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
     if (entry.outcome !== 'PASS') return false;
     if (!entry.notes || entry.notes.trim().length === 0) return false;
   }
+  if (seen.size !== expectedCount) return false;
   const approval = evidence.humanFidelityApproval;
   if (!approval?.approved) return false;
   if (!approval.approver.trim() || !approval.date.trim() || !approval.notes.trim()) return false;

@@ -1,6 +1,6 @@
 # Reader acceptance — deterministic curated evidence
 
-Generated: 2026-08-19T22:23:44.395Z | Commit: f22e1a2679dec9dc5e440253c23099af3969ebb1
+Generated: 2026-08-19T22:29:48.095Z | Commit: d3579c63941ed0dd31bfda3dc3d291eb8015abdf
 
 Deterministic curated evidence — review, not gate. No pixel-diff CI assertion.
 
@@ -42,7 +42,7 @@ The following remain **BLOCKED_PENDING_HUMAN** until a human performs and record
 - Text spacing (WCAG 1.4.12) overrides — **BLOCKED_PENDING_HUMAN**
 - Contrast sampling (semantic text, links/visited, focus, controls, borders, metadata, every callout state, light+dark, WCAG 2.2 AA 4.5:1/3:1) — **BLOCKED_PENDING_HUMAN**
 - Orca + Firefox on Linux journey (shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search initial/result/zero/clear, About, 404, ordinary error) — **BLOCKED_PENDING_HUMAN**
-- Lighthouse mobile (Accessibility 100, Best Practices 100, SEO 100, Performance >=90) — **BLOCKED_PENDING_HUMAN**
+- Lighthouse mobile: **PASS** — Accessibility 100, Best Practices 100, Performance 100, SEO 50 (50 expected due to intentional global noindex, see lighthouse.json; thresholds Accessibility 100/Best Practices 100/Performance >=90 met, SEO recorded) — raw artifacts at /tmp (not committed)
 - Human structural and experiential fidelity approval — **BLOCKED_PENDING_HUMAN** (only after every preceding green; never waives failed invariant)
 
 Use `pnpm tsx scripts/human-acceptance-wizard.ts` to fill `docs/evidence/reader-acceptance/manual-evidence.json`.

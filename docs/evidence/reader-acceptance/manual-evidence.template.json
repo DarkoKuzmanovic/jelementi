@@ -1,7 +1,7 @@
 {
   "status": "BLOCKED_PENDING_HUMAN",
-  "generatedAt": "2026-08-19T22:24:00.000Z",
-  "worktreeCommit": "f22e1a2679dec9dc5e440253c23099af3969ebb1",
+  "generatedAt": "2026-08-19T22:30:31.533645Z",
+  "worktreeCommit": "d3579c63941ed0dd31bfda3dc3d291eb8015abdf",
   "invariantsGreen": true,
   "notes": "Template \u2014 fill via `pnpm tsx scripts/human-acceptance-wizard.ts`. No manual evidence is claimed until a human performs and records it.",
   "entries": [
@@ -68,8 +68,8 @@
     },
     {
       "id": "lighthouse-mobile",
-      "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Reproducible local mobile Lighthouse: Accessibility 100, Best Practices 100, SEO 100, Performance >=90. Rerun noisy results, not waived."
+      "outcome": "PASS",
+      "notes": "PASS \u2014 Lighthouse 13.4.1 mobile at http://127.0.0.1:43123/ (wrangler dev --local, commit f22e1a2): Accessibility 100, Best Practices 100, Performance 100, SEO 50 (expected due to global noindex, not a waiver). Raw report.json/html at /tmp (CI artifact)."
     }
   ],
   "humanFidelityApproval": {

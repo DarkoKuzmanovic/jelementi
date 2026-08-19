@@ -140,6 +140,23 @@ describe('human acceptance wizard', () => {
     }).toThrow(/Failed to derive/);
   });
 
+  it('rejects duplicate checkpoint IDs', () => {
+    const dup: ManualEvidence = {
+      ...MANUAL_EVIDENCE_TEMPLATE,
+      status: 'PASS' as const,
+      entries: HUMAN_CHECKPOINTS.filter((c) => c.id !== 'human-fidelity-approval')
+        .map((c) => ({ id: c.id, outcome: 'PASS' as const, notes: `evidence for ${c.id}` }))
+        .map((e, i, arr) => (i === 1 ? arr[0]! : e)), // duplicate first ID
+      humanFidelityApproval: {
+        approved: true,
+        approver: 'human',
+        date: '2026-08-19',
+        notes: 'approval',
+      },
+    };
+    expect(isManualMatrixComplete(dup)).toBe(false);
+  });
+
   it('keeps total checkpoint count stable for report traceability', () => {
     // Pin count so report tables do not silently drift; update test intentionally when adding.
     expect(HUMAN_CHECKPOINTS).toHaveLength(14);
