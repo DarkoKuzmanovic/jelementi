@@ -12,7 +12,13 @@ import { expect, test } from '@playwright/test';
  * non-existent content 404s with the shared error surface.
  */
 
-const publicRoutes = ['/', '/about', '/search', '/articles/acceptance-rich-column'];
+const publicRoutes = [
+  '/',
+  '/about',
+  '/search',
+  '/articles/acceptance-rich-column',
+  '/categories/field-notes',
+];
 
 test('shell landmarks and navigation persist across every public route', async ({ page }) => {
   for (const route of publicRoutes) {
@@ -99,6 +105,30 @@ test('prefers-reduced-motion suppresses motion', async ({ page }, testInfo) => {
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
   expect(matches).toBeTruthy();
+  // Deterministic probe: long inline durations must be suppressed by foundation !important rule
+  const durations = await page.evaluate(() => {
+    const el = document.createElement('div');
+    el.style.animationName = 'probe';
+    el.style.animationDuration = '10s';
+    el.style.animationDelay = '0s';
+    el.style.transitionProperty = 'opacity';
+    el.style.transitionDuration = '10s';
+    el.style.transitionDelay = '0s';
+    el.style.position = 'absolute';
+    document.body.appendChild(el);
+    const cs = getComputedStyle(el);
+    const result = {
+      animationDuration: cs.animationDuration,
+      transitionDuration: cs.transitionDuration,
+    };
+    el.remove();
+    return result;
+  });
+  const isSuppressed = (v: string) =>
+    v === '0.01ms' || v === '0s' || v === '0ms' || Number.parseFloat(v) < 0.02;
+  const check = (value: string) => value.split(',').every((part) => isSuppressed(part.trim()));
+  expect(check(durations.animationDuration)).toBeTruthy();
+  expect(check(durations.transitionDuration)).toBeTruthy();
   // Prove no global smooth scroll is imposed — would destabilize Studio (Playwright unstable)
   const scrollBehavior = await page.evaluate(
     () => getComputedStyle(document.documentElement).scrollBehavior,
