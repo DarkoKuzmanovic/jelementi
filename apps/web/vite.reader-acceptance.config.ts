@@ -13,9 +13,15 @@ const fixtureModule = fileURLToPath(
 const virtualModule = '\0jelementi-reader-acceptance-generated-content';
 
 function acceptanceScenario(value: string | undefined): ReaderAcceptanceScenario {
-  if (value === 'representative' || value === 'sparse' || value === 'ordinary-error') return value;
+  if (
+    value === 'representative' ||
+    value === 'intermediate' ||
+    value === 'sparse' ||
+    value === 'ordinary-error'
+  )
+    return value;
   throw new Error(
-    'READER_ACCEPTANCE_SCENARIO must explicitly be representative, sparse, or ordinary-error.',
+    'READER_ACCEPTANCE_SCENARIO must explicitly be representative, intermediate, sparse, or ordinary-error.',
   );
 }
 

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4322;
+const PORT = Number.parseInt(process.env.READER_ACCEPTANCE_SMOKE_PORT ?? '4322', 10);
 
 /** Separate smoke surface using only canonical generated content and normal Vite config. */
 export default defineConfig({

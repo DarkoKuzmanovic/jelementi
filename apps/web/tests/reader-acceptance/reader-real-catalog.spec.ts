@@ -4,11 +4,15 @@ test('smokes the complete canonical generated Reader inventory independently of 
   page,
 }) => {
   await page.goto('/');
-  const firstArticle = page.locator('.article-list a[href^="/articles/"]').first();
+  const firstArticle = page.locator('[data-home-tier="lead"] a[href^="/articles/"]');
+  await expect(firstArticle).toHaveCount(1);
   await expect(firstArticle).toBeVisible();
   const title = (await firstArticle.textContent())?.trim();
   if (!title) throw new Error('Canonical Home has no first article title.');
   expect(title).not.toContain('Every Reader Structure');
+  await expect(page.locator('.home-catalog .article-summary')).toHaveCount(1);
+  await expect(page.getByRole('region', { name: 'Recently published' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'More articles' })).toHaveCount(0);
 
   await page.goto('/categories');
   await expect(page.getByRole('heading', { level: 1, name: 'Categories' })).toBeVisible();

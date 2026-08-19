@@ -6,12 +6,14 @@ import {
 import { filterArticles } from '../apps/web/src/lib/generated-content';
 import {
   loadReaderAcceptanceContent,
+  READER_ACCEPTANCE_EXCLUDED_TITLES,
   READER_ACCEPTANCE_FIXTURE_MARKER,
 } from './reader-acceptance-fixtures';
 
 describe('Reader acceptance fixture catalogs', () => {
-  it('provides validated sparse and representative published catalogs', () => {
+  it('provides validated sparse, intermediate, and representative published catalogs', () => {
     const sparse = loadReaderAcceptanceContent('sparse');
+    const intermediate = loadReaderAcceptanceContent('intermediate');
     const representative = loadReaderAcceptanceContent('representative');
 
     expect(sparse.index).toHaveLength(1);
@@ -19,9 +21,17 @@ describe('Reader acceptance fixture catalogs', () => {
     expect(projectCategoryDirectory(sparse.index).map(({ name, count }) => [name, count])).toEqual([
       ['Solo', 1],
     ]);
-    expect(representative.index.length).toBeGreaterThanOrEqual(6);
+    expect(intermediate.index).toHaveLength(4);
+    expect(Object.keys(intermediate.articles)).toHaveLength(intermediate.index.length);
+    expect(representative.index).toHaveLength(8);
     expect(Object.keys(representative.articles)).toHaveLength(representative.index.length);
     expect(representative.index.every((entry) => entry.searchText.length > 0)).toBe(true);
+    expect(representative.index.map((entry) => entry.title)).not.toEqual(
+      expect.arrayContaining([...READER_ACCEPTANCE_EXCLUDED_TITLES]),
+    );
+    expect(
+      Object.values(representative.articles).every((article) => article.status === 'published'),
+    ).toBe(true);
     expect(READER_ACCEPTANCE_FIXTURE_MARKER).toMatch(/reader-acceptance/i);
   });
 

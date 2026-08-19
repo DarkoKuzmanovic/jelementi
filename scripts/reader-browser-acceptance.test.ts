@@ -19,13 +19,24 @@ describe('Reader browser acceptance execution seam', () => {
     );
   });
 
-  it('runs fixture JS/no-JS acceptance and the real generated-content smoke path', () => {
+  it('runs representative, intermediate, sparse, and real generated-content browser surfaces', () => {
     const executePlaywright = vi.fn(() => 0);
 
     expect(runReaderBrowserAcceptance({ env: {}, executePlaywright })).toBe(0);
     expect(executePlaywright.mock.calls).toEqual([
       [['install', 'chromium']],
-      [['test', '-c', 'apps/web/playwright.reader.config.ts']],
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts'],
+        { READER_ACCEPTANCE_SCENARIO: 'representative' },
+      ],
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts', '--grep', '@home-catalog-scenario'],
+        { READER_ACCEPTANCE_SCENARIO: 'intermediate' },
+      ],
+      [
+        ['test', '-c', 'apps/web/playwright.reader.config.ts', '--grep', '@home-catalog-scenario'],
+        { READER_ACCEPTANCE_SCENARIO: 'sparse' },
+      ],
       [['test', '-c', 'apps/web/playwright.reader-smoke.config.ts']],
     ]);
   });
@@ -37,6 +48,8 @@ describe('Reader browser acceptance execution seam', () => {
       .mockReturnValueOnce(19);
     const smokeFailure = vi
       .fn<(args: readonly string[]) => number>()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(23);

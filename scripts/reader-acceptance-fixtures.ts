@@ -11,7 +11,8 @@ import {
 } from '../apps/web/src/lib/generated-content';
 
 export const READER_ACCEPTANCE_FIXTURE_MARKER = 'jelementi-reader-acceptance-fixture-v1';
-export type ReaderAcceptanceScenario = 'representative' | 'sparse' | 'ordinary-error';
+export type ReaderAcceptanceScenario =
+  'representative' | 'intermediate' | 'sparse' | 'ordinary-error';
 
 const mediaOrigin = 'https://reader-acceptance.invalid/';
 
@@ -182,8 +183,34 @@ const representativeDocuments = [
     title: 'A Single Thread at Narrow Width',
     category: 'A Deliberately Long Category Name for Narrow Readers',
     publishedAt: '2026-07-28',
+    tags: ['unbroken-content-token-that-must-reflow-without-page-level-overflow'],
   }),
 ] as const;
+
+const excludedDocuments = [
+  ArticleDocumentSchema.parse({
+    ...minimalDocument({
+      slug: 'acceptance-private-draft',
+      title: 'Acceptance Draft Must Stay Private',
+      category: 'Private',
+      publishedAt: '2026-08-20',
+    }),
+    status: 'draft',
+  }),
+  ArticleDocumentSchema.parse({
+    ...minimalDocument({
+      slug: 'acceptance-archived-article',
+      title: 'Acceptance Archive Must Stay Private',
+      category: 'Private',
+      publishedAt: '2026-08-19',
+    }),
+    status: 'archived',
+  }),
+] as const;
+
+export const READER_ACCEPTANCE_EXCLUDED_TITLES = excludedDocuments.map(
+  (document) => document.title,
+);
 
 const sparseDocuments = [
   minimalDocument({
@@ -229,11 +256,17 @@ function validatedCatalog(documents: readonly ArticleDocument[]): GeneratedConte
   return validateGeneratedContent(index, articles);
 }
 
-const representative = validatedCatalog(representativeDocuments);
+const representative = validatedCatalog(
+  [...representativeDocuments, ...excludedDocuments].filter(
+    (document) => document.status === 'published',
+  ),
+);
+const intermediate = validatedCatalog(representativeDocuments.slice(0, 4));
 const sparse = validatedCatalog(sparseDocuments);
 
 export function loadReaderAcceptanceContent(scenario: ReaderAcceptanceScenario): GeneratedContent {
   if (scenario === 'representative') return representative;
+  if (scenario === 'intermediate') return intermediate;
   if (scenario === 'sparse') return sparse;
   if (scenario === 'ordinary-error') {
     throw new Error('Reader acceptance ordinary error: deterministic route-data failure.');
