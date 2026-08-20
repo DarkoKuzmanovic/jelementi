@@ -62,10 +62,17 @@ export function isNoindexPresentInHtml(html: string): boolean {
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<template[\s\S]*?<\/template>/gi, '');
   const metaTags = withoutScriptsAndTemplates.match(/<meta\s[^>]*>/gi) || [];
-  return metaTags.some(
-    (tag) =>
-      /\sname\s*=\s*["']robots["']/i.test(tag) && /\scontent\s*=\s*["']noindex["']/i.test(tag),
-  );
+  return metaTags.some((tag) => {
+    const attrs: Record<string, string> = {};
+    const attrRegex = /(\w[\w-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`>]+))/g;
+    let m: RegExpExecArray | null;
+    while ((m = attrRegex.exec(tag)) !== null) {
+      const name = m[1].toLowerCase();
+      const value = (m[2] ?? m[3] ?? m[4] ?? '').toLowerCase();
+      attrs[name] = value;
+    }
+    return attrs['name'] === 'robots' && attrs['content'] === 'noindex';
+  });
 }
 
 export function isGlobalNoindexPresent(): boolean {

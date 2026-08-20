@@ -283,6 +283,12 @@ describe('run-lighthouse', () => {
       isNoindexPresentInHtml('<template><meta name="robots" content="noindex"></template>'),
     ).toBe(false);
     expect(isNoindexPresentInHtml('<meta data-name="robots" data-content="noindex">')).toBe(false);
+    expect(isNoindexPresentInHtml('<meta data-note=\' name="robots" content="noindex"\' >')).toBe(
+      false,
+    );
+    expect(isNoindexPresentInHtml('<meta name="robots" content="noindex" data-extra="x">')).toBe(
+      true,
+    );
   });
 
   it('blocks future SEO 100 with no failures when global noindex is still present (must be is-crawlable)', () => {
