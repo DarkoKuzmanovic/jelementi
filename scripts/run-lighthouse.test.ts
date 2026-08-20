@@ -272,6 +272,17 @@ describe('run-lighthouse', () => {
     expect(isNoindexPresentInHtml('<meta name="viewport" content="width=device-width">')).toBe(
       false,
     );
+    // Must not match non-meta tags or inert script/template text
+    expect(isNoindexPresentInHtml('<metadata name="robots" content="noindex">')).toBe(false);
+    expect(
+      isNoindexPresentInHtml(
+        '<script>const x = "<meta name=\\"robots\\" content=\\"noindex\\">";</script>',
+      ),
+    ).toBe(false);
+    expect(
+      isNoindexPresentInHtml('<template><meta name="robots" content="noindex"></template>'),
+    ).toBe(false);
+    expect(isNoindexPresentInHtml('<meta data-name="robots" data-content="noindex">')).toBe(false);
   });
 
   it('blocks future SEO 100 with no failures when global noindex is still present (must be is-crawlable)', () => {

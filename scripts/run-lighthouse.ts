@@ -58,12 +58,13 @@ export function getCurrentHead(): string {
  */
 export function isNoindexPresentInHtml(html: string): boolean {
   const withoutComments = html.replace(/<!--[\s\S]*?-->/g, '');
-  return (
-    /<meta[^>]*content=["']noindex["'][^>]*>/i.test(withoutComments) &&
-    /<meta[^>]*name=["']robots["'][^>]*>/i.test(withoutComments) &&
-    /<meta[^>]*name=["']robots["'][^>]*content=["']noindex["'][^>]*>|<meta[^>]*content=["']noindex["'][^>]*name=["']robots["'][^>]*>/i.test(
-      withoutComments,
-    )
+  const withoutScriptsAndTemplates = withoutComments
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<template[\s\S]*?<\/template>/gi, '');
+  const metaTags = withoutScriptsAndTemplates.match(/<meta\s[^>]*>/gi) || [];
+  return metaTags.some(
+    (tag) =>
+      /\sname\s*=\s*["']robots["']/i.test(tag) && /\scontent\s*=\s*["']noindex["']/i.test(tag),
   );
 }
 
