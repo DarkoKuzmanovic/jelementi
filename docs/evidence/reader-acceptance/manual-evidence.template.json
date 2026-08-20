@@ -1,76 +1,60 @@
 {
   "status": "BLOCKED_PENDING_HUMAN",
-  "generatedAt": "2026-08-20T05:29:50Z",
-  "worktreeCommit": "c5605e243308f3991a165a290c1c8299223a32e7",
+  "generatedAt": "2026-08-20T08:28:16.364Z",
+  "worktreeCommit": "0fadb3a98b87f3cf8a710bbdf2a5236a32d905d8",
   "invariantsGreen": true,
-  "notes": "Template \u2014 fill via `pnpm tsx scripts/human-acceptance-wizard.ts`. No manual evidence is claimed until a human performs and records it.",
   "entries": [
     {
       "id": "asset-ceilings",
       "outcome": "PASS",
-      "notes": "Automated: pnpm verify:reader:assets PASS \u2014 representative HTML 26369/70885, CSS 17942/17943, Search JS 165878/167513",
+      "notes": "Automated: pnpm verify:reader:assets PASS — representative HTML 26369/70885, CSS 17942/17943, Search JS 165878/167513",
       "evidencePath": "scripts/reader-assets.ts + /tmp/verify-deploy-T104.log"
     },
     {
       "id": "chromium-stable",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires human: current stable Chromium desktop wide/320, light/dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS. Record version and per-cell outcomes."
-    },
-    {
-      "id": "firefox-stable",
-      "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires human Firefox stable desktop \u2014 same matrix. Honestly blocked."
-    },
-    {
-      "id": "webkit-proxy",
-      "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires Playwright WebKit explicitly as Safari proxy. Record Playwright/WebKit version."
+      "notes": "BLOCKED: requires human execution. Current stable Chrome desktop: wide and 320 CSS px, light and dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS behavior. Record Chrome version and outcome. Preserved evidence: Chrome 151.0.7922.169 visual 32-image matrix PASS (8 routes × 1280/320 × light/dark at representative fixture, width-verified)."
     },
     {
       "id": "coarse-pointer-touch",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires at least one coarse-pointer/touch mobile viewport capture."
+      "notes": "BLOCKED: requires human execution. At least one coarse-pointer / touch mobile viewport: viewport size, device, outcome. Preserved evidence: Chrome 151 Stage 2 320px touch PASS."
     },
     {
       "id": "zoom-100-200-400",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires representative 100%/200%/400% zoom cells \u2014 automated 320 reflow exists, manual zoom still required."
+      "notes": "BLOCKED: requires human execution. Capture 100%, 200%, 400% zoom at representative routes. Verify no page-level 2D scrolling, reflow preserved. Preserved evidence: Chrome 151 Stage 2 200%/400% zoom PASS."
     },
     {
       "id": "text-spacing",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires WCAG 1.4.12 text-spacing overrides manual verification."
+      "notes": "BLOCKED: requires human execution. Apply WCAG text-spacing overrides and verify no loss of content or functionality. Preserved evidence: Chrome 151 Stage 3 text-spacing PASS."
     },
     {
       "id": "reduced-motion-manual",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires reduced-motion manual verification beyond automated CSS assertion."
+      "notes": "BLOCKED: requires human execution. Verify prefers-reduced-motion removes smooth scrolling and non-essential transitions; state changes immediate. Preserved evidence: Chrome 151 Stage 3 reduced-motion PASS."
     },
     {
       "id": "keyboard-only-traversal",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires keyboard-only traversal across every route with focus visibility confirmation."
+      "notes": "BLOCKED: requires human execution. Tab through every Reader route, verify logical order, visible unobscured focus, descriptive names, no nested controls. Preserved evidence: Chrome 151 Stage 1 keyboard interaction PASS."
     },
     {
       "id": "no-javascript-manual",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Requires manual JS-disabled verification (reader-no-js project exists but human confirmation pending)."
+      "notes": "BLOCKED: requires human execution. Disable JS and verify Search shows complete catalog with conventional links, all routes recover correctly. Preserved evidence: Chrome 151 Stage 3 no-JS PASS."
     },
     {
       "id": "contrast-sampling",
       "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Manual contrast sampling semantic text, links/visited, focus, controls, borders, metadata, every callout state light+dark \u2014 WCAG 2.2 AA 4.5:1 / 3:1, no exception."
-    },
-    {
-      "id": "orca-firefox-journey",
-      "outcome": "BLOCKED_PENDING_HUMAN",
-      "notes": "Named Orca + current stable Firefox on Linux journey across shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search initial/result/zero/clear, About, 404, ordinary error."
+      "notes": "BLOCKED: requires human execution. Sample semantic text, links and visited links, focus, controls, borders, metadata, every callout state (fact/note/warning) in light and dark. Thresholds 4.5:1 text, 3:1 large/non-text. No exception. Preserved: contrast remains BLOCKED_PENDING_HUMAN per scope amendment — not waived."
     }
   ],
   "humanFidelityApproval": {
     "approved": false,
     "approver": "",
     "date": "",
-    "notes": "BLOCKED_PENDING_HUMAN \u2014 only after every preceding PASS and invariants green; never waives failed invariant."
+    "notes": "BLOCKED_PENDING_HUMAN — only after every preceding PASS and invariants green; never waives failed invariant. Residual: Firefox/WebKit/Orca no longer gates per Chrome-only amendment."
   }
 }

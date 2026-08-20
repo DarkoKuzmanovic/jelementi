@@ -61,7 +61,10 @@ test('audio sits directly beneath the opening; cover and all seven blocks follow
   await expect(body.locator('figure img')).toBeVisible();
   await expect(body.locator('ol')).toBeVisible();
   await expect(body.locator('blockquote')).toBeVisible();
-  await expect(body.locator('aside.callout')).toBeVisible();
+  await expect(body.locator('aside.callout')).toHaveCount(3);
+  await expect(body.locator('aside.callout-fact')).toBeVisible();
+  await expect(body.locator('aside.callout-note')).toBeVisible();
+  await expect(body.locator('aside.callout-warning')).toBeVisible();
   await expect(body.locator('hr')).toBeVisible();
 
   // Inline marks/nodes and footnote reference links.

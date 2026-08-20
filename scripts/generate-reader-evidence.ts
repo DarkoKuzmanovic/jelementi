@@ -1,10 +1,12 @@
 /**
- * Deterministic curated visual evidence generator for T104.
+ * Deterministic curated visual evidence generator for T104 — Chrome-only per #104#issuecomment-5353353146.
  *
  * Produces Chromium-automated screenshots (wide + 320, light + dark,
  * reduced-motion) as review evidence, and a contact sheet markdown that
- * explicitly marks Firefox, WebKit proxy, coarse-pointer/touch, and Orca
- * as BLOCKED_PENDING_HUMAN.
+ * marks the Chrome manual matrix as PASS via preserved Chrome 151.0.7922.169 evidence
+ * (visual 32-image matrix, Stage1 interaction, Stage2 320px touch + 200/400 zoom,
+ * Stage3 text-spacing + reduced-motion + no-JS) and notes reduced cross-browser/real-AT
+ * coverage (Firefox/WebKit/Orca no longer gates) as residual limitation.
  *
  * Usage:
  *   pnpm tsx scripts/generate-reader-evidence.ts         # generate screenshots if browser available
@@ -148,32 +150,39 @@ export function buildContactSheetMarkdown(input: ContactSheetInput): string {
     'Screenshots saved under `docs/evidence/reader-acceptance/screenshots/` (git-tracked). Review them visually; do not add pixel-diff CI gates.',
   );
   lines.push('');
-  lines.push('## Manual matrix — honestly marked');
+  lines.push('## Manual matrix — Chrome-only per #104#issuecomment-5353353146');
   lines.push('');
   lines.push(
-    'All genuinely manual checkpoints remain **BLOCKED_PENDING_HUMAN** until a human performs and records them; Lighthouse is **PASS per amended contract** (agent-run, reproducible) — see below:',
+    'Chrome manual matrix honestly marked; Firefox/WebKit/Orca no longer gates (spec reduction, not fabricated PASS) — see residual limitation below. Lighthouse is **PASS per amended contract** (agent-run, reproducible) — see below:',
   );
   lines.push('');
   lines.push(
-    '- Chromium stable desktop (wide/320, light/dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS) — **BLOCKED_PENDING_HUMAN**',
+    '- Chrome stable desktop 151.0.7922.169 — visual 32-image matrix (8 routes × 1280/320 × light/dark, width-verified) — **PASS** (human verified, Chromium automated provides 32 PNGs)',
   );
   lines.push(
-    '- Firefox stable desktop (wide/320, light/dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS) — **BLOCKED_PENDING_HUMAN**',
-  );
-  lines.push('- Playwright WebKit explicitly as Safari proxy — **BLOCKED_PENDING_HUMAN**');
-  lines.push('- Coarse-pointer / touch mobile viewport — **BLOCKED_PENDING_HUMAN**');
-  lines.push(
-    '- 100% / 200% / 400% zoom cells at representative routes — **BLOCKED_PENDING_HUMAN** (Chromium 320 + text-spacing automated; manual zoom still required)',
-  );
-  lines.push('- Text spacing (WCAG 1.4.12) overrides — **BLOCKED_PENDING_HUMAN**');
-  lines.push('- Reduced motion manual verification — **BLOCKED_PENDING_HUMAN**');
-  lines.push('- Keyboard-only traversal — **BLOCKED_PENDING_HUMAN**');
-  lines.push('- No-JavaScript manual behavior — **BLOCKED_PENDING_HUMAN**');
-  lines.push(
-    '- Contrast sampling (semantic text, links/visited, focus, controls, borders, metadata, every callout state, light+dark, WCAG 2.2 AA 4.5:1/3:1) — **BLOCKED_PENDING_HUMAN**',
+    '- Chrome 151 Stage 1 interaction (shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search, About, 404) — **PASS**',
   );
   lines.push(
-    '- Orca + Firefox on Linux journey (shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search initial/result/zero/clear, About, 404, ordinary error) — **BLOCKED_PENDING_HUMAN**',
+    '- Chrome 151 Stage 2 — 320px touch + 200%/400% zoom cells at representative routes, no 2D scrolling — **PASS**',
+  );
+  lines.push(
+    '- Chrome 151 Stage 3 — WCAG 1.4.12 text-spacing + reduced-motion + no-JS (Search complete catalog) — **PASS**',
+  );
+  lines.push(
+    '- Coarse-pointer / touch mobile viewport — **PASS via Chrome Stage 2** (at least one coarse-pointer/touch viewport verified at 320px)',
+  );
+  lines.push(
+    '- 100% / 200% / 400% zoom cells at representative routes — **PASS via Chrome Stage 2** (reflow preserved, no page-level 2D scrolling)',
+  );
+  lines.push('- Text spacing (WCAG 1.4.12) overrides — **PASS via Chrome Stage 3**');
+  lines.push('- Reduced motion manual verification — **PASS via Chrome Stage 3**');
+  lines.push('- Keyboard-only traversal — **PASS via Chrome Stage 1**');
+  lines.push('- No-JavaScript manual behavior — **PASS via Chrome Stage 3**');
+  lines.push(
+    '- Contrast sampling (semantic text, links/visited, focus, controls, borders, metadata, every callout state fact/note/warning, light+dark, WCAG 2.2 AA 4.5:1/3:1) — **BLOCKED_PENDING_HUMAN** (requires manual sampling of all three callout variants; rich article now exposes fact/note/warning)',
+  );
+  lines.push(
+    '- Firefox stable / WebKit proxy / Orca+Firefox journey — **no longer gates per Chrome-only amendment 5353353146** (Firefox Dev Edition 155.0b1 supplemental PASS noted separately; Orca was installed then removed per human request) — residual limitation: reduced cross-browser and real-AT coverage',
   );
   lines.push(
     '- Lighthouse mobile: **PASS per amended contract #104#issuecomment-5351661545** — Accessibility 100, Best Practices 100, Performance 100, SEO 60 with `is-crawlable` as the sole failed applicable SEO audit (every other applicable SEO audit PASS, raw SEO 60 and exact audit evidence in `lighthouse.json`; any second failure blocks; future SEO 100 with no exception once global noindex retired) — **PASS** (agent-run, reproducible via `pnpm tsx scripts/run-lighthouse.ts`)',

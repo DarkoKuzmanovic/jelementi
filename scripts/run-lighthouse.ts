@@ -67,8 +67,9 @@ export function isNoindexPresentInHtml(html: string): boolean {
     const attrRegex = /(\w[\w-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`>]+))/g;
     let m: RegExpExecArray | null;
     while ((m = attrRegex.exec(tag)) !== null) {
-      const name = m[1].toLowerCase();
+      const name = (m[1] ?? '').toLowerCase();
       const value = (m[2] ?? m[3] ?? m[4] ?? '').toLowerCase();
+      if (!name) continue;
       attrs[name] = value;
     }
     return attrs['name'] === 'robots' && attrs['content'] === 'noindex';

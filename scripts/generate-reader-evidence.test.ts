@@ -107,7 +107,12 @@ describe('generate-reader-evidence', () => {
       routes: EVIDENCE_ROUTES,
     });
     expect(md).toContain('Chromium automated');
-    expect(md).toContain('Firefox');
+    // Chrome-only per 5353353146 — Firefox/WebKit/Orca no longer gates, noted as residual
+    expect(md).toContain('Chrome 151');
+    expect(md).toContain('PASS');
+    expect(md).toContain('Contrast sampling');
     expect(md).toContain('BLOCKED_PENDING_HUMAN');
+    expect(md).toContain('Firefox');
+    expect(md).toContain('no longer gates');
   });
 });

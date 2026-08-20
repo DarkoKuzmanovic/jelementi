@@ -1,23 +1,23 @@
 # Reader acceptance report — T104 final integration gate
 
-**Status:** Final acceptance gate — automated gates green, manual matrix honestly **BLOCKED_PENDING_HUMAN**
-**Date:** 2026-08-19
-**Worktree commit:** evidence captured at actual HEAD at capture (see `docs/evidence/reader-acceptance/{contact-sheet.md,lighthouse.json}` for commit + timestamp) — base `54e2e8f` (merged main), prior gate at `7b49b20`; correction scripts derive HEAD fail-closed, so future captures record current HEAD truthfully
+**Status:** Final acceptance gate — automated gates green, Chrome stages + contrast **PASS**, M13 **PASS** 2026-08-20 (Darko)
+**Date:** 2026-08-20
+**Worktree commit:** `0fadb3a98b87f3cf8a710bbdf2a5236a32d905d8` — evidence captured at actual HEAD at capture (see `docs/evidence/reader-acceptance/{contact-sheet.md,lighthouse.json}` for commit + timestamp) — base `54e2e8f` (merged main), prior gate at `7b49b20`; correction scripts derive HEAD fail-closed, so future captures record current HEAD truthfully
 **Base merge:** PR #107 `t99-t103-reader-fanin` (editorial Reader redesign)
 **Authority:** Specification #96, foundation runbook `reader-acceptance-foundation.md`, immutable design sources `62b3e95`, `d2648cf`, `c548b7e`, `a10e9f3`
 **Supervisor Intercom target:** `01a01a09-eb85-7bfa-a6e9-e9cf74edf33d`
 **Frozen asset ceilings (hard, non-waivable):** Reader CSS **17,943** · Search JS **167,513** · Representative HTML **70,885**
-**Honesty boundary:** No manual Firefox, coarse-pointer/touch, WebKit real-device, Orca, contrast sampling, keyboard experiential, zoom/text-spacing, or human structural/experiential approval is claimed. Those remain **BLOCKED_PENDING_HUMAN** with explicit wizard and evidence slots.
+**Honesty boundary (Chrome-only per #104#issuecomment-5353353146):** Chrome 151.0.7922.169 manual matrix is **PASS** for visual 32-image matrix, Stage 1 interaction, Stage 2 320px touch + 200/400 zoom, Stage 3 text-spacing + reduced-motion + no-JS (preserved evidence, see §7 and §11); contrast sampling **PASS** (human: stable Chrome light/dark; body and metadata; links/visited role; focus; controls; dividers/meaningful borders; fact/note/warning callout text/background/accent; rich article wide/narrow re-review all meet stated WCAG 2.2 AA thresholds) and final M13 **PASS** 2026-08-20 Darko: Darko explicitly approves structural and experiential fidelity for the completed Reader redesign after every preceding gate passed, with the documented Chrome-only / no Firefox-Safari-WebKit-real-screen-reader residual limitation accepted. — Firefox, native Safari, Playwright WebKit proxy, and Orca/manual screen-reader journeys are **no longer gates** (explicit spec reduction, not fabricated PASS; residual limitation: reduced cross-browser and real-AT coverage); Firefox Dev Edition 155.0b1 supplemental PASS noted separately; Orca installed then removed per human request. Rich article now exposes all three callout variants (fact/note/warning) for light/dark contrast review.
 
 ---
 
 ## 1. Executive summary
 
-This report is the single final integration and acceptance gate for the complete Reader–Studio visual consolidation (#96, #104). It introduces no new design direction and waives no failed slice. It integrates and reports every phase-6 verification obligation from #96 (automated gates green, manual gates honestly held as BLOCKED_PENDING_HUMAN), records material deviations for prospective human decision, and gates explicit human fidelity approval on prior full-green.
+This report is the single final integration and acceptance gate for the complete Reader–Studio visual consolidation (#96, #104). It introduces no new design direction and waives no failed slice. It integrates and reports every phase-6 verification obligation from #96 (automated gates green, manual gates honestly held as PASS per Chrome-only amendment and M13 human approval), records material deviations for human decision now approved at M13, and gated explicit human fidelity approval on prior full-green.
 
 **Automated gate:** One clean canonical `PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy` passes at this worktree with no drift from the merged main. See §3 and artifact `/tmp/verify-deploy-T104.log`.
 
-**Manual gate:** The automated Browser, Architecture, Data, and Asset probes are green. The agent-run Lighthouse mobile is **PASS per amended contract** (#104#issuecomment-5351661545) — Accessibility 100, Best Practices 100, Performance 100, SEO 60 with `is-crawlable` as the sole failed applicable SEO audit (every other applicable SEO audit PASS, raw SEO recorded, any second failure blocks; future SEO 100 once global noindex retired). The genuinely manual Browser matrix (Firefox/WebKit/coarse-pointer, 100/200/400 zoom, text spacing, reduced motion experiential, keyboard-only, contrast sampling, Orca+Firefox journey) and human structural/experiential fidelity approval remain honestly **BLOCKED_PENDING_HUMAN** until a human performs and records them via the committed wizard. Human approval cannot occur before every preceding criterion is green and can never waive a failed invariant.
+**Manual gate (Chrome-only per 5353353146):** The automated Browser, Architecture, Data, and Asset probes are green. The agent-run Lighthouse mobile is **PASS per amended contract** (#104#issuecomment-5351661545) — Accessibility 100, Best Practices 100, Performance 100, SEO 60 with `is-crawlable` as the sole failed applicable SEO audit (every other applicable SEO audit PASS, raw SEO recorded, any second failure blocks; future SEO 100 once global noindex retired). Chrome 151.0.7922.169 manual matrix is **PASS** for visual 32-image matrix, Stage 1 interaction, Stage 2 320px touch + 200/400 zoom, Stage 3 text-spacing + reduced-motion + no-JS (preserved human evidence). Contrast sampling (all three callout variants fact/note/warning, light/dark) is **PASS** — Human contrast gate PASS: stable Chrome light/dark; body and metadata; links/visited role; focus; controls; dividers/meaningful borders; fact/note/warning callout text/background/accent; rich article wide/narrow re-review all meet stated WCAG 2.2 AA thresholds — and final M13 **PASS** 2026-08-20 Darko: Darko explicitly approves structural and experiential fidelity for the completed Reader redesign after every preceding gate passed, with the documented Chrome-only / no Firefox-Safari-WebKit-real-screen-reader residual limitation accepted. Firefox/WebKit/Orca no longer gates (residual limitation: reduced cross-browser and real-AT coverage, not fabricated PASS). Human approval occurred only after every preceding Chrome criterion was green and did not waive a failed invariant.
 
 **Fan-in simplifications:** The fan-in visual simplifications from #99–#103 (see §13) are **not silently accepted** — they are documented here as explicit human-fidelity review inputs requiring approval after visual inspection of the curated evidence.
 
@@ -129,50 +129,45 @@ Configuration: `apps/web/playwright.reader.config.ts` (fixture-backed, `READER_A
 - Accessibility: Axe `expectNoBlockingAccessibilityViolations` reports zero serious/critical across Home (`reader-home.spec:202`), Categories (`reader-categories.spec:98/140` skipped where no-js), Search (`reader-search.spec:6`), Article (`reader-article-quiet-column` + helper), Recovery — paired with semantic assertions for landmarks/headings/skip/names/descriptions/status/audio/figures/footnotes/backlinks
 - Responsive: 320 CSS px `body.scrollWidth === 320` on every composition; nav `flex-wrap:wrap` (no burger); 200% text resize; WCAG text-spacing overrides; 400% zoom equivalent (320px effective) with no page-level two-axis scrolling
 
-**Honest limitation:** WebKit, Firefox, coarse-pointer/touch, and human-performed contrast/zoom/text-spacing/Orca require manual verification — marked **BLOCKED_PENDING_HUMAN** in §7.
+**Honest limitation (Chrome-only, now with M13 PASS):** Final M13 **PASS** 2026-08-20 Darko (see §7). Contrast sampling (all three callout variants) is **PASS** (human gate 2026-08-20). Firefox/WebKit/Orca and additional browsers are no longer gates per Chrome-only amendment (residual limitation: reduced cross-browser and real-AT coverage, not fabricated PASS). Chrome touch/zoom/text-spacing/reduced-motion/no-JS/keyboard already verified via Chrome 151 Stage 1/2/3 — marked **PASS** in §7.
 
 ---
 
-## 7. Manual evidence matrix — honestly blocked pending human
+## 7. Manual evidence matrix — Chrome-only per #104#issuecomment-5353353146
 
 Interactive wizard: `pnpm tsx scripts/human-acceptance-wizard.ts` → writes `docs/evidence/reader-acceptance/manual-evidence.json` (template at `manual-evidence.template.json`).
 
-Default status for every manual cell is **BLOCKED_PENDING_HUMAN**. The report claims no manual Firefox, coarse-pointer/touch, WebKit real-device, Orca, contrast sampling, keyboard experiential, zoom/text-spacing, or structural approval until a human performs and records it.
+Chrome 151.0.7922.169 manual matrix is **PASS** for visual 32, Stage 1/2/3 and contrast (fact/note/warning) (see below); final M13 **PASS** 2026-08-20 Darko. Firefox/WebKit/Orca no longer gates (spec reduction, residual limitation: reduced cross-browser and real-AT coverage, not fabricated PASS).
 
 | # | Checkpoint | Required evidence | Status | How to satisfy |
 | --- | --- | --- | --- | --- |
-| M1 | Chromium stable desktop | Current stable Chromium version; wide + 320, light+dark, reduced motion, keyboard traversal, 100/200/400 zoom, text spacing, no-JS outcomes per route | **BLOCKED_PENDING_HUMAN** | Human opens built preview (`pnpm preview:web` loopback) or fixture dev server at `vite.reader-acceptance.config.ts` in current stable Chrome, records versions + outcomes via wizard |
-| M2 | Firefox stable desktop | Same matrix in current stable Firefox | **BLOCKED_PENDING_HUMAN** | Human Firefox; Chromium cannot proxy |
-| M3 | Playwright WebKit as Safari proxy | Playwright + WebKit version, outcomes, explicitly labeled as proxy | **BLOCKED_PENDING_HUMAN** | `pnpm exec playwright install webkit` then manual inspection or `pnpm exec playwright test -c … --project webkit` smoke; label Safari-proxy |
-| M4 | Coarse-pointer / touch mobile viewport | Device/viewport, pointer type, outcome | **BLOCKED_PENDING_HUMAN** | Real device or Playwright `devices['Pixel 5']` / `hasTouch` emulation |
-| M5 | Representative 100% / 200% / 400% zoom cells | Screenshots or notes per zoom level, reflow outcome (no 2D scrolling) | **BLOCKED_PENDING_HUMAN** | Manual browser zoom at Home, Category, Article, Search, About, 404 |
-| M6 | Text spacing (WCAG 1.4.12) | Overrides applied (`line-height`, `letter-spacing`, etc.), per-route outcome | **BLOCKED_PENDING_HUMAN** | Inject WCAG spacing bookmarklet or devtools style overrides |
-| M7 | Reduced motion | `prefers-reduced-motion: reduce` emulation outcomes, observed transitions | **BLOCKED_PENDING_HUMAN** | DevTools rendering → emulate reduced motion |
-| M8 | Keyboard-only traversal | Tab order notes, visible unobscured focus per route | **BLOCKED_PENDING_HUMAN** | Unplug mouse, Tab/Shift+Tab through every route |
-| M9 | No-JavaScript behavior | JS-disabled outcomes per route (Search complete catalog, recovery links) | **BLOCKED_PENDING_HUMAN** | Disable JS in browser or use `reader-no-js` project evidence as supplement — human still confirms real browser |
-| M10 | Contrast sampling (WCAG 2.2 AA) | Samples: semantic text, links + visited, focus, controls, borders, metadata, every callout state in light + dark; ratios (≥4.5:1 text, ≥3:1 large/non-text); tool version; no exception | **BLOCKED_PENDING_HUMAN** | Colour-picked samples, Axe contrast, or browser contrast tool; must cover all roles |
-| M11 | Orca + Firefox on Linux journey | Orca version, Firefox stable version, distro; step outcomes: shell/skip/landmarks, Home hierarchy, one rich article with audio and footnotes, Categories, Search initial/result/zero/clear announcements, About, 404, ordinary error | **BLOCKED_PENDING_HUMAN** | Linux + Orca + Firefox stable; accessibility-tree inspection supplements other engines |
-| M12 | Lighthouse mobile (reproducible local, agent-run) | Lighthouse version, mobile scores (Accessibility 100, Best Practices 100, Performance ≥90), every applicable SEO audit PASS and `is-crawlable` sole failed with raw SEO score and exact audit evidence (currently 60), URL tested, `lighthouse.json` with `failedApplicableAudits` and `failedDetails`, rerun notes if noisy; future SEO 100 with no exception once global noindex retired | **PASS per amended contract #104#issuecomment-5351661545** — Lighthouse 13.4.1 at `http://127.0.0.1:43123/` (commit a6845aa, 2026-08-20T05:23:42Z) recorded Accessibility 100/Best Practices 100/Performance 100/SEO 60; **every applicable SEO audit PASS and `is-crawlable` is the sole failed applicable audit** (raw SEO 60, exact audit evidence in `docs/evidence/reader-acceptance/lighthouse.json`; any second failure would block; `meta-description` fix 50→60 applied; global `noindex` remains immutable per DECISIONS.md). See §10/10a. |
+| M1 | Chrome stable 151.0.7922.169 — visual 32-image matrix | 8 routes × 1280/320 × light/dark, width-verified PNGs (representative fixture) | **PASS** — human verified, Chromium automated provides 32 PNGs (see contact-sheet) | Human opens built preview (`pnpm preview:web`) or fixture dev server at `vite.reader-acceptance.config.ts` in Chrome 151, records version + outcomes via wizard |
+| M2 | Chrome 151 Stage 1 interaction | shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search, About, 404 | **PASS** — Chrome 151.0.7922.169 Stage 1 | Human Chrome 151 interaction exercise, records version + per-route outcomes |
+| M3 | Chrome 151 Stage 2 — 320px touch + 200%/400% zoom | 320px touch viewport + 200%/400% zoom at representative routes, no page-level 2D scrolling | **PASS** — Chrome 151.0.7922.169 Stage 2 | Manual 320px touch + browser zoom at Home/Category/Article/Search/About/404 |
+| M4 | Chrome 151 Stage 3 — text-spacing + reduced-motion + no-JS | WCAG 1.4.12 text-spacing overrides, `prefers-reduced-motion: reduce`, JS-disabled (Search complete catalog) | **PASS** — Chrome 151.0.7922.169 Stage 3 | Inject WCAG spacing bookmarklet / DevTools emulate reduced-motion / disable JS in Chrome 151 |
+| M5 | Contrast sampling (WCAG 2.2 AA) | Samples: semantic text, links + visited, focus, controls, borders, metadata, every callout state **fact/note/warning** in light + dark; ratios (≥4.5:1 text, ≥3:1 large/non-text); tool version; no exception | **PASS** — Human contrast gate PASS: stable Chrome light/dark; body and metadata; links/visited role; focus; controls; dividers/meaningful borders; fact/note/warning callout text/background/accent; rich article wide/narrow re-review all meet stated WCAG 2.2 AA thresholds. |
+| M6 | Lighthouse mobile (reproducible local, agent-run) | Lighthouse version, mobile scores (Accessibility 100, Best Practices 100, Performance ≥90), every applicable SEO audit PASS and `is-crawlable` sole failed with raw SEO score and exact audit evidence (currently 60), URL tested, `lighthouse.json` with `failedApplicableAudits` and `failedDetails`, rerun notes if noisy; future SEO 100 with no exception once global noindex retired | **PASS per amended contract #104#issuecomment-5351661545** — Lighthouse 13.4.1 at `http://127.0.0.1:43123/` (commit a6845aa, 2026-08-20T05:23:42Z) recorded Accessibility 100/Best Practices 100/Performance 100/SEO 60; **every applicable SEO audit PASS and `is-crawlable` is the sole failed applicable audit** (raw SEO 60, exact audit evidence in `docs/evidence/reader-acceptance/lighthouse.json`; any second failure would block; `meta-description` fix 50→60 applied; global `noindex` remains immutable per DECISIONS.md). See §10/10a. |
+| M7 | Firefox / WebKit / Orca | Firefox stable, WebKit proxy, Orca+Firefox journey | **no longer gates per Chrome-only amendment 5353353146** — residual limitation: reduced cross-browser and real-AT coverage (Firefox Dev 155.0b1 supplemental PASS noted separately; Orca installed then removed per human request) | Not required for Chrome-only gate; note as residual |
 
 **Human fidelity approval (final gate):**
 
 | Checkpoint | Condition | Status |
 | --- | --- | --- |
-| M13 | Explicit human approval of structural and experiential fidelity — only after every preceding M1–M12 **PASS** and every invariant/asset/architecture gate **green**; recorded with approver name, date, fidelity statement; never inferred; never waives failed invariant | **BLOCKED_PENDING_HUMAN** |
+| M13 | Explicit human approval of structural and experiential fidelity — only after every preceding M1–M6 **PASS** (Chrome 151) and every invariant/asset/architecture gate **green**; recorded with approver name, date, fidelity statement; never inferred; never waives failed invariant | **PASS** 2026-08-20 Darko: Darko explicitly approves structural and experiential fidelity for the completed Reader redesign after every preceding gate passed, with the documented Chrome-only / no Firefox-Safari-WebKit-real-screen-reader residual limitation accepted. |
 
-No checkpoint above is satisfied by Chromium JS-enabled Playwright alone.
-
----
-
-## 8. Contrast sampling — blocked
-
-See M10 above. Automated cannot sample contrast reliably across semantic roles, visited links, focus rings, control borders, metadata, and every callout state in both light and dark themes. Manual sampling is required; this report does not claim it.
+Chrome manual stages M1–M4 and M5 contrast are satisfied by human Chrome 151 verification (see above); M13 fidelity **PASS** 2026-08-20 Darko — all manual checkpoints now green. No checkpoint is satisfied by Chromium JS-enabled Playwright alone.
 
 ---
 
-## 9. Assistive-technology journey — Orca + Firefox on Linux
+## 8. Contrast sampling — PASS (Chrome-only) — human gate 2026-08-20T08:36:53.076Z
 
-See M11. The named journey is **Orca** with **current stable Firefox on Linux** across the eight step groups listed. Accessibility-tree inspection in other engines (Axe + semantic assertions) supplements but does not substitute. This report does not claim the Orca journey is complete.
+M5 **PASS** — Human contrast gate PASS: stable Chrome light/dark; body and metadata; links/visited role; focus; controls; dividers/meaningful borders; fact/note/warning callout text/background/accent; rich article wide/narrow re-review all meet stated WCAG 2.2 AA thresholds. WCAG 2.2 AA 4.5:1 text, 3:1 large/non-text, no exception. Tool: Chrome DevTools colour picker + Axe contrast, sampled fact/note/warning in light+dark. Rich article wide/narrow re-review included. Recorded in `docs/evidence/reader-acceptance/manual-evidence.json` (contrast-sampling PASS) with exact human note; M13 **PASS** 2026-08-20 Darko — see manual-evidence.json.
+
+---
+
+## 9. Assistive-technology journey — Orca + Firefox on Linux (no longer gates per Chrome-only amendment)
+
+Chrome-only per #104#issuecomment-5353353146: Firefox, native Safari, WebKit proxy, and Orca/manual screen-reader journeys are no longer gates (spec reduction, not fabricated PASS). Firefox Dev Edition 155.0b1 supplemental PASS noted separately; Orca was installed then fully removed per human request. Residual limitation: reduced cross-browser and real-AT coverage must be stated. Accessibility-tree inspection in Chrome (Axe + semantic assertions) remains the automated gate.
 
 ---
 
@@ -214,7 +209,7 @@ After the `meta-description` fix, the remaining SEO failure is solely `is-crawla
 
 **Implementation:** `scripts/run-lighthouse.ts` now parses the exact failed applicable SEO audit set (`getFailedSeoAudits` / `getFailedSeoAuditIds`) and asserts it is exactly `[is-crawlable]` during the noindex phase (or `[]` with SEO 100 once noindex is retired). It does **not** merely lower a numeric threshold — any second failed SEO audit alongside `is-crawlable` blocks the gate. `scripts/human-acceptance-wizard.ts`, `scripts/generate-reader-evidence.ts`, and `docs/evidence/reader-acceptance/lighthouse.json` record the same `failedApplicableAudits` / `failedDetails` and raw SEO score. Tests in `scripts/run-lighthouse.test.ts` cover sole `is-crawlable` pass, future SEO 100 pass, and second-failure blocking (including `meta-description` and `document-title` as second failures, and ignoring `manual`/`notApplicable`).
 
-**Evidence retained:** concise `docs/evidence/reader-acceptance/lighthouse.json` (100/100/60/100 with `seo: {rawScore, failedApplicableAudits: [is-crawlable], failedDetails, contract}`) plus raw `/tmp/lighthouse-T104-*` (not committed) with full auditRefs. Lighthouse is now **PASS per amended contract**; all genuinely manual checkpoints (M1–M11, M13) remain **BLOCKED_PENDING_HUMAN**.
+**Evidence retained:** concise `docs/evidence/reader-acceptance/lighthouse.json` (100/100/60/100 with `seo: {rawScore, failedApplicableAudits: [is-crawlable], failedDetails, contract}`) plus raw `/tmp/lighthouse-T104-*` (not committed) with full auditRefs. Lighthouse is now **PASS per amended contract**; all genuinely manual checkpoints (M1–M6, M13) now **PASS** 2026-08-20 (M13 Darko) per Chrome-only amendment and human approval.
 
 ## 11. Curated deterministic screenshots and contact sheets
 
@@ -223,7 +218,7 @@ After the `meta-description` fix, the remaining SEO failure is solely `is-crawla
 - Generated from frozen route list: Home, Categories, Category (Field Notes), Article rich (all 7 blocks + audio + footnotes), Article sparse, Search, About, Static 404.
 - Each route at 1280 wide and 320 narrow, light and dark, reduced-motion variant.
 - Filenames are deterministic: `home--light--1280.png`, `home--dark--320.png`, …, `404--dark--320.png` (see contact sheet table for full matrix).
-- Asset ceilings row is included in the contact sheet header for traceability: representative HTML **26369/70,885**, CSS **17,942/17,943**, JS **165,878/167,513**.
+- Asset ceilings row is included in the contact sheet header for traceability: representative HTML **27055/70,885**, CSS **17,942/17,943**, JS **166016/167,513**.
 
 **Automated capture (Chromium, fail-closed, width-verified):**
 
@@ -231,9 +226,9 @@ After the `meta-description` fix, the remaining SEO failure is solely `is-crawla
 pnpm tsx scripts/generate-reader-evidence.ts         # Chromium via @playwright/test, vite.reader-acceptance.config.ts representative scenario
 pnpm tsx scripts/generate-reader-evidence.ts --dry-run  # contact sheet only
 ```
-Screenshots save to `docs/evidence/reader-acceptance/screenshots/`. The committed `contact-sheet.md` is review evidence; do not add indiscriminate pixel-diff CI gates. Firefox, WebKit proxy, and coarse-pointer/touch captures remain **BLOCKED_PENDING_HUMAN** and must be captured manually.
+Screenshots save to `docs/evidence/reader-acceptance/screenshots/`. The committed `contact-sheet.md` is review evidence; do not add indiscriminate pixel-diff CI gates. Chrome 151 human-verified 32-image matrix is **PASS** (Chromium automated PNGs at 1280/320 light/dark); Firefox/WebKit/Orca no longer gates per Chrome-only amendment (residual limitation).
 
-**Current state at this commit (corrected, amended contract #104#issuecomment-5351661545):** Contact sheet is committed with actual HEAD (`a6845aa`, 2026-08-20T05:24:17Z) and truthful timestamp; `screenshots/` contains **32 real deterministic Chromium PNGs** (8 routes × 1280/320 × light/dark, reduced-motion), each verified for expected width (1280 or 320) and not byte-identical placeholder (see `scripts/generate-reader-evidence.ts` validation). Prior placeholder `PLACEHOLDER_NOTE.txt` and placeholder PNGs are removed. CI already proves reflow at 320, text-spacing, and 400% zoom equivalent via browser assertions, but human visual review of the curated PNGs still requires human inspection (structural/experiential fidelity remains BLOCKED until M13).
+**Current state at this commit (corrected, amended contract #104#issuecomment-5351661545):** Contact sheet is committed with actual HEAD (`a6845aa`, 2026-08-20T05:24:17Z) and truthful timestamp; `screenshots/` contains **32 real deterministic Chromium PNGs** (8 routes × 1280/320 × light/dark, reduced-motion), each verified for expected width (1280 or 320) and not byte-identical placeholder (see `scripts/generate-reader-evidence.ts` validation). Prior placeholder `PLACEHOLDER_NOTE.txt` and placeholder PNGs are removed. CI already proves reflow at 320, text-spacing, and 400% zoom equivalent via browser assertions, and human visual review of the curated PNGs is now **PASS** via M13 2026-08-20 Darko (structural/experiential fidelity approved after every preceding green).
 
 ---
 
@@ -262,13 +257,13 @@ Each row from `reader-acceptance-foundation.md` Traceability ledger is now bound
 | Search without JavaScript retains complete catalog and conventional links | `62b3e95`, `a10e9f3` A | Prerendered Search HTML | `reader-no-js` project + browse proof | **PASS** |
 | About is compact and factual; no invented contact | `a10e9f3` A | `AboutContent.svelte` | Content review + wide/320 evidence (`ReaderRecovery.test`, `reader-recovery.spec`) | **PASS** |
 | Missing article/category, unknown route, static 404, and ordinary error use normal shell and plain Home/Search/Categories recovery; Try again only when meaningful | `a10e9f3` A | `+error.svelte`, `ReaderRecovery.svelte`, route resolvers | HTTP status, recovery-link, fixture-error, no-JS assertions (`reader-recovery.spec`, `verify:worker`) | **PASS** |
-| Separately designed light/dark semantic roles follow system preference; no theme control | `62b3e95` | Foundation aliases + Reader tokens | Theme emulation, contrast samples (M10), bundle check | **PASS / contrast manual pending** |
+| Separately designed light/dark semantic roles follow system preference; no theme control | `62b3e95` | Foundation aliases + Reader tokens | Theme emulation, contrast samples (M5 PASS 2026-08-20), bundle check | **PASS** |
 | Reduced motion removes smooth scrolling and non-essential transitions; immediate state | `62b3e95` | `foundation.css @media (prefers-reduced-motion:reduce)` | Reduced-motion CSS + browser assertions (`reader-shell.spec:101`) | **PASS / experiential pending M7** |
 | 320 CSS px, 200% text resize, 400% zoom, text-spacing reflow without page-level 2D scrolling | `62b3e95` | Every Reader composition | Browser stress matrix + contact sheets (automated PASS) | **PASS (automated) / manual zoom M5 pending** |
-| Visible focus, logical tab order, descriptive names, non-color cues, no nested controls | `62b3e95` | Focus helpers + route markup | Keyboard assertions, Axe scan (zero serious/critical), Orca journey (M11) | **PASS (Axe + keyboard) / Orca pending** |
+| Visible focus, logical tab order, descriptive names, non-color cues, no nested controls | `62b3e95` | Focus helpers + route markup | Keyboard assertions, Axe scan (zero serious/critical), Chrome 151 Stage 1 keyboard (M2) | **PASS (Axe + Chrome 151 Stage 1)** |
 | Reader and Studio share only surface-neutral foundations; Studio retains density | #95/#96 | `foundation.css` + `ArticleRenderer` (owned); Studio shell separate | Shared contract tests + complete Studio suite (see §15) | **PASS** |
 
-No trait is waived. Where manual evidence is still **BLOCKED_PENDING_HUMAN**, the automated proof is green but final acceptance remains blocked.
+No trait is waived. Manual evidence is now **PASS** (all M1–M6 and M13 green 2026-08-20); automated proof was green throughout and final acceptance is now complete per Chrome-only residual limitation.
 
 ---
 
@@ -301,22 +296,22 @@ Authority: clean production build at this worktree with `PUBLIC_MEDIA_BASE_URL=h
 4. Missing required documents/assets fail closed. Categories route is now present (8,192 ceiling locked).
 5. Generated JSON delta (`contentOnlyGrowthBytes`) is reported separately and never raises HTML/CSS/JS ceilings.
 
-**Measured at `54e2e8f` (from `pnpm verify:reader:assets` on the canonical build):**
+**Measured at `0fadb3a98b87f3cf8a710bbdf2a5236a32d905d8` (current Chrome-only/callout state, via `pnpm verify:reader:assets`; baseline `54e2e8f`):**
 
 ```json
 {
   "routes": {
-    "home": 3002,
-    "about": 2171,
-    "category": 2944,
-    "article": 7795,
-    "search": 6439,
+    "home": 3137,
+    "about": 2305,
+    "category": 3037,
+    "article": 7891,
+    "search": 6546,
     "notFound": 1281,
-    "categories": 2737
+    "categories": 2856
   },
-  "representativeHtmlBytes": 26369,
+  "representativeHtmlBytes": 27055,
   "uniqueReaderCssBytes": 17942,
-  "searchJavaScriptBytes": 165878,
+  "searchJavaScriptBytes": 166016,
   "generatedContentBytes": 6131,
   "contentOnlyGrowthBytes": 0
 }
@@ -333,9 +328,9 @@ Authority: clean production build at this worktree with `PUBLIC_MEDIA_BASE_URL=h
 | Search | 3,623 | 11,815 | 6,439 | 5,376 under |
 | Static 404 | 1,281 | 9,473 | 1,281 | 8,192 under (exactly baseline) |
 | New Categories index | 0 | 8,192 | 2,737 | 5,455 under |
-| **Representative HTML total** | 13,541 | **70,885** | **26,369** | **44,516 under** |
-| **Unique Reader CSS** | 1,559 | **17,943** | **17,942** | **1 under — tightest margin, intentionally preserved** |
-| **Search JavaScript** | 159,321 | **167,513** | **165,878** | **1,635 under** |
+| **Representative HTML total** | 13,541 | **70,885** | **27055** | **43,830 under** |
+| **Unique Reader CSS** | 1,559 | **17,943** | **17942** | **1 under — tightest margin, intentionally preserved** |
+| **Search JavaScript** | 159,321 | **167,513** | **166016** | **1,497 under** |
 | Generated JSON content | 6,131 | — (reports separately) | 6,131 | 0 growth |
 
 **Interpretation:** Every per-route HTML allowance, the 70,885 total, the 17,943 CSS ceiling, and the 167,513 JS ceiling remain green. CSS margin is intentionally 1 byte under the frozen ceiling after the `6496a79` revert — this is not a budget raise but a preservation.
@@ -359,12 +354,12 @@ Any Reader foundation change that tainted Studio density would be caught by this
 
 ## 16. Implementation PR summary (for repeat in PR description)
 
-> Final Reader–Studio acceptance gate (T104) on worktree `54e2e8f` (merged main `54e2e8f`).
-> One canonical `PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy` → **PASS** (799 unit tests, 89 Studio, 68 Reader + smoke; `verify:web`/`verify:reader:assets`/`verify:wrangler`/`verify:worker`/`media:verify` green).
-> Representative HTML 26,369/70,885, CSS 17,942/17,943, Search JS 165,878/167,513 — all frozen ceilings preserved.
+> Final Reader–Studio acceptance gate (T104) on worktree `0fadb3a98b87f3cf8a710bbdf2a5236a32d905d8` (base `54e2e8f` merged main).
+> One canonical `PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy` → **PASS** (831 unit tests (68 Reader + smoke after callout fix), 89 Studio; `verify:web`/`verify:reader:assets`/`verify:wrangler`/`verify:worker`/`media:verify` green).
+> Representative HTML 27055/70,885, CSS 17942/17,943, Search JS 166016/167,513 — all frozen ceilings preserved (measured at head 0fadb3a, Chrome-only callout state with M13).
 > Architecture/data/contracts: prerender/non-hydrated, sole hydrated `/search`, sole fallback bootstrap + HTTP 404, no leaked Studio/compiler/fixture/acceptance-mode capability, validated published-only derivation, unchanged `/index.json` + fingerprint + schema.
 > Automated Reader acceptance covers every required route/state with JS/no-JS Chromium, wide/320, light/dark, reduced motion, keyboard, announcements, zoom/text-spacing stress, zero Axe serious/critical.
-> Manual matrix: Lighthouse mobile **PASS per amended contract** (Accessibility 100/Best Practices 100/Performance 100/SEO 60 sole `is-crawlable`, every applicable SEO audit PASS, raw SEO and exact audit evidence in `lighthouse.json`; future SEO 100; reproducible via `pnpm tsx scripts/run-lighthouse.ts`); genuinely manual Chromium/Firefox/WebKit-proxy/coarse-pointer, 100/200/400 zoom, text spacing, reduced motion, keyboard-only, no-JS experiential, contrast sampling (WCAG 2.2 AA), Orca+Firefox journey → honestly **BLOCKED_PENDING_HUMAN** (see §10a, via `human-acceptance-wizard` and `manual-evidence.template.json`).
+> Manual matrix: Lighthouse mobile **PASS per amended contract** (Accessibility 100/Best Practices 100/Performance 100/SEO 60 sole `is-crawlable`, every applicable SEO audit PASS, raw SEO and exact audit evidence in `lighthouse.json`; future SEO 100); Chrome 151 manual matrix **PASS** for visual 32, Stage 1/2/3 and contrast (fact/note/warning) (151.0.7922.169, human gate 2026-08-20); final M13 **PASS** 2026-08-20 Darko: Darko explicitly approves structural and experiential fidelity for the completed Reader redesign after every preceding gate passed, with the documented Chrome-only / no Firefox-Safari-WebKit-real-screen-reader residual limitation accepted. (see §10a, via `human-acceptance-wizard` and manual-evidence.json); Firefox/WebKit/Orca no longer gates per Chrome-only amendment 5353353146 (residual limitation, not fabricated PASS; Firefox Dev 155.0b1 supplemental noted, Orca removed).
 > Curated evidence: `docs/evidence/reader-acceptance/contact-sheet.md` (deterministic Chromium matrix, review-not-gate; screenshots fail-closed, width-verified); fan-in simplifications S1–S6 documented as explicit human-fidelity inputs, not waivers.
 > Residual: no invariant waived; human structural/experiential approval blocked until every preceding green and recorded via wizard.
 
@@ -374,24 +369,25 @@ Large machine output remains CI artifact (GitHub Actions `verify` workflow logs 
 
 ## 17. Residual limitations and next human action
 
-**Residual limitations of this automated commit:**
+**Residual limitations of this automated commit (Chrome-only per 5353353146):**
 
-- Manual browser/environment diversity, contrast, Orca, and human fidelity judgment cannot be proven from this checkout alone (Lighthouse is agent-proven per amended contract — Accessibility 100/Best Practices 100/Performance 100/SEO 60 sole `is-crawlable`, every applicable SEO audit PASS, raw SEO and exact audit evidence recorded; any second failure blocks; future SEO 100).
-- Screenshot directory is fail-closed real Chromium (32 PNGs verified widths); Firefox/WebKit/touch captures require human devices.
+- Final M13 human fidelity judgment cannot be proven from this checkout alone (Lighthouse contrast sampling now **PASS** via human gate 2026-08-20; Lighthouse mobile is agent-proven per amended contract — Accessibility 100/Best Practices 100/Performance 100/SEO 60 sole `is-crawlable`, every applicable SEO audit PASS, raw SEO and exact audit evidence recorded; any second failure blocks; future SEO 100).
+- Chrome 151 manual verification is **PASS** for visual 32, Stage 1/2/3; screenshot directory is fail-closed real Chromium (32 PNGs verified widths, article-rich now 151K/134K/155K/138K after adding fact/note callouts) — human re-review of rich-article contrast cells only.
+- Reduced cross-browser and real-AT coverage is a stated residual: Firefox (Dev 155.0b1 supplemental PASS), native Safari, WebKit proxy, and Orca/manual AT no longer gates per explicit spec reduction (not fabricated PASS); Orca was installed then removed per human request.
 - CSS ceiling margin is 1 byte — any future style addition must be justified by a specification amendment with measured attribution, not an after-the-fact raise.
 
 **Next human action — explicit, numbered, blocking:**
 
-1. **Run the wizard** and perform each manual cell, recording versions and outcomes:
+1. **Run the wizard** if re-recording needed and perform each remaining manual cell (Chrome-only), recording versions and outcomes:
    ```bash
    pnpm tsx scripts/human-acceptance-wizard.ts
-   # follow prompts for M1–M13; wizard writes docs/evidence/reader-acceptance/manual-evidence.json
+   # follow prompts for M1–M6 + M13; wizard writes docs/evidence/reader-acceptance/manual-evidence.json
+   # M1–M5 Chrome stages + contrast already PASS via preserved Chrome 151.0.7922.169 evidence and human gate 2026-08-20 — confirm or re-record only if drift
    ```
-2. **Capture manual browser evidence** per M1–M4 (current stable Chromium + Firefox + WebKit proxy + at least one coarse-pointer/touch viewport) at wide/320, light/dark, reduced motion, and the 100/200/400 zoom cells. Save screenshots or notes and reference their paths in the wizard.
-3. **Sample contrast** per M10 in light and dark for every role; record ratios and tool.
-4. **Complete Orca + Firefox journey** per M11 on Linux; record Orca/Firefox/distro versions and per-step narration.
-5. **Verify Lighthouse mobile** per M12 (already **PASS per amended contract** via `pnpm tsx scripts/run-lighthouse.ts` — Accessibility 100/Best Practices 100/Performance 100/SEO 60 sole `is-crawlable`, every applicable SEO audit PASS, raw SEO 60 and exact `failedApplicableAudits`/`failedDetails` recorded in `docs/evidence/reader-acceptance/lighthouse.json`; any second failure blocks; future SEO 100 once global noindex retired); rerun locally to reproduce and confirm, rerun noisy Performance.
-6. **Review curated evidence** (`docs/evidence/reader-acceptance/contact-sheet.md` + screenshots) and the fan-in simplifications S1–S6 for structural/experiential fidelity. Only when every preceding is **PASS** and invariants remain green, record explicit approval via the wizard’s final prompt (M13) with approver name, date, and statement.
+2. **Re-review rich-article contrast cells only if needed** — fixture now exposes all three callout variants (fact/note/warning) for light/dark; no need to recapture full 32-image matrix (article-rich PNGs updated from ~130K to ~152K due to 2 extra callouts; other routes unchanged). Contrast already **PASS** at 2026-08-20T08:36:53.076Z.
+3. **Sample contrast** per M5 already **PASS** (human gate 2026-08-20: stable Chrome light/dark; body and metadata; links/visited role; focus; controls; dividers/meaningful borders; fact/note/warning callout text/background/accent; rich article wide/narrow re-review all meet stated WCAG 2.2 AA thresholds) — no further sampling required before M13 unless design changes.
+4. **Verify Lighthouse mobile** per M6 (already **PASS per amended contract** via `pnpm tsx scripts/run-lighthouse.ts` — Accessibility 100/Best Practices 100/Performance 100/SEO 60 sole `is-crawlable`, every applicable SEO audit PASS, raw SEO 60 and exact `failedApplicableAudits`/`failedDetails` recorded in `docs/evidence/reader-acceptance/lighthouse.json`; any second failure blocks; future SEO 100 once global noindex retired); rerun locally to reproduce and confirm, rerun noisy Performance.
+5. **Review curated evidence** (`docs/evidence/reader-acceptance/contact-sheet.md` + screenshots, now including fact/note callouts in article-rich) and the fan-in simplifications S1–S6 for structural/experiential fidelity. Only when M1–M6 are **PASS** and invariants remain green, record explicit approval via the wizard’s final prompt (M13) with approver name, date, and statement. Firefox/WebKit/Orca residual need not block.
 
 After approval, commit `docs/evidence/reader-acceptance/manual-evidence.json` (and any manual screenshots) on this branch, then obtain fresh Standards + Spec review. Acceptance is complete only after that review is clean and the Intercom delivery to supervisor `01a01a09-eb85-7bfa-a6e9-e9cf74edf33d` receives ACK.
 

@@ -88,6 +88,18 @@ const richDocument = ArticleDocumentSchema.parse({
       title: 'Fixture only',
       children: [text('This content must never enter a production bundle.')],
     },
+    {
+      type: 'callout',
+      variant: 'fact',
+      title: 'Fact fixture',
+      children: [text('Deterministic fact callout for light/dark contrast sampling.')],
+    },
+    {
+      type: 'callout',
+      variant: 'note',
+      title: 'Note fixture',
+      children: [text('Deterministic note callout for light/dark contrast sampling.')],
+    },
     { type: 'divider' },
   ],
   footnotes: [

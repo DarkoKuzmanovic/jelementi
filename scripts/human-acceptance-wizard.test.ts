@@ -21,8 +21,10 @@ describe('human acceptance wizard', () => {
   it('exposes manual browser matrix checkpoints without claiming automation can satisfy them', () => {
     const ids = HUMAN_CHECKPOINTS.map((c) => c.id);
     expect(ids).toContain('chromium-stable');
-    expect(ids).toContain('firefox-stable');
-    expect(ids).toContain('webkit-proxy');
+    // Chrome-only per #104#issuecomment-5353353146 — Firefox, WebKit proxy, Orca no longer gates
+    expect(ids).not.toContain('firefox-stable');
+    expect(ids).not.toContain('webkit-proxy');
+    expect(ids).not.toContain('orca-firefox-journey');
     expect(ids).toContain('coarse-pointer-touch');
     expect(ids).toContain('zoom-100-200-400');
     expect(ids).toContain('text-spacing');
@@ -30,11 +32,11 @@ describe('human acceptance wizard', () => {
     expect(ids).toContain('keyboard-only-traversal');
     expect(ids).toContain('no-javascript-manual');
     expect(ids).toContain('contrast-sampling');
-    expect(ids).toContain('orca-firefox-journey');
     expect(ids).toContain('human-fidelity-approval');
     // lighthouse-mobile is agent-run, not a human checkpoint — validated via
     // pnpm tsx scripts/run-lighthouse.ts and recorded in lighthouse.json
     expect(ids).not.toContain('lighthouse-mobile');
+    expect(ids).not.toContain('firefox-stable');
   });
 
   it('marks manual evidence template as blocked pending human by default', () => {
@@ -161,7 +163,8 @@ describe('human acceptance wizard', () => {
 
   it('keeps total checkpoint count stable for report traceability', () => {
     // Pin count so report tables do not silently drift; update test intentionally when adding.
-    // 13 = 12 genuinely manual + 1 human-fidelity-approval; lighthouse-mobile is automated
-    expect(HUMAN_CHECKPOINTS).toHaveLength(13);
+    // Chrome-only per 5353353146: 9 genuinely manual + 1 human-fidelity-approval = 10; lighthouse-mobile is automated
+    // Firefox, WebKit proxy, Orca removed — residual limitation noted in report
+    expect(HUMAN_CHECKPOINTS).toHaveLength(10);
   });
 });

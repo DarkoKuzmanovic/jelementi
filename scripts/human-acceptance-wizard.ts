@@ -1,10 +1,15 @@
 /**
- * Human acceptance wizard for T104 final Reader acceptance.
+ * Human acceptance wizard for T104 final Reader acceptance — Chrome-only per #104#issuecomment-5353353146.
  *
- * This module defines the honest manual matrix. It automates NOTHING that
- * requires a human: Firefox, coarse-pointer/touch, Orca, contrast sampling,
+ * This module defines the honest manual matrix for current stable Chrome only.
+ * It automates NOTHING that requires a human: coarse-pointer/touch, contrast sampling,
  * keyboard-only, zoom/text-spacing, or structural/experiential approval are
- * recorded only when a human performs and records them.
+ * recorded only when a human performs and records them in Chrome.
+ *
+ * Firefox, native Safari, Playwright WebKit proxy, and Orca/manual screen-reader
+ * journeys are no longer gates (spec reduction per 5353353146) and are recorded
+ * only as supplemental, non-blocking notes; final report must state reduced
+ * cross-browser and real-AT coverage as residual limitation.
  *
  * The wizard is interactive: `pnpm tsx scripts/human-acceptance-wizard.ts`
  * walks the operator through each checkpoint and writes
@@ -55,102 +60,89 @@ export const HUMAN_CHECKPOINTS: readonly HumanCheckpoint[] = [
   },
   {
     id: 'chromium-stable',
-    label: 'Manual Chromium stable desktop',
+    label: 'Manual Chrome stable desktop (visual 32-image matrix)',
     description:
-      'Current stable Chromium desktop: wide and 320 CSS px, light and dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS behavior. Record browser version and outcome.',
+      'Current stable Chrome desktop: wide and 320 CSS px, light and dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS behavior. Record Chrome version and outcome. Preserved evidence: Chrome 151.0.7922.169 visual 32-image matrix PASS (8 routes × 1280/320 × light/dark at representative fixture, width-verified).',
     notes:
-      'Automate only Chromium JS/no-JS via Playwright; manual cell requires human visible verification.',
-    requiredEvidence: ['Chromium version', 'viewport, theme, zoom, text-spacing outcomes'],
-  },
-  {
-    id: 'firefox-stable',
-    label: 'Manual Firefox stable desktop',
-    description:
-      'Current stable Firefox desktop: same matrix as Chromium, plus keyboard traversal. Record version and outcome.',
-    notes: 'Cannot be automated via Chromium; requires human Firefox.',
-    requiredEvidence: ['Firefox version', 'per-matrix outcomes'],
-  },
-  {
-    id: 'webkit-proxy',
-    label: 'Playwright WebKit as Safari proxy',
-    description:
-      'Playwright WebKit run explicitly identified as Safari proxy. Record Playwright/WebKit version and outcome.',
-    notes: 'Not real Safari hardware; label proxy explicitly.',
-    requiredEvidence: ['Playwright version', 'WebKit proxy outcome'],
+      'Automate only Chromium JS/no-JS via Playwright; manual cell requires human visible verification in Chrome. Prior human PASS: Chrome 151.0.7922.169 — 32 PNGs verified.',
+    requiredEvidence: [
+      'Chrome version 151.0.7922.169',
+      'viewport, theme, zoom, text-spacing outcomes',
+      '32-image matrix paths',
+    ],
   },
   {
     id: 'coarse-pointer-touch',
-    label: 'Coarse-pointer / touch mobile viewport',
+    label: 'Coarse-pointer / touch mobile viewport (Chrome Stage 2)',
     description:
-      'At least one coarse-pointer / touch mobile viewport: viewport size, device, outcome.',
-    notes: 'Requires touch-capable viewport; Playwright coarse-pointer emulation or real device.',
-    requiredEvidence: ['device/viewport', 'pointer type', 'outcome'],
+      'At least one coarse-pointer / touch mobile viewport: viewport size, device, outcome. Preserved evidence: Chrome 151 Stage 2 320px touch PASS.',
+    notes:
+      'Requires touch-capable viewport; Chrome Stage 2 touch verified at 320px. Prior human PASS: Chrome 151.0.7922.169 Stage 2 touch.',
+    requiredEvidence: ['Chrome 151.0.7922.169', 'device/viewport 320px touch outcome'],
   },
   {
     id: 'zoom-100-200-400',
-    label: 'Representative 100%, 200%, 400% zoom cells',
+    label: 'Representative 100%, 200%, 400% zoom cells (Chrome Stage 2)',
     description:
-      'Capture 100%, 200%, 400% zoom at representative routes. Verify no page-level 2D scrolling, reflow preserved.',
+      'Capture 100%, 200%, 400% zoom at representative routes. Verify no page-level 2D scrolling, reflow preserved. Preserved evidence: Chrome 151 Stage 2 200%/400% zoom PASS.',
     notes:
-      'Automated 320px + text-spacing covers part; manual zoom confirms browser zoom behavior.',
-    requiredEvidence: ['screenshots or notes per zoom level', 'reflow outcome'],
+      'Automated 320px + text-spacing covers part; Chrome Stage 2 manual zoom verified. Prior human PASS: Chrome 151.0.7922.169 Stage 2 zoom.',
+    requiredEvidence: [
+      'Chrome 151.0.7922.169',
+      'screenshots or notes per zoom level',
+      'reflow outcome',
+    ],
   },
   {
     id: 'text-spacing',
-    label: 'Text spacing (WCAG 1.4.12) overrides',
+    label: 'Text spacing (WCAG 1.4.12) overrides (Chrome Stage 3)',
     description:
-      'Apply WCAG text-spacing overrides and verify no loss of content or functionality.',
-    notes: 'Requires manual injection or browser setting.',
-    requiredEvidence: ['spacing values applied', 'outcome per route'],
+      'Apply WCAG text-spacing overrides and verify no loss of content or functionality. Preserved evidence: Chrome 151 Stage 3 text-spacing PASS.',
+    notes:
+      'Requires manual injection or browser setting; Chrome Stage 3 verified. Prior human PASS: Chrome 151.0.7922.169 Stage 3 text-spacing.',
+    requiredEvidence: ['Chrome 151.0.7922.169', 'spacing values applied', 'outcome per route'],
   },
   {
     id: 'reduced-motion-manual',
-    label: 'Reduced motion manual verification',
+    label: 'Reduced motion manual verification (Chrome Stage 3)',
     description:
-      'Verify prefers-reduced-motion removes smooth scrolling and non-essential transitions; state changes immediate.',
-    notes: 'Automated CSS assertion exists; manual confirms no motion carries content.',
-    requiredEvidence: ['reduced-motion emulation', 'observed transitions'],
+      'Verify prefers-reduced-motion removes smooth scrolling and non-essential transitions; state changes immediate. Preserved evidence: Chrome 151 Stage 3 reduced-motion PASS.',
+    notes:
+      'Automated CSS assertion exists; Chrome Stage 3 verified. Prior human PASS: Chrome 151.0.7922.169 Stage 3 reduced-motion.',
+    requiredEvidence: ['Chrome 151.0.7922.169', 'reduced-motion emulation', 'observed transitions'],
   },
   {
     id: 'keyboard-only-traversal',
-    label: 'Keyboard-only traversal',
+    label: 'Keyboard-only traversal (Chrome Stage 1)',
     description:
-      'Tab through every Reader route, verify logical order, visible unobscured focus, descriptive names, no nested controls.',
-    notes: 'Playwright keyboard assertions exist; manual confirms real keyboard experience.',
-    requiredEvidence: ['tab order notes', 'focus visibility per route'],
+      'Tab through every Reader route, verify logical order, visible unobscured focus, descriptive names, no nested controls. Preserved evidence: Chrome 151 Stage 1 keyboard interaction PASS.',
+    notes:
+      'Playwright keyboard assertions exist; Chrome Stage 1 verified. Prior human PASS: Chrome 151.0.7922.169 Stage 1.',
+    requiredEvidence: ['Chrome 151.0.7922.169', 'tab order notes', 'focus visibility per route'],
   },
   {
     id: 'no-javascript-manual',
-    label: 'No-JavaScript behavior',
+    label: 'No-JavaScript behavior (Chrome Stage 3)',
     description:
-      'Disable JS and verify Search shows complete catalog with conventional links, all routes recover correctly.',
+      'Disable JS and verify Search shows complete catalog with conventional links, all routes recover correctly. Preserved evidence: Chrome 151 Stage 3 no-JS PASS.',
     notes:
-      'Automated reader-no-js project exists; manual confirms real browser JS-disabled behavior.',
-    requiredEvidence: ['JS-disabled outcomes per route'],
+      'Automated reader-no-js project exists; Chrome Stage 3 no-JS verified. Prior human PASS: Chrome 151.0.7922.169 Stage 3 no-JS.',
+    requiredEvidence: ['Chrome 151.0.7922.169', 'JS-disabled outcomes per route'],
   },
   {
     id: 'contrast-sampling',
-    label: 'Manual contrast sampling (WCAG 2.2 AA)',
+    label: 'Manual contrast sampling (WCAG 2.2 AA) — BLOCKED',
     description:
-      'Sample semantic text, links and visited links, focus, controls, borders, metadata, every callout state in light and dark. Thresholds 4.5:1 text, 3:1 large/non-text. No exception.',
+      'Sample semantic text, links and visited links, focus, controls, borders, metadata, every callout state (fact/note/warning) in light and dark. Thresholds 4.5:1 text, 3:1 large/non-text. No exception. Preserved: contrast remains BLOCKED_PENDING_HUMAN per scope amendment — not waived.',
     notes:
-      'Automated cannot sample contrast reliably; requires human tool (e.g., colour picker / axe contrast).',
-    requiredEvidence: ['sample list per theme', 'ratio results', 'tool version'],
-  },
-  {
-    id: 'orca-firefox-journey',
-    label: 'Orca + Firefox assistive-technology journey',
-    description:
-      'Orca with current stable Firefox on Linux: shell/skip/landmarks, Home hierarchy, one rich article with audio and footnotes, Categories, Search initial/result/zero/clear announcements, About, 404, ordinary error.',
-    notes:
-      'Named journey; no substitution. Record Orca, Firefox, distro versions and step outcomes.',
+      'Requires human tool (e.g., colour picker / axe contrast); rich article now exposes all three callout variants fact/note/warning for light/dark sampling. Do not mark PASS yet.',
     requiredEvidence: [
-      'Orca version',
-      'Firefox version',
-      'Linux distro',
-      'per-step narration outcomes',
+      'sample list per theme (including fact/note/warning callouts)',
+      'ratio results',
+      'tool version',
     ],
   },
+  // firefox-stable, webkit-proxy, orca-firefox-journey removed per Chrome-only amendment #104#issuecomment-5353353146 — residual limitation: no Firefox/Safari/WebKit/Orca gate; Firefox Dev 155.0b1 noted supplemental only; Orca installed then removed.
   // lighthouse-mobile is NOT a human checkpoint — it is agent-run, validated via
   // `pnpm tsx scripts/run-lighthouse.ts` and recorded in
   // docs/evidence/reader-acceptance/lighthouse.json (Accessibility 100,
