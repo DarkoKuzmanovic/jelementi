@@ -59,10 +59,17 @@ export function getCurrentHead(): string {
 export function isGlobalNoindexPresent(): boolean {
   try {
     const appHtml = readFileSync(join(process.cwd(), 'apps/web/src/app.html'), 'utf8');
-    return appHtml.includes('noindex');
-  } catch {
-    // If we cannot determine, fail safe to the current unlisted-beta assumption (noindex present)
-    return true;
+    // Detect the exact shipped directive, not any incidental mention of "noindex".
+    // The immutable unlisted-beta contract is the meta robots tag:
+    //   <meta name="robots" content="noindex" />
+    // Checking the exact attribute sequence prevents a comment or other text from
+    // masking removal of the directive and ensures the future SEO-100 contract
+    // activates only when the directive is truly retired.
+    return appHtml.includes('<meta name="robots" content="noindex"');
+  } catch (e) {
+    throw new Error(
+      `Failed to determine global noindex phase — failing closed: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
 }
 

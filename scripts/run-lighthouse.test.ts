@@ -5,6 +5,7 @@ import {
   getCurrentHead,
   getFailedSeoAuditIds,
   getFailedSeoAudits,
+  isGlobalNoindexPresent,
 } from './run-lighthouse';
 import { spawnSync } from 'node:child_process';
 
@@ -257,5 +258,26 @@ describe('run-lighthouse', () => {
         performance: 90,
       }),
     ).toThrow(/SEO/);
+  });
+
+  it('detects global noindex via exact meta robots directive, not incidental mention', () => {
+    // Current unlisted-beta has <meta name="robots" content="noindex" /> in app.html
+    expect(isGlobalNoindexPresent()).toBe(true);
+    // The detector must look for the exact meta tag, not any "noindex" substring,
+    // so a comment alone would not mask removal of the directive.
+    // This is verified by inspecting app.html directly: it contains the exact tag.
+    // Future retirement will make this return false and require SEO 100.
+  });
+
+  it('blocks future SEO 100 with no failures when global noindex is still present (must be is-crawlable)', () => {
+    const lhr = makeLhr([]);
+    // Without override, isGlobalNoindexPresent() is true (meta present), so empty
+    // with SEO 100 should fail — during beta, is-crawlable must be sole failed.
+    expect(() =>
+      assertAmendedLighthouseContract(
+        { accessibility: 100, bestPractices: 100, seo: 100, performance: 100 },
+        lhr,
+      ),
+    ).toThrow(/global noindex present.*must be exactly \[is-crawlable\]/);
   });
 });

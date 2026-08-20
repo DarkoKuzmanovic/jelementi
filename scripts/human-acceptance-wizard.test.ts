@@ -31,8 +31,10 @@ describe('human acceptance wizard', () => {
     expect(ids).toContain('no-javascript-manual');
     expect(ids).toContain('contrast-sampling');
     expect(ids).toContain('orca-firefox-journey');
-    expect(ids).toContain('lighthouse-mobile');
     expect(ids).toContain('human-fidelity-approval');
+    // lighthouse-mobile is agent-run, not a human checkpoint — validated via
+    // pnpm tsx scripts/run-lighthouse.ts and recorded in lighthouse.json
+    expect(ids).not.toContain('lighthouse-mobile');
   });
 
   it('marks manual evidence template as blocked pending human by default', () => {
@@ -159,6 +161,7 @@ describe('human acceptance wizard', () => {
 
   it('keeps total checkpoint count stable for report traceability', () => {
     // Pin count so report tables do not silently drift; update test intentionally when adding.
-    expect(HUMAN_CHECKPOINTS).toHaveLength(14);
+    // 13 = 12 genuinely manual + 1 human-fidelity-approval; lighthouse-mobile is automated
+    expect(HUMAN_CHECKPOINTS).toHaveLength(13);
   });
 });
