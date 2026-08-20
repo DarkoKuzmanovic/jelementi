@@ -155,14 +155,15 @@ export const HUMAN_CHECKPOINTS: readonly HumanCheckpoint[] = [
     id: 'lighthouse-mobile',
     label: 'Reproducible local mobile Lighthouse',
     description:
-      'Local mobile Lighthouse run: Accessibility 100, Best Practices 100, SEO 100, Performance >=90. Investigate noisy results via rerun, not waiver.',
+      'Local mobile Lighthouse run: Accessibility 100, Best Practices 100, Performance >=90; during immutable unlisted-beta global noindex, every applicable SEO audit must PASS and is-crawlable must be the sole failed SEO audit (raw SEO score recorded, currently 60). When global noindex is retired, SEO must be 100 with no exception. Investigate noisy results via rerun, not waiver.',
     notes:
-      'Run via `pnpm tsx scripts/run-lighthouse.ts` (wrangler dev --local mobile) or Chrome DevTools mobile against local build; record scores and URL.',
+      'Run via `pnpm tsx scripts/run-lighthouse.ts` (wrangler dev --local mobile) or Chrome DevTools mobile against local build; record scores, raw SEO score, and exact failed applicable SEO audit evidence (must be exactly [is-crawlable] during noindex). No artificial noindex-stripped build may be used as production evidence.',
     requiredEvidence: [
       'Lighthouse version',
-      'mobile scores (Accessibility/Best Practices/Performance thresholds, SEO recorded)',
+      'mobile scores (Accessibility 100, Best Practices 100, Performance >=90, SEO: sole failed audit is-crawlable with raw SEO score and exact audit evidence; future SEO 100 with no exception)',
       'URL tested',
       'raw artifact paths',
+      'failed applicable SEO audit set (exactly [is-crawlable] during noindex)',
     ],
   },
   {

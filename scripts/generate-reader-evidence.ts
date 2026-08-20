@@ -151,7 +151,7 @@ export function buildContactSheetMarkdown(input: ContactSheetInput): string {
   lines.push('## Manual matrix — honestly marked');
   lines.push('');
   lines.push(
-    'The following remain **BLOCKED_PENDING_HUMAN** until a human performs and records them:',
+    'All genuinely manual checkpoints remain **BLOCKED_PENDING_HUMAN** until a human performs and records them; Lighthouse is **PASS per amended contract** (agent-run, reproducible) — see below:',
   );
   lines.push('');
   lines.push(
@@ -170,7 +170,7 @@ export function buildContactSheetMarkdown(input: ContactSheetInput): string {
     '- Orca + Firefox on Linux journey (shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search initial/result/zero/clear, About, 404, ordinary error) — **BLOCKED_PENDING_HUMAN**',
   );
   lines.push(
-    '- Lighthouse mobile (Accessibility 100, Best Practices 100, SEO 100, Performance >=90) — **BLOCKED_PENDING_HUMAN**',
+    '- Lighthouse mobile: **PASS per amended contract #104#issuecomment-5351661545** — Accessibility 100, Best Practices 100, Performance 100, SEO 60 with `is-crawlable` as the sole failed applicable SEO audit (every other applicable SEO audit PASS, raw SEO 60 and exact audit evidence in `lighthouse.json`; any second failure blocks; future SEO 100 with no exception once global noindex retired) — **PASS** (agent-run, reproducible via `pnpm tsx scripts/run-lighthouse.ts`)',
   );
   lines.push(
     '- Human structural and experiential fidelity approval — **BLOCKED_PENDING_HUMAN** (only after every preceding green; never waives failed invariant)',

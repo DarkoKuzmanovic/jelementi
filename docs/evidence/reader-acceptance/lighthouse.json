@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-19T22:38:18.890409Z",
-  "commit": "1ac06ca7c67436f5f5200bc99ddf50cbbb29b619",
+  "generatedAt": "2026-08-20T05:22:06Z",
+  "commit": "dc880029b02a9f2a349d6301a944ffe9b3801cac",
   "url": "http://127.0.0.1:43123/",
   "lighthouseVersion": "13.4.1",
   "formFactor": "mobile",
@@ -10,7 +10,21 @@
     "seo": 60,
     "performance": 100
   },
+  "seo": {
+    "rawScore": 60,
+    "failedApplicableAudits": ["is-crawlable"],
+    "failedDetails": [
+      {
+        "id": "is-crawlable",
+        "title": "Page is blocked from indexing",
+        "score": 0,
+        "scoreDisplayMode": "binary",
+        "description": "Search engines are unable to include your pages in search results if they don't have permission to crawl them."
+      }
+    ],
+    "contract": "During unlisted-beta global noindex, every applicable SEO audit must PASS and is-crawlable must be the sole failed SEO audit (raw SEO score recorded, currently 60). When global noindex is retired, SEO must be 100 with no exception. No artificial noindex-stripped build may be used as production evidence."
+  },
   "rawJsonPath": "/tmp/lighthouse-T104-1787178291400.report.json",
   "rawHtmlPath": "/tmp/lighthouse-T104-1787178291400.report.html",
-  "note": "Escalation: SEO 60 fails is-crawlable due to global noindex (immutable). Meta-description fix applied (50\u219260). See raw report for auditRefs. Thresholds restored to 100/100/100/>=90, gate remains BLOCKED pending human decision."
+  "note": "Amended contract 2026-08-19 (issue #104#issuecomment-5351661545): Accessibility 100, Best Practices 100, Performance >=90, every applicable SEO audit PASS and is-crawlable sole failed (raw SEO 60 recorded with exact audit evidence). Future: SEO 100 with no exception once global noindex retired. Gate PASS per amended contract — is-crawlable is the sole failed applicable SEO audit; any second failure blocks. Raw JSON/HTML are CI artifacts at /tmp, not committed."
 }
