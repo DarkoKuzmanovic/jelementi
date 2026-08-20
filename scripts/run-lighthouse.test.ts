@@ -6,6 +6,7 @@ import {
   getFailedSeoAuditIds,
   getFailedSeoAudits,
   isGlobalNoindexPresent,
+  isNoindexPresentInHtml,
 } from './run-lighthouse';
 import { spawnSync } from 'node:child_process';
 
@@ -263,10 +264,14 @@ describe('run-lighthouse', () => {
   it('detects global noindex via exact meta robots directive, not incidental mention', () => {
     // Current unlisted-beta has <meta name="robots" content="noindex" /> in app.html
     expect(isGlobalNoindexPresent()).toBe(true);
-    // The detector must look for the exact meta tag, not any "noindex" substring,
-    // so a comment alone would not mask removal of the directive.
-    // This is verified by inspecting app.html directly: it contains the exact tag.
-    // Future retirement will make this return false and require SEO 100.
+    expect(isNoindexPresentInHtml('<meta name="robots" content="noindex" />')).toBe(true);
+    expect(isNoindexPresentInHtml('<meta content="noindex" name="robots">')).toBe(true);
+    expect(isNoindexPresentInHtml('<meta name="robots" content="noindex-other">')).toBe(false);
+    expect(isNoindexPresentInHtml('<!-- <meta name="robots" content="noindex"> -->')).toBe(false);
+    expect(isNoindexPresentInHtml('<!-- noindex -->')).toBe(false);
+    expect(isNoindexPresentInHtml('<meta name="viewport" content="width=device-width">')).toBe(
+      false,
+    );
   });
 
   it('blocks future SEO 100 with no failures when global noindex is still present (must be is-crawlable)', () => {

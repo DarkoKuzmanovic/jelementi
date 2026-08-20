@@ -56,16 +56,21 @@ export function getCurrentHead(): string {
  * This parsing ensures a second failed audit beyond `is-crawlable` blocks the gate,
  * rather than merely lowering a numeric SEO threshold.
  */
+export function isNoindexPresentInHtml(html: string): boolean {
+  const withoutComments = html.replace(/<!--[\s\S]*?-->/g, '');
+  return (
+    /<meta[^>]*content=["']noindex["'][^>]*>/i.test(withoutComments) &&
+    /<meta[^>]*name=["']robots["'][^>]*>/i.test(withoutComments) &&
+    /<meta[^>]*name=["']robots["'][^>]*content=["']noindex["'][^>]*>|<meta[^>]*content=["']noindex["'][^>]*name=["']robots["'][^>]*>/i.test(
+      withoutComments,
+    )
+  );
+}
+
 export function isGlobalNoindexPresent(): boolean {
   try {
     const appHtml = readFileSync(join(process.cwd(), 'apps/web/src/app.html'), 'utf8');
-    // Detect the exact shipped directive, not any incidental mention of "noindex".
-    // The immutable unlisted-beta contract is the meta robots tag:
-    //   <meta name="robots" content="noindex" />
-    // Checking the exact attribute sequence prevents a comment or other text from
-    // masking removal of the directive and ensures the future SEO-100 contract
-    // activates only when the directive is truly retired.
-    return appHtml.includes('<meta name="robots" content="noindex"');
+    return isNoindexPresentInHtml(appHtml);
   } catch (e) {
     throw new Error(
       `Failed to determine global noindex phase — failing closed: ${e instanceof Error ? e.message : String(e)}`,

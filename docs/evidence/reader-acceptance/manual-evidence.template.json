@@ -1,7 +1,7 @@
 {
   "status": "BLOCKED_PENDING_HUMAN",
-  "generatedAt": "2026-08-19T22:30:31.533645Z",
-  "worktreeCommit": "d3579c63941ed0dd31bfda3dc3d291eb8015abdf",
+  "generatedAt": "2026-08-20T05:29:50Z",
+  "worktreeCommit": "c5605e243308f3991a165a290c1c8299223a32e7",
   "invariantsGreen": true,
   "notes": "Template \u2014 fill via `pnpm tsx scripts/human-acceptance-wizard.ts`. No manual evidence is claimed until a human performs and records it.",
   "entries": [
@@ -65,11 +65,6 @@
       "id": "orca-firefox-journey",
       "outcome": "BLOCKED_PENDING_HUMAN",
       "notes": "Named Orca + current stable Firefox on Linux journey across shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search initial/result/zero/clear, About, 404, ordinary error."
-    },
-    {
-      "id": "lighthouse-mobile",
-      "outcome": "PASS",
-      "notes": "PASS \u2014 Lighthouse 13.4.1 mobile at http://127.0.0.1:43123/ (wrangler dev --local, commit f22e1a2): Accessibility 100, Best Practices 100, Performance 100, SEO 50 (expected due to global noindex, not a waiver). Raw report.json/html at /tmp (CI artifact)."
     }
   ],
   "humanFidelityApproval": {
