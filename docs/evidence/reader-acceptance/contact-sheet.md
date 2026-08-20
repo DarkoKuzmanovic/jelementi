@@ -1,6 +1,6 @@
 # Reader acceptance — deterministic curated evidence
 
-Generated: 2026-08-20T05:22:44.469Z | Commit: a2ecd7b665447fd7db19290377cacf022764b823
+Generated: 2026-08-20T05:24:17.215Z | Commit: a6845aa38492fbfd02deecb3dff9226db2f22433
 
 Deterministic curated evidence — review, not gate. No pixel-diff CI assertion.
 
