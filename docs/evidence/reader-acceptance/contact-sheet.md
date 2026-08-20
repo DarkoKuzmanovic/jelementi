@@ -1,6 +1,6 @@
 # Reader acceptance — deterministic curated evidence
 
-Generated: 2026-08-20T05:24:17.215Z | Commit: a6845aa38492fbfd02deecb3dff9226db2f22433
+Generated: 2026-08-20T05:38:41.068Z | Commit: 68c71a7186f1f50800f02b918ec38abe7f3d5d24
 
 Deterministic curated evidence — review, not gate. No pixel-diff CI assertion.
 
@@ -35,11 +35,15 @@ Screenshots saved under `docs/evidence/reader-acceptance/screenshots/` (git-trac
 
 All genuinely manual checkpoints remain **BLOCKED_PENDING_HUMAN** until a human performs and records them; Lighthouse is **PASS per amended contract** (agent-run, reproducible) — see below:
 
+- Chromium stable desktop (wide/320, light/dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS) — **BLOCKED_PENDING_HUMAN**
 - Firefox stable desktop (wide/320, light/dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS) — **BLOCKED_PENDING_HUMAN**
 - Playwright WebKit explicitly as Safari proxy — **BLOCKED_PENDING_HUMAN**
 - Coarse-pointer / touch mobile viewport — **BLOCKED_PENDING_HUMAN**
 - 100% / 200% / 400% zoom cells at representative routes — **BLOCKED_PENDING_HUMAN** (Chromium 320 + text-spacing automated; manual zoom still required)
 - Text spacing (WCAG 1.4.12) overrides — **BLOCKED_PENDING_HUMAN**
+- Reduced motion manual verification — **BLOCKED_PENDING_HUMAN**
+- Keyboard-only traversal — **BLOCKED_PENDING_HUMAN**
+- No-JavaScript manual behavior — **BLOCKED_PENDING_HUMAN**
 - Contrast sampling (semantic text, links/visited, focus, controls, borders, metadata, every callout state, light+dark, WCAG 2.2 AA 4.5:1/3:1) — **BLOCKED_PENDING_HUMAN**
 - Orca + Firefox on Linux journey (shell/skip/landmarks, Home hierarchy, rich article with audio/footnotes, Categories, Search initial/result/zero/clear, About, 404, ordinary error) — **BLOCKED_PENDING_HUMAN**
 - Lighthouse mobile: **PASS per amended contract #104#issuecomment-5351661545** — Accessibility 100, Best Practices 100, Performance 100, SEO 60 with `is-crawlable` as the sole failed applicable SEO audit (every other applicable SEO audit PASS, raw SEO 60 and exact audit evidence in `lighthouse.json`; any second failure blocks; future SEO 100 with no exception once global noindex retired) — **PASS** (agent-run, reproducible via `pnpm tsx scripts/run-lighthouse.ts`)

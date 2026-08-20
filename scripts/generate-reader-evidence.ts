@@ -155,6 +155,9 @@ export function buildContactSheetMarkdown(input: ContactSheetInput): string {
   );
   lines.push('');
   lines.push(
+    '- Chromium stable desktop (wide/320, light/dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS) — **BLOCKED_PENDING_HUMAN**',
+  );
+  lines.push(
     '- Firefox stable desktop (wide/320, light/dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS) — **BLOCKED_PENDING_HUMAN**',
   );
   lines.push('- Playwright WebKit explicitly as Safari proxy — **BLOCKED_PENDING_HUMAN**');
@@ -163,6 +166,9 @@ export function buildContactSheetMarkdown(input: ContactSheetInput): string {
     '- 100% / 200% / 400% zoom cells at representative routes — **BLOCKED_PENDING_HUMAN** (Chromium 320 + text-spacing automated; manual zoom still required)',
   );
   lines.push('- Text spacing (WCAG 1.4.12) overrides — **BLOCKED_PENDING_HUMAN**');
+  lines.push('- Reduced motion manual verification — **BLOCKED_PENDING_HUMAN**');
+  lines.push('- Keyboard-only traversal — **BLOCKED_PENDING_HUMAN**');
+  lines.push('- No-JavaScript manual behavior — **BLOCKED_PENDING_HUMAN**');
   lines.push(
     '- Contrast sampling (semantic text, links/visited, focus, controls, borders, metadata, every callout state, light+dark, WCAG 2.2 AA 4.5:1/3:1) — **BLOCKED_PENDING_HUMAN**',
   );
