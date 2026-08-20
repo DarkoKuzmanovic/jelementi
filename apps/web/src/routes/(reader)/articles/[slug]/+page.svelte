@@ -7,6 +7,7 @@
 
 <svelte:head>
   <title>{data.article.title} — Jelementi</title>
+  <meta name="description" content={data.article.excerpt} />
   <meta name="jelementi-content-version" content={data.contentVersion} />
 </svelte:head>
 <div class="article-page">

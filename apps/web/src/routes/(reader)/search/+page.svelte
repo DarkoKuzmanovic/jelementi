@@ -37,7 +37,12 @@
   }
 </script>
 
-<svelte:head><title>Search — Jelementi</title></svelte:head>
+<svelte:head
+  ><title>Search — Jelementi</title><meta
+    name="description"
+    content="Search Jelementi — browse and filter the complete published catalog."
+  /></svelte:head
+>
 <section
   class="search"
   aria-labelledby="search-heading"

@@ -27,7 +27,12 @@
   }
 </script>
 
-<svelte:head><title>Categories — Jelementi</title></svelte:head>
+<svelte:head
+  ><title>Categories — Jelementi</title><meta
+    name="description"
+    content="Browse Jelementi categories — every published category ordered by article count."
+  /></svelte:head
+>
 <section class="category-directory" aria-labelledby="categories-heading">
   <header class="page-intro">
     <p class="kicker">Browse the publication</p>

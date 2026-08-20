@@ -1,0 +1,60 @@
+{
+  "status": "BLOCKED_PENDING_HUMAN",
+  "generatedAt": "2026-08-20T08:28:16.364Z",
+  "worktreeCommit": "0fadb3a98b87f3cf8a710bbdf2a5236a32d905d8",
+  "invariantsGreen": true,
+  "entries": [
+    {
+      "id": "asset-ceilings",
+      "outcome": "PASS",
+      "notes": "Automated: pnpm verify:reader:assets PASS — representative HTML 26369/70885, CSS 17942/17943, Search JS 165878/167513",
+      "evidencePath": "scripts/reader-assets.ts + /tmp/verify-deploy-T104.log"
+    },
+    {
+      "id": "chromium-stable",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "BLOCKED: requires human execution. Current stable Chrome desktop: wide and 320 CSS px, light and dark, reduced motion, keyboard, zoom 100/200/400, text spacing, no-JS behavior. Record Chrome version and outcome. Preserved evidence: Chrome 151.0.7922.169 visual 32-image matrix PASS (8 routes × 1280/320 × light/dark at representative fixture, width-verified)."
+    },
+    {
+      "id": "coarse-pointer-touch",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "BLOCKED: requires human execution. At least one coarse-pointer / touch mobile viewport: viewport size, device, outcome. Preserved evidence: Chrome 151 Stage 2 320px touch PASS."
+    },
+    {
+      "id": "zoom-100-200-400",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "BLOCKED: requires human execution. Capture 100%, 200%, 400% zoom at representative routes. Verify no page-level 2D scrolling, reflow preserved. Preserved evidence: Chrome 151 Stage 2 200%/400% zoom PASS."
+    },
+    {
+      "id": "text-spacing",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "BLOCKED: requires human execution. Apply WCAG text-spacing overrides and verify no loss of content or functionality. Preserved evidence: Chrome 151 Stage 3 text-spacing PASS."
+    },
+    {
+      "id": "reduced-motion-manual",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "BLOCKED: requires human execution. Verify prefers-reduced-motion removes smooth scrolling and non-essential transitions; state changes immediate. Preserved evidence: Chrome 151 Stage 3 reduced-motion PASS."
+    },
+    {
+      "id": "keyboard-only-traversal",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "BLOCKED: requires human execution. Tab through every Reader route, verify logical order, visible unobscured focus, descriptive names, no nested controls. Preserved evidence: Chrome 151 Stage 1 keyboard interaction PASS."
+    },
+    {
+      "id": "no-javascript-manual",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "BLOCKED: requires human execution. Disable JS and verify Search shows complete catalog with conventional links, all routes recover correctly. Preserved evidence: Chrome 151 Stage 3 no-JS PASS."
+    },
+    {
+      "id": "contrast-sampling",
+      "outcome": "BLOCKED_PENDING_HUMAN",
+      "notes": "BLOCKED: requires human execution. Sample semantic text, links and visited links, focus, controls, borders, metadata, every callout state (fact/note/warning) in light and dark. Thresholds 4.5:1 text, 3:1 large/non-text. No exception. Preserved: contrast remains BLOCKED_PENDING_HUMAN per scope amendment — not waived."
+    }
+  ],
+  "humanFidelityApproval": {
+    "approved": false,
+    "approver": "",
+    "date": "",
+    "notes": "BLOCKED_PENDING_HUMAN — only after every preceding PASS and invariants green; never waives failed invariant. Residual: Firefox/WebKit/Orca no longer gates per Chrome-only amendment."
+  }
+}

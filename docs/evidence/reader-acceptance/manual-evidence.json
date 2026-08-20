@@ -1,0 +1,60 @@
+{
+  "status": "PASS",
+  "generatedAt": "2026-08-20T08:56:33.076Z",
+  "worktreeCommit": "0fadb3a98b87f3cf8a710bbdf2a5236a32d905d8",
+  "invariantsGreen": true,
+  "entries": [
+    {
+      "id": "asset-ceilings",
+      "outcome": "PASS",
+      "notes": "Automated: pnpm verify:reader:assets PASS — representative HTML 27055/70885, CSS 17942/17943, Search JS 166016/167513",
+      "evidencePath": "scripts/reader-assets.ts + /tmp/verify-deploy-T104.log"
+    },
+    {
+      "id": "chromium-stable",
+      "outcome": "PASS",
+      "notes": "Chrome 151.0.7922.169 visual 32-image matrix PASS — 8 routes × 1280/320 × light/dark at representative fixture, width-verified, human-verified"
+    },
+    {
+      "id": "coarse-pointer-touch",
+      "outcome": "PASS",
+      "notes": "Chrome 151 Stage 2 320px touch PASS — at least one coarse-pointer/touch viewport verified at 320px"
+    },
+    {
+      "id": "zoom-100-200-400",
+      "outcome": "PASS",
+      "notes": "Chrome 151 Stage 2 200%/400% zoom PASS — no page-level 2D scrolling, reflow preserved at representative routes"
+    },
+    {
+      "id": "text-spacing",
+      "outcome": "PASS",
+      "notes": "Chrome 151 Stage 3 text-spacing PASS — WCAG 1.4.12 overrides verified, no loss of content or functionality"
+    },
+    {
+      "id": "reduced-motion-manual",
+      "outcome": "PASS",
+      "notes": "Chrome 151 Stage 3 reduced-motion PASS — prefers-reduced-motion removes smooth scrolling and non-essential transitions, state changes immediate"
+    },
+    {
+      "id": "keyboard-only-traversal",
+      "outcome": "PASS",
+      "notes": "Chrome 151 Stage 1 keyboard interaction PASS — tab order logical, focus visible unobscured, descriptive names, no nested controls"
+    },
+    {
+      "id": "no-javascript-manual",
+      "outcome": "PASS",
+      "notes": "Chrome 151 Stage 3 no-JS PASS — Search shows complete catalog with conventional links, all routes recover correctly"
+    },
+    {
+      "id": "contrast-sampling",
+      "outcome": "PASS",
+      "notes": "stable Chrome light/dark; body and metadata; links/visited role; focus; controls; dividers/meaningful borders; fact/note/warning callout text/background/accent; rich article wide/narrow re-review all meet stated WCAG 2.2 AA thresholds."
+    }
+  ],
+  "humanFidelityApproval": {
+    "approved": true,
+    "approver": "Darko",
+    "date": "2026-08-20",
+    "notes": "Darko explicitly approves structural and experiential fidelity for the completed Reader redesign after every preceding gate passed, with the documented Chrome-only / no Firefox-Safari-WebKit-real-screen-reader residual limitation accepted."
+  }
+}
