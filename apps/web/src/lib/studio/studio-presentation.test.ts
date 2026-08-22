@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { createRawSnippet } from 'svelte';
@@ -95,5 +96,21 @@ describe('StudioShell', () => {
 
     expect(body).toContain('studio-shell');
     expect(body).toContain('Publishing workspace');
+  });
+
+  it('owns the page inset at the shell boundary, mirroring the reader gutter', () => {
+    const tokens = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
+    const shellRule = tokens.slice(
+      tokens.indexOf('.studio-shell {'),
+      tokens.indexOf('@media (prefers-color-scheme: dark)'),
+    );
+
+    // Same gutter arithmetic the reader shell uses, so Studio content never
+    // sits flush at x=0 and never runs edge-to-edge on a wide display.
+    // The gutter and block padding read the aliased spacing scale, never a
+    // raw literal (the rule this file documents at the top).
+    expect(shellRule).toMatch(/width:\s*min\([^)]*calc\(100% - var\(--studio-space-\d+\)\)\)/);
+    expect(shellRule).toContain('margin-inline: auto');
+    expect(shellRule).toMatch(/padding-block:\s*var\(--studio-space-/);
   });
 });
