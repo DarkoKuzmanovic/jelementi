@@ -910,3 +910,130 @@ describe('Studio save ignores form-supplied status (#111)', () => {
     expect(content).not.toContain('archived');
   });
 });
+
+describe('#115 Save advances the visible lifecycle', () => {
+  it('a valid save on a published article without a prior draft synthesizes draft_valid (#115)', async () => {
+    // A dedicated adapter keeps the scenario exact: one canonical-published
+    // article with no Studio branch anywhere — after Save alone, Publish
+    // must be unlockable from the save response.
+    const local = new FakeGithubAdapter(config);
+    local.seedFile(
+      'main',
+      'content/articles/quiet-landing.md',
+      serializeArticleSource({
+        frontmatter: {
+          title: 'Quiet Landing',
+          slug: 'quiet-landing',
+          excerpt: 'A canonical published article with no active draft.',
+          publishedAt: '2026-08-01',
+          updatedAt: '2026-08-01',
+          status: 'published',
+          category: 'History',
+          tags: ['islands'],
+          author: 'Jelementi',
+          cover: { src: 'articles/quiet-landing/cover.svg', alt: 'A quiet landing.' },
+          references: [],
+        },
+        body: 'Body.',
+      }),
+      'b'.repeat(64),
+    );
+    const main = await local.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+
+    const form = validForm();
+    form.set('slug', 'quiet-landing');
+    // The committed status is server-derived (`published`), so the
+    // candidate needs its publish date to compile clean.
+    form.set('publishedAt', '2026-08-01');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction(
+      {
+        request: new Request('https://jelementi.quz.ma/studio/articles/quiet-landing?/save', {
+          method: 'POST',
+          body: form,
+        }),
+        platform: { env },
+        locals: { studioGithubAdapter: local },
+      },
+      'quiet-landing',
+    );
+
+    expect(result.save.kind).toBe('saved');
+    if (result.save.kind !== 'saved') throw new Error('expected saved');
+    expect(result.status).toMatchObject({
+      kind: 'draft_valid',
+      article: { slug: 'quiet-landing' },
+      branch: { name: 'studio/article/quiet-landing' },
+    });
+    if (result.status?.kind !== 'draft_valid') throw new Error('expected draft_valid');
+    // The branch head is the saved evidence, so an immediate exact-head
+    // Publish targets the commit this Save just made.
+    expect(result.status.branch.headSha).toBe(result.save.concurrency.draftHeadSha);
+  });
+
+  it('an invalid save synthesizes draft_invalid carrying the blocking issues (#115)', async () => {
+    const form = validForm();
+    form.set('slug', 'invalid-lifecycle-save');
+    form.set('body', '# Unsupported heading');
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save.kind).toBe('saved');
+    if (result.save.kind !== 'saved') throw new Error('expected saved');
+    expect(result.status).toMatchObject({
+      kind: 'draft_invalid',
+      article: { slug: 'invalid-lifecycle-save' },
+      branch: { name: 'studio/article/invalid-lifecycle-save' },
+    });
+    if (result.status?.kind !== 'draft_invalid') throw new Error('expected draft_invalid');
+    expect(result.status.issues.length).toBeGreaterThan(0);
+  });
+
+  it('a rejected save invents no lifecycle claim (#115)', async () => {
+    const form = validForm();
+    form.set('slug', 'rejected-status-save');
+    form.set('title', 'x'.repeat(501));
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save.kind).toBe('save_rejected');
+    expect(result.status).toBeUndefined();
+  });
+
+  it('a conflicting save keeps its existing accurate handling and carries no status (#115)', async () => {
+    const form = validForm();
+    form.set('slug', 'conflict-status-save');
+    form.set('baseMainSha', 'c'.repeat(40));
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save.kind).toBe('save_conflict');
+    expect(result.status).toBeUndefined();
+  });
+});

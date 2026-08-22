@@ -76,6 +76,18 @@ export interface StudioSaveActionData {
    */
   acceptedSlug?: string;
   validation?: StudioValidationProjection;
+  /**
+   * #115: the committed-draft lifecycle a successful Save itself proves —
+   * `draft_valid` or `draft_invalid`, derived only from the saved result's
+   * compile issues and deterministic branch identity (the identical facts
+   * the envelope's workspace projection is composed from, so the summary
+   * and this raw status can never disagree). Present ONLY for `saved`:
+   * every other outcome mutates nothing, so the previously loaded status
+   * stays truthful and the page keeps it. Consumed as another upstream of
+   * the article page's status derivation chain so Publish unlocks straight
+   * after the Save — no Check-status click, no reload.
+   */
+  status?: StudioLifecycle;
   envelope?: StudioActionEnvelope;
 }
 
@@ -202,6 +214,15 @@ export async function saveStudioEditorAction(
   const compileIssues =
     save.kind === 'saved' || save.kind === 'save_rejected' ? save.compileIssues : [];
   const validation = buildStudioValidationProjection(compileIssues, candidate);
+  const status =
+    save.kind === 'saved'
+      ? savedDraftLifecycle(
+          save,
+          decoded.value,
+          studioConfig.github.owner,
+          studioConfig.github.repo,
+        )
+      : undefined;
   const envelope = buildStudioActionEnvelope(envelopeIds(form, 'save'), {
     kind: 'save',
     save,
@@ -217,6 +238,7 @@ export async function saveStudioEditorAction(
     save,
     editor: candidate,
     ...(validation === undefined ? {} : { validation }),
+    ...(status === undefined ? {} : { status }),
     // Server-authored canonical slug for the FIRST successful Save on the
     // new-article route only (#78 decision: server-authored enhanced
     // redirect). The enhanced client migrates the matching `new` Recovery
@@ -339,25 +361,13 @@ function saveWorkspaceProjection(
     status: input.metadata.status,
     updatedAt: input.metadata.updatedAt,
   };
-  const branchName = `studio/article/${input.metadata.slug}`;
   let lifecycle: StudioLifecycle;
   let concurrency = input.concurrency;
   if (save.kind === 'saved') {
     // Only a successful Save produces advanced concurrency; the submitted
     // evidence is stale by definition at that point.
     concurrency = save.concurrency;
-    const branch = {
-      name: branchName,
-      url: `https://github.com/${owner}/${repo}/tree/${branchName}`,
-      headSha:
-        save.concurrency.draftHeadSha ??
-        save.concurrency.expectedBlobSha ??
-        save.concurrency.baseMainSha,
-    };
-    lifecycle =
-      save.compileIssues.length > 0
-        ? { kind: 'draft_invalid', article, branch, issues: save.compileIssues }
-        : { kind: 'draft_valid', article, branch };
+    lifecycle = savedDraftLifecycle(save, input, owner, repo);
   } else if (save.kind === 'save_conflict') {
     lifecycle = { kind: 'conflict', article, loaded: save.loaded, current: save.current };
   } else if (save.kind === 'save_failed') {
@@ -375,6 +385,42 @@ function saveWorkspaceProjection(
     lifecycle = { kind: 'unknown', article };
   }
   return buildStudioWorkspaceProjection(lifecycle, concurrency);
+}
+
+/**
+ * #115: the lifecycle a successful Save itself proves. A committed draft
+ * that compiles is `draft_valid` on its deterministic Studio branch; one
+ * with compile issues is `draft_invalid` carrying exactly those issues.
+ * Shared by the action result's raw `status` and the envelope's workspace
+ * projection so both lifecycle surfaces derive from identical facts. Every
+ * other Save outcome returns undefined — nothing was mutated, so the page
+ * keeps its previously loaded (still truthful) status instead of a new
+ * invented claim.
+ */
+function savedDraftLifecycle(
+  save: Extract<StudioSaveResult, { kind: 'saved' }>,
+  input: StudioEditorInput,
+  owner: string,
+  repo: string,
+): StudioLifecycle {
+  const article = {
+    slug: input.metadata.slug,
+    title: input.metadata.title,
+    status: input.metadata.status,
+    updatedAt: input.metadata.updatedAt,
+  };
+  const branchName = `studio/article/${input.metadata.slug}`;
+  const branch = {
+    name: branchName,
+    url: `https://github.com/${owner}/${repo}/tree/${branchName}`,
+    headSha:
+      save.concurrency.draftHeadSha ??
+      save.concurrency.expectedBlobSha ??
+      save.concurrency.baseMainSha,
+  };
+  return save.compileIssues.length > 0
+    ? { kind: 'draft_invalid', article, branch, issues: save.compileIssues }
+    : { kind: 'draft_valid', article, branch };
 }
 
 /**
