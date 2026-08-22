@@ -390,7 +390,7 @@ function resolveMedia(input: CompileArticleInput, key: string, node?: AstNode): 
     throw issue(
       input,
       'INVALID_MEDIA',
-      'Media keys must be non-empty relative paths without dot segments.',
+      'Media keys must be non-empty relative paths without dot segments — use a key such as articles/example/file-v1.ext.',
       node,
     );
   }
@@ -410,7 +410,12 @@ function resolveMedia(input: CompileArticleInput, key: string, node?: AstNode): 
   const resolved = new URL(key, base);
   // Containment: resolved URL must stay under the base origin and pathname.
   if (resolved.origin !== base.origin || !resolved.pathname.startsWith(base.pathname)) {
-    throw issue(input, 'INVALID_MEDIA', 'Media key resolves outside the media base URL.', node);
+    throw issue(
+      input,
+      'INVALID_MEDIA',
+      'Media key resolves outside the media base URL. Media keys are relative paths that stay inside the media folder, such as articles/example/file-v1.ext — no leading slash, "..", backslashes, or absolute URLs.',
+      node,
+    );
   }
   return resolved.toString();
 }
@@ -565,6 +570,19 @@ function calloutBlock(input: CompileArticleInput, node: AstNode): ArticleBlock {
   };
 }
 
+/**
+ * Plain-language alternatives surfaced alongside unsupported top-level block
+ * nodes (#113). Wording only — issue codes and structure are unchanged.
+ */
+const UNSUPPORTED_BLOCK_HINTS: Record<string, string> = {
+  table: 'Tables are not supported; present the same information as a list.',
+  html: 'Raw HTML is not supported; use Markdown formatting instead.',
+  code: 'Fenced code blocks are not supported; use inline `code` within a paragraph instead.',
+};
+
+const FALLBACK_UNSUPPORTED_HINT =
+  'Allowed blocks are headings (## to ####), paragraphs, standalone images, lists, single-paragraph quotes, --- dividers, :::fact/:::note/:::warning callouts, and footnotes.';
+
 function parseAst(input: CompileArticleInput): AstNode[] {
   return unified()
     .use(remarkParse)
@@ -629,7 +647,7 @@ export function compileArticle(input: CompileArticleInput): CompiledArticle {
           throw issue(
             input,
             'UNSUPPORTED_NODE',
-            'Only level 2 through 4 headings are supported.',
+            'Only level 2 through 4 headings are supported (## through ####); use ## for a top-level section.',
             node,
           );
         }
@@ -661,8 +679,15 @@ export function compileArticle(input: CompileArticleInput): CompiledArticle {
       case 'containerDirective':
         blocks.push(calloutBlock(input, node));
         break;
-      default:
-        throw issue(input, 'UNSUPPORTED_NODE', `Unsupported Markdown node "${node.type}".`, node);
+      default: {
+        const hint = UNSUPPORTED_BLOCK_HINTS[node.type] ?? FALLBACK_UNSUPPORTED_HINT;
+        throw issue(
+          input,
+          'UNSUPPORTED_NODE',
+          `Unsupported Markdown node "${node.type}". ${hint}`,
+          node,
+        );
+      }
     }
   }
   const bodyText = [

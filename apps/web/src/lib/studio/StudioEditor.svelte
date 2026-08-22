@@ -8,6 +8,13 @@
   import { untrack } from 'svelte';
   import { resumesTitleTracking, slugDerivedFromTitle } from './slug-tracking';
   import { EDITOR_INPUT_LIMITS, STUDIO_ISO_DATE_PATTERN } from './contracts';
+  import {
+    AUDIO_MEDIA_KEY_HINT,
+    COVER_MEDIA_KEY_HINT,
+    MARKDOWN_DIALECT_REFERENCE,
+    buildStandaloneImageSnippet,
+    insertSnippetAtCursor,
+  } from './markdown-dialect';
 
   let {
     editor,
@@ -72,6 +79,18 @@
   function handleTitleInput(event: Event & { currentTarget: HTMLInputElement }): void {
     const derived = slugDerivedFromTitle(event.currentTarget.value, slugTracksTitle && !slugLocked);
     if (derived !== undefined) slugValue = derived;
+  }
+
+  // #113: inserts a compiling standalone image paragraph keyed to the current
+  // Slug field value at the caret in the body textarea.
+  let bodyTextarea: HTMLTextAreaElement | undefined = $state();
+
+  function handleInsertImage(): void {
+    if (!bodyTextarea) return;
+    insertSnippetAtCursor(bodyTextarea, buildStandaloneImageSnippet(slugValue));
+    // Programmatic edits bypass native input events; announce the change so
+    // dirty tracking (#112) sees inserted content like typed text.
+    bodyTextarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
 </script>
 
@@ -205,16 +224,23 @@
       <fieldset>
         <legend>Cover</legend>
         <div class="studio-editor__field-grid">
-          <label>
-            Media key
-            <input
-              id="studio-field-coverSrc"
-              name="coverSrc"
-              value={metadata.cover.src}
-              required
-              maxlength={EDITOR_INPUT_LIMITS.mediaKeyMax}
-            />
-          </label>
+          <div>
+            <label>
+              Media key
+              <input
+                id="studio-field-coverSrc"
+                name="coverSrc"
+                value={metadata.cover.src}
+                required
+                maxlength={EDITOR_INPUT_LIMITS.mediaKeyMax}
+                aria-describedby="studio-field-coverSrc-help"
+              />
+            </label>
+            <!-- Outside the label so the control's accessible name stays "Media key". -->
+            <span id="studio-field-coverSrc-help" class="studio-editor__field-hint">
+              {COVER_MEDIA_KEY_HINT}
+            </span>
+          </div>
           <label>
             Alt text
             <input
@@ -230,15 +256,22 @@
       <fieldset>
         <legend>Audio (optional)</legend>
         <div class="studio-editor__field-grid">
-          <label>
-            Media key
-            <input
-              id="studio-field-audioSrc"
-              name="audioSrc"
-              value={metadata.audio?.src ?? ''}
-              maxlength={EDITOR_INPUT_LIMITS.mediaKeyMax}
-            />
-          </label>
+          <div>
+            <label>
+              Media key
+              <input
+                id="studio-field-audioSrc"
+                name="audioSrc"
+                value={metadata.audio?.src ?? ''}
+                maxlength={EDITOR_INPUT_LIMITS.mediaKeyMax}
+                aria-describedby="studio-field-audioSrc-help"
+              />
+            </label>
+            <!-- Outside the label so the control's accessible name stays "Media key". -->
+            <span id="studio-field-audioSrc-help" class="studio-editor__field-hint">
+              {AUDIO_MEDIA_KEY_HINT}
+            </span>
+          </div>
           <label>
             Duration in seconds
             <input
@@ -325,8 +358,36 @@
       <h3 id="studio-body-heading">Markdown body</h3>
       <label>
         Body
-        <textarea id="studio-body" name="body" rows="24" spellcheck="true">{visible.body}</textarea>
+        <textarea bind:this={bodyTextarea} id="studio-body" name="body" rows="24" spellcheck="true"
+          >{visible.body}</textarea
+        >
       </label>
+      <div class="studio-editor__body-tools">
+        <!-- type="button": an editing affordance, never a form submission. -->
+        <button type="button" id="studio-insert-image" onclick={handleInsertImage}>
+          Insert image
+        </button>
+        <span class="studio-editor__field-hint">
+          Adds a standalone image paragraph keyed to this article's slug at the cursor.
+        </span>
+      </div>
+      <details class="studio-editor__dialect" id="studio-markdown-dialect">
+        <summary>Allowed Markdown</summary>
+        <ul class="studio-editor__dialect-list">
+          {#each MARKDOWN_DIALECT_REFERENCE as entry (entry.id)}
+            <li>
+              <p>{entry.rule}</p>
+              {#if entry.examples}
+                <ul>
+                  {#each entry.examples as example (example)}
+                    <li><code>{example}</code></li>
+                  {/each}
+                </ul>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      </details>
       <p>Unsaved text stays in this form. Save draft is the only commit action.</p>
       <p>Reading time is generated by the compiler and is not editable.</p>
     </section>
@@ -582,6 +643,44 @@
   .studio-editor__metadata summary span {
     display: block;
     font-weight: 400;
+  }
+
+  /* Collapsible allowed-Markdown reference (#113). */
+  .studio-editor__dialect {
+    background: var(--studio-surface-subtle);
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-3);
+  }
+
+  .studio-editor__dialect summary {
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .studio-editor__dialect-list {
+    display: grid;
+    gap: var(--studio-space-3);
+    margin: var(--studio-space-3) 0 0;
+    padding-inline-start: var(--studio-space-4);
+  }
+
+  .studio-editor__dialect-list code,
+  .studio-editor__dialect-list li ul {
+    margin-top: var(--studio-space-1);
+  }
+
+  .studio-editor__dialect-list code {
+    display: block;
+    white-space: pre-wrap;
+    font-family: var(--studio-font-evidence);
+    color: var(--studio-text-primary);
+  }
+
+  .studio-editor__body-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--studio-space-2);
   }
 
   .studio-editor__actions {
