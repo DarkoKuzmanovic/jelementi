@@ -48,8 +48,8 @@ describe('buildStudioSaveRecovery', () => {
     const labels = recovery?.comparison?.map((row) => row.label);
     expect(labels).toEqual(['Main', 'Draft head', 'Article blob']);
     const main = recovery?.comparison?.[0];
-    expect(main?.loaded).toBe(loaded.baseMainSha);
-    expect(main?.current).toBe('d'.repeat(40));
+    expect(main?.loaded).toBe(loaded.baseMainSha.slice(0, 7));
+    expect(main?.current).toBe('d'.repeat(40).slice(0, 7));
   });
 
   it('names the existing draft and offers open/rename/discard paths for a draft-exists conflict', () => {
@@ -131,12 +131,13 @@ describe('buildStudioSaveRecovery', () => {
     const labels = recovery?.comparison?.map((row) => row.label);
     expect(labels).toEqual(['Main', 'Draft head', 'Article on main']);
     const articleRow = recovery?.comparison?.[2];
-    expect(articleRow?.loaded).toBe('1'.repeat(40));
-    expect(articleRow?.current).toBe('1'.repeat(40));
+    // #117: operational comparison tables carry short digests only.
+    expect(articleRow?.loaded).toBe('1'.repeat(40).slice(0, 7));
+    expect(articleRow?.current).toBe('1'.repeat(40).slice(0, 7));
     expect(recovery?.comparison?.some((row) => row.current === 'not read')).toBe(false);
     expect(recovery?.evidence).toEqual([
       { label: 'Article path', value: `content/articles/${slug}.md` },
-      { label: 'Draft article blob (expected)', value: loaded.expectedBlobSha },
+      { label: 'Draft article blob (expected)', value: loaded.expectedBlobSha.slice(0, 7) },
     ]);
   });
 
@@ -178,7 +179,7 @@ describe('buildStudioSaveRecovery', () => {
     };
 
     const recovery = buildStudioSaveRecovery(failed);
-    expect(recovery?.whatHappened).toContain('Nothing was changed');
+    expect(recovery?.whatHappened).toMatch(/nothing was changed/i);
     expect(recovery?.nextAction).toContain('Save');
   });
 
@@ -190,7 +191,10 @@ describe('buildStudioSaveRecovery', () => {
     };
 
     const recovery = buildStudioSaveRecovery(failed);
-    expect(recovery?.whatHappened).toContain('unexpected');
+    // #117: the internal phase code is gone; the sentence names the real
+    // situation instead.
+    expect(recovery?.whatHappened).not.toContain(failed.phase);
+    expect(recovery?.whatHappened).toContain('single-draft shape');
     expect(recovery?.nextAction).toContain('GitHub');
   });
 });
@@ -221,8 +225,8 @@ describe('buildStudioPublishRecovery', () => {
     expect(recovery?.nextAction).toContain('Copy your candidate');
     expect(recovery?.comparison?.[0]).toEqual({
       label: 'Draft head',
-      loaded: 'b'.repeat(40),
-      current: 'e'.repeat(40),
+      loaded: 'b'.repeat(40).slice(0, 7),
+      current: 'e'.repeat(40).slice(0, 7),
     });
     expect(recovery?.workSafety).toContain('draft');
     expect(recovery?.readerEffect).toContain('Readers');
@@ -340,7 +344,9 @@ describe('buildStudioReplacementRecovery', () => {
 
     const recovery = buildStudioReplacementRecovery(conflict);
     expect(recovery?.tone).toBe('conflict');
-    expect(recovery?.whatHappened).toContain('verify-target');
+    // #117: no internal phase identifier surfaces; the reason's plain
+    // sentence owns the explanation.
+    expect(recovery?.whatHappened).not.toContain(conflict.phase);
     expect(recovery?.whatHappened).toContain('a newer change to the article on main');
     expect(recovery?.whatHappened).not.toContain('someone else');
     expect(recovery?.workSafety).toContain('preserved');
@@ -428,7 +434,9 @@ describe('buildStudioReplacementRecovery', () => {
 
     const recovery = buildStudioReplacementRecovery(failed);
     expect(recovery?.tone).toBe('failure');
-    expect(recovery?.whatHappened).toContain('commit-candidate');
+    // #117: the phase becomes a sentence about committing the candidate.
+    expect(recovery?.whatHappened).not.toContain(failed.phase);
+    expect(recovery?.whatHappened).toContain('committed to the fresh draft branch');
     expect(recovery?.workSafety).toContain('preserved');
     expect(recovery?.workSafety).toContain('may already be closed');
     expect(recovery?.workSafety).not.toContain('No branch or Draft PR was deleted');

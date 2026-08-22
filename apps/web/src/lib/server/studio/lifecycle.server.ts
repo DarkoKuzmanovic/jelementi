@@ -570,7 +570,16 @@ export async function deriveStudioArticleStatus(
       }
       return {
         ok: true,
-        value: { kind: 'ready', article, pullRequest: toPullRequestRef(draft.pullRequest) },
+        value: {
+          kind: 'ready',
+          article,
+          pullRequest: toPullRequestRef(draft.pullRequest),
+          // #117: the check run (if any) was already fetched during draft
+          // derivation; carrying its presence/conclusion lets presentation
+          // distinguish "checks passed — merging" from "waiting for checks
+          // to start". No new lifecycle state, no extra GitHub read.
+          ...(draft.check === undefined ? {} : { check: toCheckEvidence(draft.check) }),
+        },
       };
     }
     case 'checking': {

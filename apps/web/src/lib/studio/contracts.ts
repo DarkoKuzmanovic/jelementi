@@ -288,7 +288,12 @@ export type StudioLifecycle =
       branch: StudioBranchRef;
       productionLive?: StudioLiveEvidence;
     }
-  | { kind: 'ready'; article: StudioArticleRef; pullRequest: StudioPullRequestRef }
+  | {
+      kind: 'ready';
+      article: StudioArticleRef;
+      pullRequest: StudioPullRequestRef;
+      check?: StudioCheckEvidence;
+    }
   | { kind: 'checking'; article: StudioArticleRef; pullRequest: StudioPullRequestRef }
   | {
       kind: 'check_failed';
@@ -666,6 +671,56 @@ function failureValue(
   const url = optionalHttpsUrlValue(input.url, `${path}.url`, issues);
   if (issues.length > 0) return undefined;
   return { category: category as StudioFailureCategory, ...(url === undefined ? {} : { url }) };
+}
+
+/**
+ * #117: optional check-run evidence carried on the `ready` lifecycle kind —
+ * the same already-fetched observation the list projection attaches. Its
+ * presence and conclusion let the presentation distinguish "checks passed —
+ * merging" from "waiting for checks to start" without a new lifecycle
+ * state. Absent means not known, never "not run".
+ */
+function optionalCheckEvidenceValue(
+  input: unknown,
+  path: string,
+  issues: string[],
+): StudioCheckEvidence | undefined {
+  if (input === undefined) return undefined;
+  if (!isRecord(input)) {
+    collectIssues(path, issues, 'object');
+    return undefined;
+  }
+  rejectUnknownKeys(input, ['name', 'status', 'conclusion', 'url'], path, issues);
+  if (issues.length > 0) return undefined;
+  stringIssue(input.name, `${path}.name`, issues, { max: 200 });
+  const status = input.status;
+  if (typeof status !== 'string' || !['queued', 'in_progress', 'completed'].includes(status)) {
+    collectIssues(path, issues, 'status');
+  }
+  const conclusion = input.conclusion;
+  const allowedConclusions = [
+    'success',
+    'failure',
+    'neutral',
+    'cancelled',
+    'skipped',
+    'timed_out',
+    'action_required',
+    null,
+  ];
+  if (typeof conclusion !== 'string' && conclusion !== null) {
+    collectIssues(path, issues, 'conclusion');
+  } else if (conclusion !== null && !allowedConclusions.includes(conclusion)) {
+    collectIssues(path, issues, 'conclusion');
+  }
+  const url = optionalHttpsUrlValue(input.url, `${path}.url`, issues);
+  if (issues.length > 0) return undefined;
+  return {
+    name: input.name as string,
+    status: status as StudioCheckEvidence['status'],
+    conclusion: conclusion as StudioCheckEvidence['conclusion'],
+    ...(url === undefined ? {} : { url }),
+  };
 }
 
 export function decodeConcurrencyEvidence(input: unknown): DecodeResult<StudioConcurrencyEvidence> {
@@ -1066,7 +1121,7 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
   const allowedByKind: Readonly<Record<string, readonly string[]>> = {
     draft_invalid: ['kind', 'article', 'branch', 'issues', 'productionLive'],
     draft_valid: ['kind', 'article', 'branch', 'productionLive'],
-    ready: ['kind', 'article', 'pullRequest'],
+    ready: ['kind', 'article', 'pullRequest', 'check'],
     checking: ['kind', 'article', 'pullRequest'],
     check_failed: ['kind', 'article', 'pullRequest', 'failedCheck'],
     merged: ['kind', 'article', 'mainSha'],
@@ -1120,12 +1175,23 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
         ...(productionLive === undefined ? {} : { productionLive }),
       });
     }
-    case 'ready':
+    case 'ready': {
+      const pullRequest = pullRequestValue(input.pullRequest, 'lifecycle.pullRequest', issues);
+      // #117: the already-fetched check run rides along so presentation can
+      // tell "checks passed — merging" from "waiting for checks to start".
+      const check = optionalCheckEvidenceValue(input.check, 'lifecycle.check', issues);
+      if (issues.length > 0 || pullRequest === undefined) return errResult(issues);
+      return okResult({
+        kind: 'ready',
+        article,
+        pullRequest,
+        ...(check === undefined ? {} : { check }),
+      });
+    }
     case 'checking': {
       const pullRequest = pullRequestValue(input.pullRequest, 'lifecycle.pullRequest', issues);
       if (issues.length > 0 || pullRequest === undefined) return errResult(issues);
-      const lifecycleKind = kind as 'ready' | 'checking';
-      return okResult({ kind: lifecycleKind, article, pullRequest });
+      return okResult({ kind: 'checking', article, pullRequest });
     }
     case 'check_failed': {
       const pullRequest = pullRequestValue(input.pullRequest, 'lifecycle.pullRequest', issues);

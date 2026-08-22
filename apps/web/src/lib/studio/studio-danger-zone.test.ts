@@ -281,7 +281,9 @@ describe('StudioDangerZone', () => {
     });
 
     expect(body).toContain('Unpublish submitted');
-    expect(body).toContain('e'.repeat(40));
+    // #117: operational copy renders the short digest, never the full value.
+    expect(body).toContain('e'.repeat(40).slice(0, 7));
+    expect(body).not.toContain('e'.repeat(40));
     expect(body).toContain('href="https://github.com/example/example/pull/9"');
   });
 
@@ -308,8 +310,11 @@ describe('StudioDangerZone', () => {
     expect(flat).not.toContain('no draft content was lost');
     expect(flat).toContain('already closed the Draft PR before the head moved');
     expect(flat).toContain('readers are unaffected');
-    expect(body).toContain('d'.repeat(40));
-    expect(body).toContain('f'.repeat(40));
+    // #117: the visible comparison shows short digests. (The hidden
+    // expectedHeadSha form field legitimately carries the full value — that
+    // is wire data for the server, not rendered copy.)
+    expect(body).toContain('<dd>ddddddd</dd>');
+    expect(body).toContain('<dd>fffffff</dd>');
   });
 
   it('handles a discard-conflict with the branch already gone: shows branch not found', () => {
@@ -366,9 +371,9 @@ describe('StudioPublishPanel destructive narratives', () => {
     });
 
     expect(body).toContain('Unpublish is in flight');
-    expect(body).toContain('Readers may still see');
+    expect(flatten(body)).toContain('Readers may still see');
     expect(body).toContain('Check status');
-    expect(body).toContain('other Studio work is');
+    expect(flatten(body)).toContain('other Studio work is');
   });
 
   it('describes archived as removed-and-verified: absent from index and article route', () => {
@@ -384,6 +389,33 @@ describe('StudioPublishPanel destructive narratives', () => {
     expect(flat).toContain('article route');
     expect(flat).toContain('readers no longer see it');
     expect(flat).toContain('other Studio work is untouched');
+  });
+
+  // #117: a concluded-successful check on an approved change is factually
+  // past waiting-to-start — the panel must say merging, and must never
+  // invite another Publish there.
+  it('describes ready-with-passed-check as merging, not as waiting for checks to start', () => {
+    const { body } = render(StudioPublishPanel, {
+      props: {
+        status: {
+          ...ready,
+          check: { name: 'verify', status: 'completed', conclusion: 'success' },
+        },
+      },
+    });
+    const flat = flatten(body);
+
+    expect(flat).toContain('GitHub is merging this change automatically');
+    expect(flat).toContain('a new Publish is never needed here');
+    expect(flat).not.toContain('Approved and waiting');
+  });
+
+  it('keeps the approved-waiting copy while no check run has concluded yet', () => {
+    const { body } = render(StudioPublishPanel, { props: { status: ready } });
+    const flat = flatten(body);
+
+    expect(flat).toContain('Approved and waiting');
+    expect(flat).not.toContain('merging this change automatically');
   });
 });
 

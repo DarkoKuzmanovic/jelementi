@@ -217,9 +217,13 @@ test.describe('Recovery presentation', () => {
     await page.getByRole('button', { name: 'Save draft' }).click();
 
     await expect(page.getByRole('heading', { name: 'Save failed' })).toBeVisible();
+    // #117: sentence-form failure copy — no internal phase identifier.
     await expect(
-      page.getByText('GitHub could not be reached during the main phase. Nothing was changed.'),
+      page.getByText(
+        'GitHub could not be reached while reading the published history this save builds on',
+      ),
     ).toBeVisible();
+    await expect(page.getByText('nothing was changed', { exact: false })).toBeVisible();
     await expect(page.getByText('Save again when GitHub is reachable.')).toBeVisible();
 
     // The stated next action is true: the same form saves once GitHub is back.

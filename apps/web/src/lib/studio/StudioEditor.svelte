@@ -20,6 +20,7 @@
     outdentStudioBodySelection,
     resolveStudioBodyKeyIntent,
   } from './body-editing';
+  import { replacementStoppedCopy, shortStudioSha } from './evidence-copy';
   import StudioWordCount from './StudioWordCount.svelte';
 
   let {
@@ -507,13 +508,13 @@
         <dl>
           <dt>Loaded</dt>
           <dd>
-            main {save.loaded.baseMainSha}{#if save.loaded.draftHeadSha}, draft {save.loaded
-                .draftHeadSha}{/if}
+            main {shortStudioSha(save.loaded.baseMainSha)}{#if save.loaded.draftHeadSha}, draft
+              {shortStudioSha(save.loaded.draftHeadSha)}{/if}
           </dd>
           <dt>Current</dt>
           <dd>
-            main {save.current.baseMainSha}{#if save.current.draftHeadSha}, draft {save.current
-                .draftHeadSha}{/if}
+            main {shortStudioSha(save.current.baseMainSha)}{#if save.current.draftHeadSha}, draft
+              {shortStudioSha(save.current.draftHeadSha)}{/if}
           </dd>
         </dl>
       {/if}
@@ -554,8 +555,8 @@
       <section aria-labelledby="replacement-result-heading">
         <h3 id="replacement-result-heading">Studio draft replaced</h3>
         <p>
-          The replacement is based on main <code>{replacement.concurrency.baseMainSha}</code> and
-          has a new
+          The replacement is based on main
+          <code>{shortStudioSha(replacement.concurrency.baseMainSha)}</code> and has a new
           <a href={replacement.pullRequest.url}>Draft PR #{replacement.pullRequest.number}</a>.
           Review it and run Publish again; the previous approval was not carried forward.
         </p>
@@ -571,28 +572,38 @@
     {:else if replacement}
       <section aria-labelledby="replacement-failed-heading">
         <h3 id="replacement-failed-heading">Draft replacement stopped</h3>
+        <!-- #117: sentence-form explanation; internal phase/reason codes are
+             never echoed, and digests render short. -->
         <p>
-          Phase <code>{replacement.phase}</code> stopped with <code>{replacement.reason}</code>.
+          {replacementStoppedCopy(replacement.phase, replacement.reason)}
           Your candidate remains in the editor above. Inspect this evidence before retrying.
         </p>
         <dl>
           {#if replacement.evidence.mainSha}
             <dt>Main</dt>
-            <dd><code>{replacement.evidence.mainSha}</code></dd>
+            <dd><code>{shortStudioSha(replacement.evidence.mainSha)}</code></dd>
           {/if}
           {#if replacement.evidence.target}
             <dt>Target</dt>
             <dd>
               <code>{replacement.evidence.target.path}</code>, loaded blob
-              <code>{replacement.evidence.target.loadedBlobSha ?? 'absent'}</code>, fresh blob
-              <code>{replacement.evidence.target.freshBlobSha ?? 'absent'}</code>
+              <code
+                >{replacement.evidence.target.loadedBlobSha
+                  ? shortStudioSha(replacement.evidence.target.loadedBlobSha)
+                  : 'absent'}</code
+              >, fresh blob
+              <code
+                >{replacement.evidence.target.freshBlobSha
+                  ? shortStudioSha(replacement.evidence.target.freshBlobSha)
+                  : 'absent'}</code
+              >
             </dd>
           {/if}
           {#if replacement.evidence.branch}
             <dt>Branch</dt>
             <dd>
               <a href={replacement.evidence.branch.url}>{replacement.evidence.branch.name}</a>
-              at <code>{replacement.evidence.branch.headSha}</code>
+              at <code>{shortStudioSha(replacement.evidence.branch.headSha)}</code>
             </dd>
           {/if}
           {#if replacement.evidence.pullRequest}

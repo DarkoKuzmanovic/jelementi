@@ -5,6 +5,12 @@ import type {
   StudioStatusKind,
 } from './contracts';
 import { STUDIO_ISO_DATE_PATTERN } from './contracts';
+import {
+  isConcludedSuccessfulCheck,
+  STUDIO_WORKING_CHANGE_CHECKS_PASSED_MERGING,
+  STUDIO_WORKING_CHANGE_READY_AWAITING_CHECKS,
+  studioChecksPassedMerging,
+} from './evidence-copy';
 
 /**
  * Studio workspace projection — the presentation seam for #73.
@@ -37,7 +43,8 @@ export const STUDIO_WORKING_CHANGE_LABELS = [
   'Not saved yet',
   'Saved — needs fixes',
   'Ready to publish',
-  'Approved — waiting for checks',
+  STUDIO_WORKING_CHANGE_READY_AWAITING_CHECKS,
+  STUDIO_WORKING_CHANGE_CHECKS_PASSED_MERGING,
   'Checks running',
   'Checks failed',
   'Merged — site update pending',
@@ -145,14 +152,29 @@ function derivePublishedVersion(
   }
 }
 
-function deriveWorkingChange(kind: StudioStatusKind): StudioWorkingChangeLabel {
+function checksPassedOnReady(lifecycle: StudioLifecycle): boolean {
+  // #117: "checks passed — merging" requires an observed, COMPLETED,
+  // successful check run. Anything else — no check yet, queued/running, or
+  // any non-success conclusion — stays honestly in the waiting state. The
+  // predicate itself is shared with the Flowboard and publish panel.
+  return lifecycle.kind === 'ready' && isConcludedSuccessfulCheck(lifecycle.check);
+}
+
+function deriveWorkingChange(lifecycle: StudioLifecycle): StudioWorkingChangeLabel {
+  const kind = lifecycle.kind;
   switch (kind) {
     case 'draft_invalid':
       return 'Saved — needs fixes';
     case 'draft_valid':
       return 'Ready to publish';
     case 'ready':
-      return 'Approved — waiting for checks';
+      // #117: a concluded-successful check pre-merge is factually past the
+      // waiting-to-start stage — GitHub is merging it. The distinction uses
+      // only check-run presence/conclusion already fetched upstream; no new
+      // lifecycle state exists.
+      return checksPassedOnReady(lifecycle)
+        ? STUDIO_WORKING_CHANGE_CHECKS_PASSED_MERGING
+        : STUDIO_WORKING_CHANGE_READY_AWAITING_CHECKS;
     case 'checking':
       return 'Checks running';
     case 'check_failed':
@@ -178,9 +200,12 @@ function deriveWorkingChange(kind: StudioStatusKind): StudioWorkingChangeLabel {
 const SUMMARY_BY_KIND: Readonly<Record<StudioStatusKind, string>> = {
   draft_invalid: 'This draft has issues that must be fixed before it can be published.',
   draft_valid: 'This draft is saved and ready to publish.',
+  // #117: overridden with the checks-passed—merging copy set below when a
+  // concluded-successful check pre-merge is observed; otherwise unchanged.
   ready: 'This change has been submitted and is waiting for checks to start.',
   checking: 'Checks are running on this change.',
-  check_failed: 'Checks failed on this change. Review the failure before retrying.',
+  check_failed:
+    'Checks failed on this change. The Draft PR stays open with auto-merge still enabled; nothing was merged.',
   merged: 'This change has been merged and the site update is in progress.',
   pending_deployment: 'The site update is still in progress.',
   // #116: honest neutral — no transition phrasing for an unprobed steady state.
@@ -196,9 +221,14 @@ const SUMMARY_BY_KIND: Readonly<Record<StudioStatusKind, string>> = {
 const RECOMMENDED_ACTION_BY_KIND: Readonly<Record<StudioStatusKind, string>> = {
   draft_invalid: 'Fix the reported issues, then save again.',
   draft_valid: 'Publish this draft when you are ready.',
+  // #117: overridden with the checks-passed—merging copy set below when a
+  // concluded-successful check pre-merge is observed; otherwise unchanged.
   ready: 'Wait for checks to start, or check status again shortly.',
   checking: 'Wait for checks to finish.',
-  check_failed: 'Review the failed check, then retry.',
+  // #117: both sanctioned exit paths after a failed check, spelled out —
+  // fix-and-republish (needs a new approval) or re-run unchanged (does not).
+  check_failed:
+    'Two ways forward: fix the reported problem, then Save and run Publish again (this needs a new approval), or leave your content unchanged and re-run the failed check on GitHub — the check then completes without needing a new Publish approval, and auto-merge finishes on its own.',
   merged: 'Wait for the site update to finish, then check status.',
   pending_deployment: 'Check status again shortly.',
   unverified: 'Check status to verify what readers currently see.',
@@ -357,6 +387,9 @@ export function buildStudioWorkspaceProjection(
     evidence.push({ label: 'Published version', value: lifecycle.productionLive.mainSha });
   }
 
+  // #117: the two `ready` situations get their own honest copy sets
+  // (waiting-to-start vs checks-passed—merging) from the shared mapping.
+  const checksPassedMerging = checksPassedOnReady(lifecycle);
   return {
     slug: lifecycle.article.slug,
     title: lifecycle.article.title,
@@ -364,10 +397,16 @@ export function buildStudioWorkspaceProjection(
       label: derivePublishedVersion(lifecycle.kind, lifecycle.article.status, productionLiveProven),
       ...(verifiedAt === undefined ? {} : { verifiedAt }),
     },
-    workingChange: { label: deriveWorkingChange(lifecycle.kind) },
-    summary: SUMMARY_BY_KIND[lifecycle.kind],
-    recommendedAction: RECOMMENDED_ACTION_BY_KIND[lifecycle.kind],
-    readerEffect: READER_EFFECT_BY_KIND[lifecycle.kind],
+    workingChange: { label: deriveWorkingChange(lifecycle) },
+    summary: checksPassedMerging
+      ? studioChecksPassedMerging().summary
+      : SUMMARY_BY_KIND[lifecycle.kind],
+    recommendedAction: checksPassedMerging
+      ? studioChecksPassedMerging().recommendedAction
+      : RECOMMENDED_ACTION_BY_KIND[lifecycle.kind],
+    readerEffect: checksPassedMerging
+      ? studioChecksPassedMerging().readerEffect
+      : READER_EFFECT_BY_KIND[lifecycle.kind],
     validationSummary: deriveValidationSummary(lifecycle),
     actions: actionsForKind(lifecycle.kind),
     concurrency,

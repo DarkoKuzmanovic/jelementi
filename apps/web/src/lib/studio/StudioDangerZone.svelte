@@ -2,6 +2,7 @@
   import type { StudioLifecycle } from '$lib/studio/contracts';
   import type { StudioUnpublishResult } from '$lib/server/studio/unpublish.server';
   import type { StudioDiscardResult } from '$lib/server/studio/discard.server';
+  import { discardStoppedCopy, shortStudioSha, unpublishStoppedCopy } from './evidence-copy';
   import StudioDestructiveConfirmation from './StudioDestructiveConfirmation.svelte';
 
   let {
@@ -109,7 +110,7 @@
   <section aria-labelledby="unpublish-submitted-heading">
     <h4 id="unpublish-submitted-heading">Unpublish submitted</h4>
     <p>
-      Archive commit {unpublish.commitSha} is on
+      Archive commit {shortStudioSha(unpublish.commitSha)} is on
       <a href={unpublish.pullRequest.url}>Pull request #{unpublish.pullRequest.number}</a>, flipped
       ready with auto-merge bound to that exact head. Readers may continue to see the article until
       that merge deploys; use Check status to confirm it is absent from production. Your other
@@ -127,9 +128,13 @@
     </p>
     <dl>
       <dt>Expected</dt>
-      <dd>{unpublish.expectedHeadSha}</dd>
+      <dd>{shortStudioSha(unpublish.expectedHeadSha)}</dd>
       <dt>Current</dt>
-      <dd>{unpublish.currentHeadSha ?? 'branch not found'}</dd>
+      <dd>
+        {unpublish.currentHeadSha === null
+          ? 'branch not found'
+          : shortStudioSha(unpublish.currentHeadSha)}
+      </dd>
     </dl>
   </section>
 {:else if unpublish?.kind === 'unpublish_rejected'}
@@ -176,12 +181,13 @@
         the true published state. Your other Studio work is untouched.
       </p>
     {:else}
+      <!-- #117: sentence form; the internal phase code is never echoed. -->
       <p>
-        GitHub could not be reached at the {unpublish.phase} step, so Studio cannot confirm what that
-        step changed. No merge has been verified: readers may still see the article — use Check status
-        for the true published state. Steps that had already succeeded (an archive commit, Draft PR, or
-        readiness flip) stay in place on this article's Studio branch; retrying re-reads the current state
-        and finishes only what remains, or reports a conflict. Your other Studio work is untouched.
+        {unpublishStoppedCopy(unpublish.phase)} Studio cannot confirm what that step changed. No merge
+        has been verified: readers may still see the article — use Check status for the true published
+        state. Steps that had already succeeded (an archive commit, Draft PR, or readiness flip) stay
+        in place on this article's Studio branch; retrying re-reads the current state and finishes only
+        what remains, or reports a conflict. Your other Studio work is untouched.
       </p>
     {/if}
   </section>
@@ -210,9 +216,13 @@
     </p>
     <dl>
       <dt>Expected</dt>
-      <dd>{discard.expectedHeadSha}</dd>
+      <dd>{shortStudioSha(discard.expectedHeadSha)}</dd>
       <dt>Current</dt>
-      <dd>{discard.currentHeadSha ?? 'branch not found'}</dd>
+      <dd>
+        {discard.currentHeadSha === null
+          ? 'branch not found'
+          : shortStudioSha(discard.currentHeadSha)}
+      </dd>
     </dl>
   </section>
 {:else if discard?.kind === 'discard_failed'}
@@ -227,11 +237,12 @@
         article and its readers are unaffected, and your other Studio work is untouched.
       </p>
     {:else}
+      <!-- #117: sentence form; the internal phase code is never echoed. -->
       <p>
-        GitHub could not be reached at the {discard.phase} step. <code>main</code> and any published article
-        are unchanged, and readers are unaffected. If this attempt had already closed the Draft PR, it
-        stays closed; retry rediscovers the current topology and finishes only the remaining step — never
-        a duplicate close or a new PR.
+        {discardStoppedCopy(discard.phase)}
+        <code>main</code> and any published article are unchanged, and readers are unaffected. If this
+        attempt had already closed the Draft PR, it stays closed; retry rediscovers the current topology
+        and finishes only the remaining step — never a duplicate close or a new PR.
       </p>
     {/if}
   </section>
