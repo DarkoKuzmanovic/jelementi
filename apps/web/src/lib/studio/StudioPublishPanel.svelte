@@ -262,11 +262,8 @@
   .studio-publication-actions {
     display: grid;
     gap: var(--studio-space-3);
+    /* Plain section: the publication column itself is the card. */
     margin-top: var(--studio-space-3);
-    background: var(--studio-panel);
-    border: 1px solid var(--studio-border);
-    border-radius: var(--studio-radius-panel);
-    padding: var(--studio-space-4);
   }
 
   .studio-publication-actions__primary {
