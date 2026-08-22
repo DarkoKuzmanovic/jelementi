@@ -73,6 +73,14 @@
   font-family: var(--studio-font-interface);
   font-size: var(--studio-text-base);
   line-height: var(--studio-line-height-body);
+
+  /* Page inset owned once, at the shell boundary — every Studio surface
+     inherits it, so no route or caption carries a one-off gutter. Same
+     gutter arithmetic as the reader shell; the wider measure fits the
+     three-column editorial desk (22rem + 22rem + 20rem) before it wraps. */
+  width: min(76rem, calc(100% - var(--studio-space-8)));
+  margin-inline: auto;
+  padding-block: var(--studio-space-6);
 }
 
 @media (prefers-color-scheme: dark) {
