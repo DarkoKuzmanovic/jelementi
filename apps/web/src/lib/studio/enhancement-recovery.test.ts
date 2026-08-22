@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { StudioEditorInput } from './contracts';
 import {
   captureStudioSubmittedSnapshot,
+  createFallbackStorage,
   createStudioRecoveryStore,
   decodeStudioRecoveryRecord,
   reconcileStudioRecovery,
+  studioPersistentStorage,
   studioRecoveryKey,
   type StudioRecoveryRecord,
   type StudioStorageLike,
@@ -135,6 +137,142 @@ describe('createStudioRecoveryStore', () => {
     expect(studioRecoveryKey('recovered-article')).toBe(
       'jelementi.studio.recovery.recovered-article',
     );
+  });
+
+  it('offers the same record after a full browser restart (#112)', () => {
+    // "Previous session": a record written through one store instance into
+    // persistent storage. A full restart means brand-new store instances
+    // over the same surviving storage.
+    const backing = memoryStorage();
+    const previousSession = createStudioRecoveryStore(backing);
+    expect(previousSession.write(studioRecoveryKey('recovered-article'), record)).toBe(true);
+
+    const restartedSession = createStudioRecoveryStore(backing);
+    expect(restartedSession.available).toBe(true);
+    expect(restartedSession.read(studioRecoveryKey('recovered-article'))).toEqual(record);
+  });
+});
+
+describe('createFallbackStorage (#112 graceful degradation)', () => {
+  function memoryStorage(): StudioStorageLike & { values: Map<string, string> } {
+    const values = new Map<string, string>();
+    return {
+      values,
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        values.set(key, value);
+      },
+      removeItem: (key) => {
+        values.delete(key);
+      },
+    };
+  }
+
+  it('reads and writes through the primary while it works', () => {
+    const primary = memoryStorage();
+    const secondary = memoryStorage();
+    const storage = createFallbackStorage(primary, secondary);
+
+    storage.setItem('k', 'v');
+    expect(primary.values.get('k')).toBe('v');
+    expect(secondary.values.has('k')).toBe(false);
+    expect(storage.getItem('k')).toBe('v');
+
+    storage.removeItem('k');
+    expect(storage.getItem('k')).toBeNull();
+  });
+
+  it('falls back to the secondary when the primary quota is exceeded', () => {
+    const primary = memoryStorage();
+    const primarySetItem = primary.setItem;
+    let quotaBroken = false;
+    primary.setItem = (key, value) => {
+      if (quotaBroken) throw new DOMException('quota exceeded', 'QuotaExceededError');
+      primarySetItem(key, value);
+    };
+    const secondary = memoryStorage();
+    const storage = createFallbackStorage(primary, secondary);
+
+    // A record from an earlier working phase sits in the primary…
+    storage.setItem('k', 'old');
+    quotaBroken = true;
+    storage.setItem('k', 'fresh');
+
+    // …but once the write lands in the fallback, reads must yield the
+    // FRESHER record, never the stale primary copy.
+    expect(secondary.values.get('k')).toBe('fresh');
+    expect(primary.values.has('k')).toBe(false);
+    expect(storage.getItem('k')).toBe('fresh');
+  });
+
+  it('keeps the previous primary record when both writes fail', () => {
+    const primary = memoryStorage();
+    const primarySetItem = primary.setItem;
+    let everythingBroken = false;
+    primary.setItem = (key, value) => {
+      if (everythingBroken) throw new DOMException('quota exceeded', 'QuotaExceededError');
+      primarySetItem(key, value);
+    };
+    const secondary = memoryStorage();
+    secondary.setItem = () => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError');
+    };
+    const storage = createFallbackStorage(primary, secondary);
+
+    storage.setItem('k', 'last-good');
+    everythingBroken = true;
+    // Both tiers reject the newer write: the composite surfaces the failure
+    // (so the store can report unavailability) without destroying the last
+    // good copy.
+    expect(() => storage.setItem('k', 'never-stored')).toThrow();
+    expect(storage.getItem('k')).toBe('last-good');
+  });
+
+  it('reads through to the secondary when the primary throws or misses', () => {
+    const primary = memoryStorage();
+    primary.getItem = () => {
+      throw new Error('denied');
+    };
+    const secondary = memoryStorage();
+    secondary.setItem('k', 'from-secondary');
+    const storage = createFallbackStorage(primary, secondary);
+
+    expect(storage.getItem('k')).toBe('from-secondary');
+    expect(storage.getItem('missing')).toBeNull();
+
+    // removeItem clears both tiers and never throws even when both do.
+    primary.removeItem = () => {
+      throw new Error('denied');
+    };
+    secondary.removeItem = () => {
+      throw new Error('denied');
+    };
+    expect(() => storage.removeItem('k')).not.toThrow();
+  });
+});
+
+describe('studioPersistentStorage (#112)', () => {
+  it('exposes nothing where window storage does not exist', () => {
+    // In Node there is no window/localStorage: the helper must return
+    // undefined so callers degrade to the unavailable store instead of
+    // throwing. If jsdom ever injects globals this assertion needs a stub
+    // environment; today it documents the SSR/no-window contract.
+    const originalWindow = globalThis.window;
+    const originalLocalStorage = globalThis.localStorage;
+    const originalSessionStorage = globalThis.sessionStorage;
+    // @ts-expect-error test-only deletion of environment globals
+    delete globalThis.window;
+    // @ts-expect-error test-only deletion of environment globals
+    delete globalThis.localStorage;
+    // @ts-expect-error test-only deletion of environment globals
+    delete globalThis.sessionStorage;
+    try {
+      expect(studioPersistentStorage()).toBeUndefined();
+    } finally {
+      if (originalWindow !== undefined) globalThis.window = originalWindow;
+      if (originalLocalStorage !== undefined) globalThis.localStorage = originalLocalStorage;
+      if (originalSessionStorage !== undefined) globalThis.sessionStorage = originalSessionStorage;
+    }
   });
 });
 

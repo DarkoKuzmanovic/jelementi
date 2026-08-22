@@ -29,7 +29,7 @@ import {
 export const STUDIO_RECOVERY_VERSION = 1 as const;
 export const STUDIO_RECOVERY_KEY_PREFIX = 'jelementi.studio.recovery.';
 export const STUDIO_RECOVERY_NEW_IDENTITY = 'new';
-/** Upper bound on the serialized record; keeps sessionStorage writes safe. */
+/** Upper bound on the serialized record; keeps storage writes safe. */
 export const STUDIO_RECOVERY_MAX_JSON = 512_000;
 
 export interface StudioRecoveryRecord {
@@ -169,6 +169,110 @@ export interface StudioStorageLike {
   removeItem(key: string): void;
 }
 
+/**
+ * Two-tier storage adapter (#112 survivable unsaved writing).
+ *
+ * Records persist in `localStorage` (primary) so recovery copies survive
+ * full browser restarts; when the primary cannot serve a write (quota
+ * exceeded, private mode) the write falls back to `sessionStorage` so the
+ * convenience degrades to session-only instead of disappearing. Every
+ * operation is guarded: storage failure never throws past this boundary —
+ * the recovery store treats an unusable tier as absent.
+ */
+export function createFallbackStorage(
+  primary: StudioStorageLike,
+  secondary: StudioStorageLike,
+): StudioStorageLike {
+  return {
+    getItem(key) {
+      try {
+        const value = primary.getItem(key);
+        if (value !== null) return value;
+      } catch {
+        // Primary unreadable (denied access): read through to the fallback.
+      }
+      try {
+        return secondary.getItem(key);
+      } catch {
+        return null;
+      }
+    },
+    setItem(key, value) {
+      let primaryError: unknown;
+      try {
+        primary.setItem(key, value);
+        return;
+      } catch (error) {
+        // Fall through to the secondary tier.
+        primaryError = error;
+      }
+      try {
+        secondary.setItem(key, value);
+      } catch {
+        // Both tiers failed: keep any previous primary record intact (the
+        // last good copy survives) and surface the failure so callers can
+        // degrade — the store treats it as an unavailable convenience.
+        throw primaryError;
+      }
+      // The fresher record lives in the fallback now; a stale primary copy
+      // must never shadow it on later reads.
+      try {
+        primary.removeItem(key);
+      } catch {
+        // Non-fatal: reads prefer whichever tier still serves the newest
+        // written value through the guarded paths above.
+      }
+    },
+    removeItem(key) {
+      try {
+        primary.removeItem(key);
+      } catch {
+        // Non-fatal by contract.
+      }
+      try {
+        secondary.removeItem(key);
+      } catch {
+        // Non-fatal by contract.
+      }
+    },
+  };
+}
+
+function globalStorageOf(name: 'localStorage' | 'sessionStorage'): StudioStorageLike | undefined {
+  try {
+    const value = (globalThis as unknown as Record<string, unknown>)[name];
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      typeof (value as StudioStorageLike).getItem !== 'function' ||
+      typeof (value as StudioStorageLike).setItem !== 'function' ||
+      typeof (value as StudioStorageLike).removeItem !== 'function'
+    ) {
+      return undefined;
+    }
+    return value as StudioStorageLike;
+  } catch {
+    // Accessing the global can itself throw (denied storage); degrade.
+    return undefined;
+  }
+}
+
+/**
+ * The persistent Recovery storage (#112): `localStorage` first so records
+ * survive full browser restarts, degrading to session-only through
+ * `sessionStorage` when local writes fail. Returns `undefined` where no
+ * browser storage exists (SSR, hardened embeds); callers pass that straight
+ * to {@link createStudioRecoveryStore} and receive the unavailable store.
+ */
+export function studioPersistentStorage(): StudioStorageLike | undefined {
+  const local = globalStorageOf('localStorage');
+  const session = globalStorageOf('sessionStorage');
+  if (local === undefined && session === undefined) return undefined;
+  if (local === undefined) return session;
+  if (session === undefined) return local;
+  return createFallbackStorage(local, session);
+}
+
 export interface StudioRecoveryStore {
   /** False when storage is unavailable; recovery convenience is disabled only. */
   readonly available: boolean;
@@ -185,9 +289,11 @@ const UNAVAILABLE_STORE: StudioRecoveryStore = {
 };
 
 /**
- * sessionStorage adapter. Every operation is guarded: quota errors,
- * disabled storage, or a throwing implementation disable only the recovery
- * convenience — never the full server workflow.
+ * Storage adapter over the injected backend. Every operation is guarded:
+ * quota errors, disabled storage, or a throwing implementation disable only
+ * the recovery convenience — never the full server workflow. #112: callers
+ * inject {@link studioPersistentStorage} (localStorage first, session
+ * fallback) so records survive full browser restarts.
  */
 export function createStudioRecoveryStore(
   storage: StudioStorageLike | undefined,

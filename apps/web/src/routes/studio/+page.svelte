@@ -5,7 +5,11 @@
   import StudioFlowboard from '$lib/studio/StudioFlowboard.svelte';
   import StudioStatusAnnouncer from '$lib/studio/StudioStatusAnnouncer.svelte';
   import type { StudioFlowboardProjection } from '$lib/studio/flowboard-projection';
-  import { createStudioRecoveryStore, studioRecoveryKey } from '$lib/studio/enhancement-recovery';
+  import {
+    createStudioRecoveryStore,
+    studioPersistentStorage,
+    studioRecoveryKey,
+  } from '$lib/studio/enhancement-recovery';
   import {
     buildCheckControllerOptions,
     installStudioEnhancement,
@@ -34,7 +38,11 @@
 
   onMount(() => {
     if (data.discardedSlug !== undefined) {
-      createStudioRecoveryStore(sessionStorage).clear(studioRecoveryKey(data.discardedSlug));
+      // #112: recovery records persist in localStorage now, so the discard
+      // outcome must clear from the same persistent backend.
+      createStudioRecoveryStore(studioPersistentStorage()).clear(
+        studioRecoveryKey(data.discardedSlug),
+      );
     }
     const cleanups: Array<() => void> = [];
     const forms = Array.from(document.querySelectorAll<HTMLFormElement>('form[action="?/check"]'));
