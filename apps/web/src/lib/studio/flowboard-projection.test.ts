@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StudioArticleListEntry, StudioLifecycle } from './contracts';
 import { buildStudioFlowboard } from './flowboard-projection';
+import { statusObservationCopy, studioChecksPassedMerging } from './evidence-copy';
 
 const mainSha = 'a'.repeat(40);
 
@@ -109,10 +110,53 @@ describe('buildStudioFlowboard', () => {
     const card = flowboard.columns.resumeWork[0];
     expect(card?.projection.workingChange.label).toBe('Status unavailable');
     expect(card?.primaryAction).toEqual({ kind: 'check', label: 'Check status' });
+    // #117: the observation evidence is a human sentence, never raw codes.
     expect(card?.projection.evidence).toContainEqual({
       label: 'Status observation',
-      value: 'check unavailable (github)',
+      value: statusObservationCopy('check', 'github'),
     });
+  });
+
+  it('labels a concluded-successful check pre-merge as merging, never waiting to start (#117)', () => {
+    const pullRequest = {
+      number: 5,
+      url: 'https://github.com/example/example/pull/5',
+      headSha: 'b'.repeat(40),
+    };
+    const flowboard = buildStudioFlowboard([
+      row('merging-now', {
+        change: 'ready',
+        pullRequest,
+        check: { name: 'verify', status: 'completed', conclusion: 'success' },
+      }),
+      row('waiting-to-start', { change: 'ready', pullRequest }),
+      row('still-running', {
+        change: 'ready',
+        pullRequest,
+        check: { name: 'verify', status: 'in_progress', conclusion: null },
+      }),
+    ]);
+    const byslug = new Map(
+      Object.values(flowboard.columns)
+        .flat()
+        .map((card) => [card.slug, card]),
+    );
+    expect(byslug.get('merging-now')?.projection.workingChange.label).toBe(
+      studioChecksPassedMerging().label,
+    );
+    expect(byslug.get('waiting-to-start')?.projection.workingChange.label).toBe(
+      'Approved — waiting for checks',
+    );
+    // A running check must never claim passed.
+    expect(byslug.get('still-running')?.projection.workingChange.label).toBe(
+      'Approved — waiting for checks',
+    );
+    // The merging moment sits in Resume work and points at Check status —
+    // never at a second Publish.
+    const mergingCard = byslug.get('merging-now');
+    expect(flowboard.columns.resumeWork.map((card) => card.slug)).toContain('merging-now');
+    expect(mergingCard?.primaryAction).toEqual({ kind: 'check', label: 'Check status' });
+    expect(mergingCard?.projection.actions.publish.available).toBe(false);
   });
 
   it('links a valid committed draft to the Editorial desk publication center', () => {

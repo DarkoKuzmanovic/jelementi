@@ -5,6 +5,12 @@ import type {
 } from '../server/studio/draft-replacement.server';
 import type { StudioSaveResult } from '../server/studio/editor.server';
 import type { StudioPublishResult } from '../server/studio/publish.server';
+import {
+  publishStoppedCopy,
+  replacementStoppedCopy,
+  saveStoppedCopy,
+  shortStudioSha,
+} from './evidence-copy';
 
 /**
  * Recovery projection for Studio conflict and failure presentations.
@@ -51,6 +57,16 @@ function candidatePreserved(detail: string): string {
   return `Your submitted candidate is preserved in the form above. ${detail}`;
 }
 
+/**
+ * #117: operational copy carries only the abbreviated digest; the sentinel
+ * text ('none' / 'absent' / 'not read') passes through untouched.
+ */
+function shortOr(value: string | undefined, sentinel: string): string {
+  if (value === undefined) return sentinel;
+  const short = shortStudioSha(value);
+  return short === '' ? sentinel : short;
+}
+
 export function buildStudioSaveRecovery(
   save: StudioSaveResult | undefined,
 ): StudioRecoveryProjection | undefined {
@@ -78,13 +94,13 @@ export function buildStudioSaveRecovery(
         comparison: [
           {
             label: 'Main',
-            loaded: save.loaded.baseMainSha,
-            current: save.current.baseMainSha,
+            loaded: shortOr(save.loaded.baseMainSha, NONE),
+            current: shortOr(save.current.baseMainSha, NONE),
           },
           {
             label: 'Draft head',
-            loaded: save.loaded.draftHeadSha ?? NONE,
-            current: save.current.draftHeadSha ?? NONE,
+            loaded: shortOr(save.loaded.draftHeadSha, NONE),
+            current: shortOr(save.current.draftHeadSha, NONE),
           },
         ],
         evidence: [],
@@ -107,13 +123,13 @@ export function buildStudioSaveRecovery(
       comparison: [
         {
           label: 'Main',
-          loaded: save.loaded.baseMainSha,
-          current: save.current.baseMainSha,
+          loaded: shortOr(save.loaded.baseMainSha, NONE),
+          current: shortOr(save.current.baseMainSha, NONE),
         },
         {
           label: 'Draft head',
-          loaded: save.loaded.draftHeadSha ?? NONE,
-          current: save.current.draftHeadSha ?? NONE,
+          loaded: shortOr(save.loaded.draftHeadSha, NONE),
+          current: shortOr(save.current.draftHeadSha, NONE),
         },
         offer !== undefined
           ? {
@@ -121,12 +137,12 @@ export function buildStudioSaveRecovery(
               // matching pair is the evidence that replacing cannot overwrite
               // an article change on main.
               label: 'Article on main',
-              loaded: offer.target.loadedBlobSha ?? 'absent',
-              current: offer.target.freshBlobSha ?? 'absent',
+              loaded: shortOr(offer.target.loadedBlobSha, 'absent'),
+              current: shortOr(offer.target.freshBlobSha, 'absent'),
             }
           : {
               label: 'Article blob',
-              loaded: save.loaded.expectedBlobSha ?? NONE,
+              loaded: shortOr(save.loaded.expectedBlobSha, NONE),
               current: 'not read',
             },
       ],
@@ -139,7 +155,7 @@ export function buildStudioSaveRecovery(
               // above already proves the branch content is unchanged.
               {
                 label: 'Draft article blob (expected)',
-                value: save.loaded.expectedBlobSha ?? NONE,
+                value: shortOr(save.loaded.expectedBlobSha, NONE),
               },
             ]
           : [],
@@ -152,7 +168,9 @@ export function buildStudioSaveRecovery(
       operation: 'save',
       tone: 'failure',
       heading: 'Save stopped: unexpected pull requests',
-      whatHappened: `The save stopped at the ${save.phase} phase because the draft branch has an unexpected pull-request topology. Nothing was overwritten.`,
+      // #117: no internal phase code — a sentence naming what happened.
+      whatHappened:
+        "Saving stopped because this article's Draft PR setup on GitHub is not the single-draft shape Studio expects. Nothing was overwritten.",
       workSafety: candidatePreserved('The committed Studio draft was not modified.'),
       readerEffect: READERS_UNCHANGED,
       nextAction:
@@ -179,7 +197,8 @@ export function buildStudioSaveRecovery(
     operation: 'save',
     tone: 'failure',
     heading: 'Save failed',
-    whatHappened: `GitHub could not be reached during the ${save.phase} phase. Nothing was changed.`,
+    // #117: sentence-form phase explanation, never the raw code.
+    whatHappened: saveStoppedCopy(save.phase),
     workSafety: candidatePreserved('The committed Studio draft was not modified.'),
     readerEffect: READERS_UNCHANGED,
     nextAction: 'Save again when GitHub is reachable.',
@@ -209,8 +228,11 @@ export function buildStudioPublishRecovery(
       comparison: [
         {
           label: 'Draft head',
-          loaded: publish.expectedHeadSha,
-          current: publish.currentHeadSha ?? 'branch not found',
+          loaded: shortOr(publish.expectedHeadSha, NONE),
+          current:
+            publish.currentHeadSha === null
+              ? 'branch not found'
+              : shortOr(publish.currentHeadSha, 'branch not found'),
         },
       ],
       evidence: [],
@@ -250,7 +272,8 @@ export function buildStudioPublishRecovery(
     operation: 'publish',
     tone: 'failure',
     heading: 'Publish did not complete',
-    whatHappened: `The publish stopped at the ${publish.phase} phase (${publish.reason}).`,
+    // #117: sentence-form phase/reason explanation, never the raw codes.
+    whatHappened: publishStoppedCopy(publish.phase, publish.reason),
     workSafety:
       'The committed Studio draft is preserved on its branch; your submitted candidate stays in the form above.',
     readerEffect: late
@@ -269,23 +292,23 @@ function replacementEvidenceRows(
 ): StudioRecoveryEvidenceRow[] {
   const rows: StudioRecoveryEvidenceRow[] = [];
   if (evidence.mainSha !== undefined) {
-    rows.push({ label: 'Fresh main', value: evidence.mainSha });
+    rows.push({ label: 'Fresh main', value: shortStudioSha(evidence.mainSha) });
   }
   if (evidence.target) {
     rows.push({ label: 'Article path', value: evidence.target.path });
     rows.push({
       label: 'Article blob (loaded)',
-      value: evidence.target.loadedBlobSha ?? 'absent',
+      value: shortOr(evidence.target.loadedBlobSha, 'absent'),
     });
     rows.push({
       label: 'Article blob (fresh)',
-      value: evidence.target.freshBlobSha ?? 'absent',
+      value: shortOr(evidence.target.freshBlobSha, 'absent'),
     });
   }
   if (evidence.branch) {
     rows.push({
       label: 'Branch',
-      value: `${evidence.branch.name} @ ${evidence.branch.headSha}`,
+      value: `${evidence.branch.name} @ ${shortStudioSha(evidence.branch.headSha)}`,
       url: evidence.branch.url,
     });
   }
@@ -355,7 +378,7 @@ export function buildStudioReplacementRecovery(
       operation: 'replace',
       tone: 'success',
       heading: 'Studio draft replaced',
-      whatHappened: `The stale draft was replaced: the old Draft PR was closed, the branch was recreated from fresh main ${replacement.concurrency.baseMainSha}, and your candidate was committed.`,
+      whatHappened: `The stale draft was replaced: the old Draft PR was closed, the branch was recreated from fresh main ${shortStudioSha(replacement.concurrency.baseMainSha)}, and your candidate was committed.`,
       workSafety: 'Your candidate is now the committed Studio draft and stays in the form above.',
       readerEffect: READERS_UNCHANGED,
       nextAction:
@@ -364,7 +387,7 @@ export function buildStudioReplacementRecovery(
       evidence: [
         {
           label: 'Branch',
-          value: `${replacement.branch.name} @ ${replacement.branch.headSha}`,
+          value: `${replacement.branch.name} @ ${shortStudioSha(replacement.branch.headSha)}`,
           url: replacement.branch.url,
         },
         {
@@ -381,7 +404,9 @@ export function buildStudioReplacementRecovery(
       operation: 'replace',
       tone: 'conflict',
       heading: 'Draft replacement stopped',
-      whatHappened: `The replacement stopped at the ${replacement.phase} phase: ${copy.whatHappened}`,
+      // #117: the reason's plain-language sentence owns the explanation; no
+      // internal phase identifier is echoed.
+      whatHappened: `The replacement stopped: ${copy.whatHappened}`,
       workSafety: replacementWorkSafety(replacement.mutation),
       readerEffect:
         replacement.reason === 'merged'
@@ -398,8 +423,9 @@ export function buildStudioReplacementRecovery(
     operation: 'replace',
     tone: 'failure',
     heading: 'Draft replacement did not complete',
+    // #117: sentence-form phase/reason explanation, never the raw codes.
     whatHappened:
-      `The replacement stopped at the ${replacement.phase} phase (${replacement.reason}).` +
+      replacementStoppedCopy(replacement.phase, replacement.reason) +
       (confirmOnly
         ? ' The replacement may even have completed — only the final confirmation could not prove it.'
         : ''),

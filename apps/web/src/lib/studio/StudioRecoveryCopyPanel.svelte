@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import type { StudioConcurrencyEvidence } from './contracts';
   import type { StudioRecoveryRecord } from './enhancement-recovery';
+  import { shortStudioSha } from './evidence-copy';
   import {
     createStudioRecoveryStore,
     reconcileStudioRecovery,
@@ -169,16 +170,16 @@
         <pre>{recoveryRecord.candidate.body}</pre>
         <dl>
           <dt>Recovery base</dt>
-          <dd>{recoveryRecord.loadedConcurrency.baseMainSha}</dd>
+          <dd>{shortStudioSha(recoveryRecord.loadedConcurrency.baseMainSha)}</dd>
           <dt>Current base</dt>
-          <dd>{loadedConcurrency.baseMainSha}</dd>
+          <dd>{shortStudioSha(loadedConcurrency.baseMainSha)}</dd>
           {#if recoveryRecord.loadedConcurrency.draftHeadSha}
             <dt>Recovery draft</dt>
-            <dd>{recoveryRecord.loadedConcurrency.draftHeadSha}</dd>
+            <dd>{shortStudioSha(recoveryRecord.loadedConcurrency.draftHeadSha)}</dd>
           {/if}
           {#if loadedConcurrency.draftHeadSha}
             <dt>Current draft</dt>
-            <dd>{loadedConcurrency.draftHeadSha}</dd>
+            <dd>{shortStudioSha(loadedConcurrency.draftHeadSha)}</dd>
           {/if}
         </dl>
       </div>

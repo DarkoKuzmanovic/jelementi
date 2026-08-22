@@ -1,5 +1,12 @@
 import type { StudioArticleListEntry, StudioLifecycle, StudioProductionState } from './contracts';
 import {
+  isConcludedSuccessfulCheck,
+  statusObservationCopy,
+  STUDIO_WORKING_CHANGE_CHECKS_PASSED_MERGING,
+  studioChecksPassedMerging,
+  STUDIO_WORKING_CHANGE_READY_AWAITING_CHECKS,
+} from './evidence-copy';
+import {
   buildStudioWorkspaceProjection,
   type StudioPublishedVersionLabel,
   type StudioWorkingChangeLabel,
@@ -63,7 +70,13 @@ function workingChangeLabel(entry: StudioArticleListEntry): StudioWorkingChangeL
   }
   switch (entry.change) {
     case 'ready':
-      return 'Approved — waiting for checks';
+      // #117: a concluded-successful check pre-merge is factually past
+      // waiting-to-start — GitHub is auto-merging it. The distinction uses
+      // only the check-run evidence already fetched upstream; no new
+      // lifecycle state exists.
+      return isConcludedSuccessfulCheck(entry.check)
+        ? STUDIO_WORKING_CHANGE_CHECKS_PASSED_MERGING
+        : STUDIO_WORKING_CHANGE_READY_AWAITING_CHECKS;
     case 'checking':
       return 'Checks running';
     case 'check_failed':
@@ -99,10 +112,15 @@ const WORKING_CHANGE_PRESENTATION: Readonly<
     summary: 'This saved draft is ready for your publication decision.',
     recommendedAction: 'Open the Editorial desk and review Publish saved version.',
   },
-  'Approved — waiting for checks': {
+  [STUDIO_WORKING_CHANGE_READY_AWAITING_CHECKS]: {
     column: 'resume-work',
     summary: 'This approved change is waiting for checks to start.',
     recommendedAction: 'Check status to refresh the server evidence.',
+  },
+  [STUDIO_WORKING_CHANGE_CHECKS_PASSED_MERGING]: {
+    column: 'resume-work',
+    summary: studioChecksPassedMerging().summary,
+    recommendedAction: studioChecksPassedMerging().recommendedAction,
   },
   'Checks running': {
     column: 'resume-work',
@@ -158,7 +176,8 @@ function primaryAction(
       return entry.check?.url === undefined
         ? { kind: 'check', label: 'Check status' }
         : { kind: 'link', label: 'Open failed check', href: entry.check.url };
-    case 'Approved — waiting for checks':
+    case STUDIO_WORKING_CHANGE_READY_AWAITING_CHECKS:
+    case 'Checks passed — merging':
     case 'Checks running':
     case 'Merged — site update pending':
     case 'Status unavailable':
@@ -237,7 +256,8 @@ function listWorkspaceProjection(entry: StudioArticleListEntry): StudioWorkspace
   if (entry.failure !== undefined) {
     evidence.push({
       label: 'Status observation',
-      value: `${entry.failure.phase} unavailable (${entry.failure.reason})`,
+      // #117: a human sentence — internal phase/reason codes never surface.
+      value: statusObservationCopy(entry.failure.phase, entry.failure.reason),
     });
   }
 

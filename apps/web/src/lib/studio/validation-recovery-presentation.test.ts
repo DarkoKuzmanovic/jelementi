@@ -219,7 +219,9 @@ describe('StudioRecoveryPanel', () => {
     const { body } = render(StudioRecoveryPanel, { props: { recovery } });
     expect(body).toContain('formaction="?/replace"');
     expect(body).toContain('Article on main');
-    expect(body).toContain('1'.repeat(40));
+    // #117: operational panels render short digests, never full values.
+    expect(body).toContain('1'.repeat(40).slice(0, 7));
+    expect(body).not.toContain('1'.repeat(40));
     expect(body).toContain('content/articles/a-draft-article.md');
     expect(body).not.toContain('not read');
   });

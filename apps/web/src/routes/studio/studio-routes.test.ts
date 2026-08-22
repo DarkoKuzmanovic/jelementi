@@ -1155,9 +1155,13 @@ describe('StudioEditor Draft replacement offer', () => {
     });
 
     expect(body).toContain('Unsaved candidate survives.');
-    expect(body).toContain('delete-branch');
+    // #117: the internal phase code is never rendered; the failure gets a
+    // sentence, and digests render short.
+    expect(body).not.toContain('delete-branch');
+    expect(body).toContain('old draft branch was being deleted');
     expect(body).toContain('/pull/42');
-    expect(body).toContain('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+    // #117: the visible replacement evidence renders the short digest.
+    expect(body).toContain('<code>bbbbbbb</code>');
   });
 });
 
