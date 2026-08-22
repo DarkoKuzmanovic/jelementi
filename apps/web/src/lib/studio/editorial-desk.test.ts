@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createRawSnippet } from 'svelte';
 import { render } from 'svelte/server';
 import StudioEditorialDesk from './StudioEditorialDesk.svelte';
+import StudioNewArticlePublicationCenter from './StudioNewArticlePublicationCenter.svelte';
 import StudioEditor from './StudioEditor.svelte';
 import StudioPreviewPane from './StudioPreviewPane.svelte';
 import StudioPublishPanel from './StudioPublishPanel.svelte';
@@ -65,6 +67,41 @@ describe('StudioEditorialDesk', () => {
 
     expect(body.indexOf('Editor region')).toBeLessThan(body.indexOf('Preview region'));
     expect(body.indexOf('Preview region')).toBeLessThan(body.indexOf('Publication region'));
+  });
+
+  it('places the editor in the centre column while DOM order stays editor-first', () => {
+    const desk = readFileSync(new URL('./StudioEditorialDesk.svelte', import.meta.url), 'utf8');
+
+    // Visual centre for the editor, reading column for the preview. DOM order
+    // is asserted above and deliberately unchanged, so the stacked small-screen
+    // order stays editor-first.
+    expect(desk).toMatch(/\.studio-editorial-desk__editor\s*\{[^}]*grid-column:\s*2/);
+    expect(desk).toMatch(/\.studio-editorial-desk__preview\s*\{[^}]*grid-column:\s*1/);
+    expect(desk).toMatch(/\.studio-editorial-desk__publication\s*\{[^}]*grid-column:\s*3/);
+  });
+});
+
+describe('Publication center caption', () => {
+  it('captions the column like the editor and preview eyebrows, not as a page heading', () => {
+    const { body } = render(StudioNewArticlePublicationCenter, {
+      props: { concurrency: { baseMainSha: 'a'.repeat(40), draftHeadSha: 'b'.repeat(40) } },
+    });
+
+    // Still an h2 with its labelling id — only the presentation changes.
+    expect(body).toContain('id="studio-publication-center-heading"');
+    expect(body).toContain('Publication center');
+    expect(body).toContain('studio-column-caption');
+  });
+
+  it('defines the shared caption to match the muted, compact column eyebrows', () => {
+    const tokens = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
+    const start = tokens.indexOf('.studio-column-caption {');
+    const rule = tokens.slice(start, tokens.indexOf('}', start));
+
+    expect(rule).toMatch(/color:\s*var\(--studio-text-muted\)/);
+    expect(rule).toMatch(/font-size:\s*var\(--studio-text-compact\)/);
+    // The interface face, not the editorial serif a Studio h2 would inherit.
+    expect(rule).toMatch(/font-family:\s*var\(--studio-font-interface\)/);
   });
 });
 
