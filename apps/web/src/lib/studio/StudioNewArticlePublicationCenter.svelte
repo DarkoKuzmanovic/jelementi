@@ -9,7 +9,7 @@
   class="studio-new-publication"
   aria-labelledby="studio-publication-center-heading"
 >
-  <h2 id="studio-publication-center-heading">Publication center</h2>
+  <h2 id="studio-publication-center-heading" class="studio-column-caption">Publication center</h2>
   <section id="validation-summary" aria-labelledby="studio-new-lifecycle-heading">
     <h3 id="studio-new-lifecycle-heading">Lifecycle summary</h3>
     <p>This article has not been saved yet. Readers see no change.</p>

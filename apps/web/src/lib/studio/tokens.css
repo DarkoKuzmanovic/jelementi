@@ -121,6 +121,27 @@
   font-size: var(--studio-text-card-title);
 }
 
+/*
+ * Editorial desk column caption. The editor and preview panes caption
+ * themselves with a muted, compact eyebrow; the publication center is an
+ * `aside` whose h2 would otherwise inherit the editorial serif page-heading
+ * treatment and read as a title floating above the column. Same caption, so
+ * the three columns read as one family — semantics (h2 + labelling id) are
+ * untouched.
+ */
+.studio-column-caption {
+  /* Sit on the same line as the sibling panels' eyebrows. Those are pushed
+     down by the panel border (1px), the panel padding, and the UA's 1em top
+     margin on a `p` at this font size — reproduce that sum here, since this
+     caption is not inside a panel. Asserted as geometry, not arithmetic, in
+     studio-editorial-desk.spec.ts. */
+  margin-block: calc(1px + var(--studio-space-4) + var(--studio-text-compact)) var(--studio-space-3);
+  color: var(--studio-text-muted);
+  font-family: var(--studio-font-interface);
+  font-size: var(--studio-text-compact);
+  font-weight: 400;
+}
+
 .studio-lifecycle-summary {
   background: var(--studio-panel);
   border: 1px solid var(--studio-border);

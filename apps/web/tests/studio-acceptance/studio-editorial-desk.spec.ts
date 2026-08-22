@@ -28,6 +28,24 @@ test.describe('Editorial desk server baseline', () => {
       headings.indexOf('Publication center'),
     );
 
+    // The three column captions sit on one line. The editor and preview
+    // eyebrows are pushed down by their panel padding; the publication caption
+    // is not inside a panel, so it carries a matching top margin instead.
+    // Measured before anything scrolls the page: the publication column is
+    // `position: sticky`, so once scrolled its box no longer shares a
+    // coordinate space with the two panel eyebrows.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const [editorEyebrow, previewEyebrow, publicationCaption] = await Promise.all([
+      page.getByText('Draft article', { exact: true }).boundingBox(),
+      page.getByText('Reader view', { exact: true }).boundingBox(),
+      page.getByRole('heading', { name: 'Publication center', exact: true }).boundingBox(),
+    ]);
+    if (editorEyebrow === null || previewEyebrow === null || publicationCaption === null) {
+      throw new Error('Editorial desk column captions were not laid out.');
+    }
+    expect(Math.abs(editorEyebrow.y - previewEyebrow.y)).toBeLessThan(4);
+    expect(Math.abs(publicationCaption.y - editorEyebrow.y)).toBeLessThan(4);
+
     await expect(page.getByRole('heading', { name: 'Essentials' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Title', exact: true })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Slug', exact: true })).toBeVisible();
@@ -67,8 +85,11 @@ test.describe('Editorial desk server baseline', () => {
     if (editorBox === null || previewBox === null || publicationBox === null) {
       throw new Error('Editorial desk regions were not laid out.');
     }
-    expect(editorBox.x).toBeLessThan(previewBox.x);
-    expect(previewBox.x).toBeLessThan(publicationBox.x);
+    // Editor in the centre column, preview to its left, publication right.
+    // DOM order stays editor -> preview -> publication (asserted above and in
+    // editorial-desk.test.ts); only the wide-desk placement differs.
+    expect(previewBox.x).toBeLessThan(editorBox.x);
+    expect(editorBox.x).toBeLessThan(publicationBox.x);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

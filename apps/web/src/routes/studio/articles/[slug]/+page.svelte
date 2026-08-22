@@ -389,7 +389,9 @@
 
   {#snippet publication()}
     <aside id="publication-center" aria-labelledby="studio-publication-center-heading">
-      <h2 id="studio-publication-center-heading">Publication center</h2>
+      <h2 id="studio-publication-center-heading" class="studio-column-caption">
+        Publication center
+      </h2>
       {#if candidateDirty}
         <section class="studio-dirty-notice" aria-labelledby="studio-dirty-heading">
           <h3 id="studio-dirty-heading">Unsaved form changes</h3>

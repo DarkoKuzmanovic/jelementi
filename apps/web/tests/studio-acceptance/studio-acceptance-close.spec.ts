@@ -143,9 +143,11 @@ test.describe('responsive reflow — #79 criterion 3', () => {
       publication.boundingBox(),
     ]);
     if (!eBox || !pBox || !pubBox) throw new Error('Editorial desk not laid out at 1280');
-    // Desktop: three columns side-by-side (x ordering; y roughly equal, within a band).
-    expect(eBox.x).toBeLessThan(pBox.x);
-    expect(pBox.x).toBeLessThan(pubBox.x);
+    // Desktop: three columns side-by-side (x ordering; y roughly equal, within a
+    // band). The editor takes the centre column and the preview the left one;
+    // DOM order stays editor -> preview -> publication.
+    expect(pBox.x).toBeLessThan(eBox.x);
+    expect(eBox.x).toBeLessThan(pubBox.x);
     expect(Math.abs(eBox.y - pBox.y)).toBeLessThan(40);
 
     // Intermediate (~1000px, below 1120 breakpoint): publication wraps to full-width second row.
