@@ -6,6 +6,10 @@
   import StudioStatusAnnouncer from '$lib/studio/StudioStatusAnnouncer.svelte';
   import type { StudioFlowboardProjection } from '$lib/studio/flowboard-projection';
   import {
+    studioFlowboardCheckAnnouncement,
+    type StudioFlowboardCheckOutcome,
+  } from '$lib/studio/flowboard-envelope';
+  import {
     createStudioRecoveryStore,
     studioPersistentStorage,
     studioRecoveryKey,
@@ -28,8 +32,15 @@
   const flowboard = $derived(flowboardOverride ?? form?.flowboard ?? data.flowboard);
   let checkedSlugOverride = $state<string | undefined>(undefined);
   const checkedSlug = $derived(checkedSlugOverride ?? form?.checkedSlug);
+  // #116: the announcement reflects the explicit server outcome token — a
+  // failed check says so (with its cause category and retry guidance)
+  // instead of claiming success. The token defaults to "checked" only for
+  // legacy responses that predate it.
+  const checkOutcome = $derived<StudioFlowboardCheckOutcome | undefined>(form?.checkOutcome);
   const statusMessage = $derived(
-    checkedSlug === undefined ? '' : `Status checked for ${checkedSlug}.`,
+    checkedSlug === undefined
+      ? ''
+      : studioFlowboardCheckAnnouncement(checkedSlug, checkOutcome ?? { outcome: 'checked' }),
   );
   let politeOverride = $state('');
   let assertiveMessage = $state('');
@@ -81,7 +92,10 @@
           onFlowboardEnvelope: (envelope) => {
             flowboardOverride = envelope.flowboard;
             checkedSlugOverride = envelope.checkedSlug;
-            politeOverride = `Status checked for ${envelope.checkedSlug}.`;
+            // #116: the enhanced path consumes the same explicit outcome
+            // token as full navigation, so a failed check is announced as
+            // one here too.
+            politeOverride = studioFlowboardCheckAnnouncement(envelope.checkedSlug, envelope.check);
           },
         }),
         {},

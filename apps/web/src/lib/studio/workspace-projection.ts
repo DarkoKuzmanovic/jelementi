@@ -4,6 +4,7 @@ import type {
   StudioLifecycle,
   StudioStatusKind,
 } from './contracts';
+import { STUDIO_ISO_DATE_PATTERN } from './contracts';
 
 /**
  * Studio workspace projection — the presentation seam for #73.
@@ -25,6 +26,8 @@ export const STUDIO_PUBLISHED_VERSION_LABELS = [
   'Not published',
   'Updating the site',
   'Live and verified',
+  'Published — not verified',
+  'Archived — not verified',
   'Removing from the site',
   'Removed and verified',
 ] as const;
@@ -55,10 +58,21 @@ export interface StudioEvidenceRow {
   url?: string;
 }
 
+export interface StudioPublishedVersion {
+  label: StudioPublishedVersionLabel;
+  /**
+   * #116: when the verified outcome was observed (bounded ISO instant).
+   * Present only with probe-proven labels (`Live and verified`,
+   * `Removed and verified`); lets the UI render "Live — verified <time>"
+   * so a verified claim stays visibly bounded in time.
+   */
+  verifiedAt?: string;
+}
+
 export interface StudioWorkspaceProjection {
   slug: string;
   title: string;
-  publishedVersion: { label: StudioPublishedVersionLabel };
+  publishedVersion: StudioPublishedVersion;
   workingChange: { label: StudioWorkingChangeLabel };
   summary: string;
   recommendedAction: string;
@@ -90,14 +104,17 @@ const MAX_URL = 2_048;
 const MAX_EVIDENCE_ROWS = 50;
 const HTTPS_PATTERN = /^https:\/\//i;
 const SAFE_KEY = /^[A-Za-z0-9._-]{1,32}$/;
+const VERIFIED_AT_PATTERN = new RegExp(`^${STUDIO_ISO_DATE_PATTERN}$`);
 
 /**
  * Per-kind axis + action-availability mapping. Purely presentational: it
  * reads the domain `StudioLifecycle` kind and article status, and never
- * invents new domain truth. Where the existing kind does not by itself
- * distinguish "just merged, unconfirmed" from a later probed resolution,
- * the mapping favors the more cautious ("pending"/"unavailable") label —
- * silence about production truth is never upgraded to a positive claim.
+ * invents new domain truth. #116 keeps the three lifecycle situations
+ * verbally distinct: transitional copy only for genuinely known-recent
+ * transitions (`merged`, probed `pending_deployment`, `unpublish_pending`),
+ * probe-proven claims for verified outcomes, and honest neutral
+ * "not verified on this screen" for everything else — silence about
+ * production truth is never upgraded to a transition or a positive claim.
  */
 function derivePublishedVersion(
   kind: StudioStatusKind,
@@ -114,18 +131,16 @@ function derivePublishedVersion(
       return 'Removing from the site';
     case 'archived':
       return 'Removed and verified';
+    case 'unverified':
+      if (articleStatus === 'archived') return 'Archived — not verified';
+      return 'Published — not verified';
     default:
-      // An ordinary load never probes: without proven evidence, a canonical
-      // published article is presented as still "Updating the site" (the
-      // same conservative, not-yet-confirmed label used for a fresh merge),
-      // never claimed "Live and verified" from GitHub status alone (#72:
-      // "An ordinary load remains conservative and does not probe: a
-      // canonical published article without current probe evidence is
-      // Updating the site."). The symmetric case applies to a canonical
-      // archived article: never claim proven absence without evidence.
+      // Without proven evidence and without a known-recent transition, the
+      // honest state is neutral "not verified on this screen" (#116) —
+      // never claimed live/removed from GitHub status alone.
       if (productionLiveProven) return 'Live and verified';
-      if (articleStatus === 'published') return 'Updating the site';
-      if (articleStatus === 'archived') return 'Removing from the site';
+      if (articleStatus === 'published') return 'Published — not verified';
+      if (articleStatus === 'archived') return 'Archived — not verified';
       return 'Not published';
   }
 }
@@ -146,6 +161,7 @@ function deriveWorkingChange(kind: StudioStatusKind): StudioWorkingChangeLabel {
     case 'pending_deployment':
       return 'Merged — site update pending';
     case 'live':
+    case 'unverified':
     case 'unpublish_pending':
     case 'archived':
       return 'No changes in progress';
@@ -167,6 +183,8 @@ const SUMMARY_BY_KIND: Readonly<Record<StudioStatusKind, string>> = {
   check_failed: 'Checks failed on this change. Review the failure before retrying.',
   merged: 'This change has been merged and the site update is in progress.',
   pending_deployment: 'The site update is still in progress.',
+  // #116: honest neutral — no transition phrasing for an unprobed steady state.
+  unverified: 'No change is underway, but this screen has not verified the public site recently.',
   live: 'The published version is live and verified in production.',
   unpublish_pending: 'This article is being removed from the site.',
   archived: 'This article has been removed from the site and verified absent.',
@@ -183,6 +201,7 @@ const RECOMMENDED_ACTION_BY_KIND: Readonly<Record<StudioStatusKind, string>> = {
   check_failed: 'Review the failed check, then retry.',
   merged: 'Wait for the site update to finish, then check status.',
   pending_deployment: 'Check status again shortly.',
+  unverified: 'Check status to verify what readers currently see.',
   live: 'No action needed.',
   unpublish_pending: 'Wait for the removal to finish, then check status.',
   archived: 'No action needed.',
@@ -200,6 +219,8 @@ const READER_EFFECT_BY_KIND: Readonly<Record<StudioStatusKind, string>> = {
   merged: 'Readers will see this change once the site update finishes.',
   pending_deployment: 'Readers will see this change once the site update finishes.',
   live: 'Readers currently see this published version.',
+  // #116: honest neutral — say what is not known without implying motion.
+  unverified: 'What readers currently see has not been verified on this screen.',
   unpublish_pending: 'Readers will stop seeing this article once removal finishes.',
   archived: 'Readers no longer see this article.',
   conflict: 'Readers see no change from this draft.',
@@ -242,6 +263,8 @@ function actionsForKind(kind: StudioStatusKind): StudioWorkspaceProjection['acti
     kind === 'check_failed' ||
     kind === 'merged' ||
     kind === 'pending_deployment' ||
+    // #116: checking is exactly the remedy for an unverified steady state.
+    kind === 'unverified' ||
     kind === 'unpublish_pending' ||
     kind === 'unknown'
       ? open
@@ -251,6 +274,37 @@ function actionsForKind(kind: StudioStatusKind): StudioWorkspaceProjection['acti
     kind === 'ready' || kind === 'checking' || kind === 'check_failed' ? open : neverForKind;
 
   return { preview, save, publish, refresh, unpublish, discard };
+}
+
+/**
+ * #116: deterministic UTC rendering of a verification stamp, e.g.
+ * "2026-08-22 14:02 UTC". Malformed or absent input yields "" — the UI
+ * then shows the bare label instead of an invented time.
+ */
+export function formatStudioVerifiedAt(verifiedAt: string | undefined): string {
+  if (verifiedAt === undefined) return '';
+  const parsed = new Date(verifiedAt);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const iso = parsed.toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+/** The verified-at stamp this lifecycle carries, if any (#116). */
+function verifiedAtOf(
+  lifecycle: StudioLifecycle,
+  productionLiveProven: boolean,
+): string | undefined {
+  if (lifecycle.kind === 'live' || lifecycle.kind === 'archived') {
+    return lifecycle.verifiedAt;
+  }
+  if (
+    productionLiveProven &&
+    (lifecycle.kind === 'draft_invalid' || lifecycle.kind === 'draft_valid') &&
+    lifecycle.productionLive
+  ) {
+    return lifecycle.productionLive.verifiedAt;
+  }
+  return undefined;
 }
 
 /**
@@ -265,6 +319,7 @@ export function buildStudioWorkspaceProjection(
   const productionLiveProven =
     (lifecycle.kind === 'draft_invalid' || lifecycle.kind === 'draft_valid') &&
     lifecycle.productionLive !== undefined;
+  const verifiedAt = verifiedAtOf(lifecycle, productionLiveProven);
 
   const evidence: StudioEvidenceRow[] = [];
   evidence.push({ label: 'Base version', value: concurrency.baseMainSha });
@@ -307,6 +362,7 @@ export function buildStudioWorkspaceProjection(
     title: lifecycle.article.title,
     publishedVersion: {
       label: derivePublishedVersion(lifecycle.kind, lifecycle.article.status, productionLiveProven),
+      ...(verifiedAt === undefined ? {} : { verifiedAt }),
     },
     workingChange: { label: deriveWorkingChange(lifecycle.kind) },
     summary: SUMMARY_BY_KIND[lifecycle.kind],
@@ -512,16 +568,38 @@ export function decodeStudioWorkspaceProjection(
   const title = boundedString(input.title, 'workspace.title', issues, MAX_LABEL);
 
   let publishedVersionLabel: StudioPublishedVersionLabel | undefined;
+  let publishedVersionVerifiedAt: string | undefined;
   if (!isRecord(input.publishedVersion)) {
     issue('workspace.publishedVersion', issues, 'object');
   } else {
-    rejectUnknownKeys(input.publishedVersion, ['label'], 'workspace.publishedVersion', issues);
+    rejectUnknownKeys(
+      input.publishedVersion,
+      ['label', 'verifiedAt'],
+      'workspace.publishedVersion',
+      issues,
+    );
     publishedVersionLabel = labelValue(
       input.publishedVersion.label,
       STUDIO_PUBLISHED_VERSION_LABELS,
       'workspace.publishedVersion.label',
       issues,
     );
+    publishedVersionVerifiedAt =
+      input.publishedVersion.verifiedAt === undefined
+        ? undefined
+        : boundedString(
+            input.publishedVersion.verifiedAt,
+            'workspace.publishedVersion.verifiedAt',
+            issues,
+            MAX_LABEL,
+          );
+    if (
+      publishedVersionVerifiedAt !== undefined &&
+      !VERIFIED_AT_PATTERN.test(publishedVersionVerifiedAt)
+    ) {
+      issue('workspace.publishedVersion.verifiedAt', issues, 'date');
+      publishedVersionVerifiedAt = undefined;
+    }
   }
 
   let workingChangeLabel: StudioWorkingChangeLabel | undefined;
@@ -651,7 +729,12 @@ export function decodeStudioWorkspaceProjection(
     value: {
       slug,
       title,
-      publishedVersion: { label: publishedVersionLabel },
+      publishedVersion: {
+        label: publishedVersionLabel,
+        ...(publishedVersionVerifiedAt === undefined
+          ? {}
+          : { verifiedAt: publishedVersionVerifiedAt }),
+      },
       workingChange: { label: workingChangeLabel },
       summary,
       recommendedAction,

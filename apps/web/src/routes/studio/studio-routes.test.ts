@@ -187,7 +187,8 @@ describe('Studio route shell', () => {
         slug: 'tristan-da-cunha',
         column: 'library',
         projection: expect.objectContaining({
-          publishedVersion: { label: 'Updating the site' },
+          // #116: frontmatter alone is honestly unverified, never a rollout.
+          publishedVersion: { label: 'Published — not verified' },
           workingChange: { label: 'No changes in progress' },
         }),
       }),
@@ -218,6 +219,9 @@ describe('Studio route shell', () => {
     expect(result).toMatchObject({
       flowboard: { totalCount: 1 },
       checkedSlug: 'tristan-da-cunha',
+      // #116: the check action carries an explicit outcome token so the
+      // announcement can be honest about failures.
+      checkOutcome: { outcome: 'checked' },
     });
     expect(decodeStudioFlowboardCheckEnvelope(result?.envelope)).toMatchObject({
       ok: true,
@@ -225,11 +229,71 @@ describe('Studio route shell', () => {
         operationId: 'flowboard-check-op',
         submittedSnapshotId: 'flowboard-check-snapshot',
         checkedSlug: 'tristan-da-cunha',
+        check: { outcome: 'checked' },
         flowboard: { totalCount: 1 },
       },
     });
     const probedPaths = selfFetch.mock.calls.map(([input]) => new URL(String(input)).pathname);
     expect(new Set(probedPaths)).toEqual(new Set(['/articles/tristan-da-cunha', '/index.json']));
+  });
+
+  // #116: when the status derivation cannot reach GitHub, the action says
+  // so explicitly instead of reporting success — while every card still
+  // degrades gracefully to its fresh list projection.
+  it('Check status reports an explicit failure outcome when GitHub is unreachable', async () => {
+    const failingAdapter = new FakeGithubAdapter(githubConfig);
+    failingAdapter.seedFile(
+      'main',
+      'content/articles/tristan-da-cunha.md',
+      serializeArticleSource({
+        frontmatter: {
+          title: 'The 250 People at the End of the World',
+          slug: 'tristan-da-cunha',
+          excerpt: 'A remote settlement.',
+          publishedAt: '2026-07-26',
+          updatedAt: '2026-07-26',
+          status: 'published',
+          category: 'History',
+          tags: ['islands'],
+          author: 'Jelementi',
+          cover: { src: 'articles/tristan-da-cunha/cover.svg', alt: 'Island' },
+          references: [],
+        },
+        body: 'Body.',
+      }),
+      'b'.repeat(64),
+    );
+    const selfFetch = vi.fn(
+      async (_input: RequestInfo | URL) => new Response('not found', { status: 404 }),
+    );
+    failingAdapter.failNextOperation('get-main-ref');
+    const form = new URLSearchParams({
+      slug: 'tristan-da-cunha',
+      enhancementOperationId: 'flowboard-check-fail-op',
+      submittedSnapshotId: 'flowboard-check-fail-snapshot',
+    });
+    const result = await studioHomeActions.check?.({
+      request: new Request('https://jelementi.quz.ma/studio?/check', {
+        method: 'POST',
+        body: form,
+      }),
+      platform: { env: { ...studioEnv, SELF: { fetch: selfFetch } } },
+      params: {},
+      locals: { studioGithubAdapter: failingAdapter },
+    } as unknown as Parameters<NonNullable<typeof studioHomeActions.check>>[0]);
+
+    expect(result).toMatchObject({
+      checkedSlug: 'tristan-da-cunha',
+      checkOutcome: { outcome: 'failed', reason: 'github' },
+    });
+    expect(result?.flowboard.totalCount).toBe(1);
+    expect(decodeStudioFlowboardCheckEnvelope(result?.envelope)).toMatchObject({
+      ok: true,
+      value: {
+        checkedSlug: 'tristan-da-cunha',
+        check: { outcome: 'failed', reason: 'github' },
+      },
+    });
   });
 
   it('returns the requested article slug only after authorization', async () => {

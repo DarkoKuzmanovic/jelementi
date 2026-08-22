@@ -59,7 +59,7 @@ describe('deriveStudioArticleList', () => {
           slug: 'tristan-da-cunha',
           title: frontmatter.title,
           canonicalStatus: 'published',
-          production: 'pending_deployment',
+          production: 'unverified',
           change: 'none',
           publicUrl: 'https://jelementi.quz.ma/articles/tristan-da-cunha',
         }),
@@ -83,7 +83,7 @@ describe('deriveStudioArticleList', () => {
     if (result.ok) {
       expect(result.value[0]).toMatchObject({
         slug: 'tristan-da-cunha',
-        production: 'pending_deployment',
+        production: 'unverified',
         change: 'draft',
         branch: { name: 'studio/article/tristan-da-cunha' },
       });
@@ -117,7 +117,7 @@ describe('deriveStudioArticleList', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value[0]).toMatchObject({
-        production: 'pending_deployment',
+        production: 'unverified',
         change: 'merged',
         pullRequest: { number: 17 },
       });
@@ -636,6 +636,7 @@ describe('deriveStudioArticleStatus', () => {
       includeProbe: true,
       probeArticle: async () => notFoundArticleProbe(),
       probeIndex: async () => okIndexProbe([]),
+      now: () => '2026-08-22T14:02:00.000Z',
     });
 
     expect(result).toEqual({
@@ -644,6 +645,7 @@ describe('deriveStudioArticleStatus', () => {
         kind: 'archived',
         article: expect.objectContaining({ slug: 'tristan-da-cunha', status: 'archived' }),
         mainSha: main.value.sha,
+        verifiedAt: '2026-08-22T14:02:00.000Z',
       },
     });
   });
@@ -759,8 +761,11 @@ describe('deriveStudioArticleStatus', () => {
       includeProbe: true,
       probeArticle: async () => okArticleProbe(fingerprint),
       probeIndex: async () => okIndexProbe([expectedIndex]),
+      now: () => '2026-08-22T14:02:00.000Z',
     });
 
+    // #116: a proven-live outcome carries when it was verified, so the UI
+    // can show "Live — verified <time>" instead of an unbounded claim.
     expect(result).toEqual({
       ok: true,
       value: {
@@ -770,6 +775,7 @@ describe('deriveStudioArticleStatus', () => {
         contentVersion: fingerprint,
         expected: expectedIndex,
         observed: expectedIndex,
+        verifiedAt: '2026-08-22T14:02:00.000Z',
       },
     });
   });
@@ -796,6 +802,31 @@ describe('deriveStudioArticleStatus', () => {
         phase: 'probe',
         failure: { category: 'timeout' },
       }),
+    });
+  });
+
+  // #116: a long-published article with no in-flight change is honestly
+  // unverified on an ordinary load — never the transitional
+  // pending_deployment state only a genuine recent merge earns.
+  it('reports a steady published article as unverified on an ordinary load, never pending_deployment', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    seedPublishedArticle(adapter);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+
+    const result = await deriveStudioArticleStatus(adapter, 'tristan-da-cunha', {
+      productionOrigin,
+      mediaBaseUrl,
+      includeProbe: false,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        kind: 'unverified',
+        article: expect.objectContaining({ slug: 'tristan-da-cunha', status: 'published' }),
+        mainSha: main.value.sha,
+      },
     });
   });
 
@@ -963,17 +994,20 @@ describe('deriveStudioArticleStatus', () => {
       includeProbe: true,
       probeArticle: async () => okArticleProbe(fingerprint),
       probeIndex: async () => okIndexProbe([expectedIndex]),
+      now: () => '2026-08-22T09:30:00.000Z',
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok || result.value.kind !== 'draft_valid') {
       throw new Error('expected draft_valid');
     }
+    // #116: the proven-live evidence carries when it was verified.
     expect(result.value.productionLive).toEqual({
       mainSha: main.value.sha,
       contentVersion: fingerprint,
       expected: expectedIndex,
       observed: expectedIndex,
+      verifiedAt: '2026-08-22T09:30:00.000Z',
     });
   });
 
@@ -1022,7 +1056,7 @@ describe('deriveStudioArticleStatus', () => {
     }
   });
 
-  it('reports an archived canonical article as unpublish_pending without probing (ordinary load)', async () => {
+  it('reports an unverified archived article without probing (ordinary load), never removal in progress', async () => {
     const adapter = new FakeGithubAdapter(config);
     seedArchivedArticle(adapter);
     const main = await adapter.getMainRef();
@@ -1037,7 +1071,7 @@ describe('deriveStudioArticleStatus', () => {
     expect(result).toEqual({
       ok: true,
       value: {
-        kind: 'unpublish_pending',
+        kind: 'unverified',
         article: expect.objectContaining({ slug: 'tristan-da-cunha', status: 'archived' }),
         mainSha: main.value.sha,
       },
@@ -1056,14 +1090,17 @@ describe('deriveStudioArticleStatus', () => {
       includeProbe: true,
       probeArticle: async () => notFoundArticleProbe(),
       probeIndex: async () => okIndexProbe([]),
+      now: () => '2026-08-22T14:02:00.000Z',
     });
 
+    // #116: a proven absence also carries when it was verified.
     expect(result).toEqual({
       ok: true,
       value: {
         kind: 'archived',
         article: expect.objectContaining({ slug: 'tristan-da-cunha' }),
         mainSha: main.value.sha,
+        verifiedAt: '2026-08-22T14:02:00.000Z',
       },
     });
   });
@@ -1156,9 +1193,12 @@ describe('deriveStudioArticleStatus', () => {
     });
 
     expect(first).toEqual(second);
+    // #116: an ordinary load never probes, so a steady published article is
+    // honestly unverified — never the pending_deployment state a fresh
+    // merge earns (story 28).
     expect(first).toEqual({
       ok: true,
-      value: expect.objectContaining({ kind: 'pending_deployment' }),
+      value: expect.objectContaining({ kind: 'unverified' }),
     });
   });
 

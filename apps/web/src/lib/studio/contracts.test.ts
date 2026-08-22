@@ -161,6 +161,10 @@ const lifecycleFixtures: ReadonlyArray<{ kind: StudioStatusKind; value: Record<s
       value: { kind: 'pending_deployment', article: articleRef(), mainSha: SHA_A },
     },
     {
+      kind: 'unverified',
+      value: { kind: 'unverified', article: articleRef(), mainSha: SHA_A },
+    },
+    {
       kind: 'live',
       value: {
         kind: 'live',
@@ -424,7 +428,7 @@ describe('decodeConcurrencyEvidence', () => {
 
 describe('decodeStudioLifecycle', () => {
   it('accepts every approved presentation status with valid evidence', () => {
-    expect(lifecycleFixtures.length).toBe(13);
+    expect(lifecycleFixtures.length).toBe(14);
     for (const fixture of lifecycleFixtures) {
       const result = decodeStudioLifecycle(fixture.value);
       expect(result.ok).toBe(true);
@@ -461,6 +465,25 @@ describe('decodeStudioLifecycle', () => {
     expect(
       decodeStudioLifecycle({ ...base, expected: taglessEvidence, observed: taglessEvidence }).ok,
     ).toBe(true);
+  });
+
+  // #116: a verified outcome carries when it was verified, so the UI can say
+  // "Live — verified <time>" instead of an unbounded claim.
+  it('live and archived accept a bounded ISO verifiedAt stamp', () => {
+    const live = lifecycleFixtures.find((f) => f.kind === 'live')?.value;
+    if (!live) throw new Error('live fixture missing');
+    expect(decodeStudioLifecycle({ ...live, verifiedAt: '2026-08-22T14:02:00.000Z' }).ok).toBe(
+      true,
+    );
+    expect(decodeStudioLifecycle({ ...live, verifiedAt: 'not-a-date' }).ok).toBe(false);
+    expect(decodeStudioLifecycle({ ...live, verifiedAt: 42 }).ok).toBe(false);
+
+    const archived = lifecycleFixtures.find((f) => f.kind === 'archived')?.value;
+    if (!archived) throw new Error('archived fixture missing');
+    expect(decodeStudioLifecycle({ ...archived, verifiedAt: '2026-08-22T14:02:00.000Z' }).ok).toBe(
+      true,
+    );
+    expect(decodeStudioLifecycle({ ...archived, verifiedAt: 'nope' }).ok).toBe(false);
   });
 
   it('live rejects any mismatch between expected and observed index evidence', () => {
@@ -545,6 +568,13 @@ describe('decodeStudioLifecycle', () => {
         productionLive: { ...productionLive, observed: { ...indexEvidence, title: 'Different' } },
       }).ok,
     ).toBe(false);
+    // #116: productionLive may carry when the Live proof was observed.
+    expect(
+      decodeStudioLifecycle({
+        ...valid,
+        productionLive: { ...productionLive, verifiedAt: '2026-08-22T14:02:00.000Z' },
+      }).ok,
+    ).toBe(true);
   });
 
   it('ready/checking require a valid pull request; check_failed requires failedCheck', () => {

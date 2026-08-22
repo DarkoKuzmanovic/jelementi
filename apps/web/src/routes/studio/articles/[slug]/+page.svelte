@@ -353,6 +353,16 @@
     }
     if (envelope.kind === 'check_status') {
       workspaceOverride = envelope.workspace;
+      // #116 coherence (folds the T115-adjacent gap): the same authoritative
+      // response carries the refreshed lifecycle next to its workspace
+      // projection. Applied through the strict lifecycle decoder so an
+      // unexpected shape is dropped rather than trusted; without this, the
+      // publication panel kept its pre-check status while the projection
+      // above it already showed fresh evidence.
+      const refreshed = decodeStudioLifecycle(actionDataStatusOf(actionData));
+      if (refreshed.ok) {
+        statusOverride = refreshed.value;
+      }
       if (editorFormEl !== undefined) {
         applyStudioConcurrencyToForm(editorFormEl, envelope.workspace.concurrency);
       }

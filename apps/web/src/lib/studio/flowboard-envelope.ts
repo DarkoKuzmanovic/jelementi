@@ -30,11 +30,22 @@ const MAX_LINK = 2_048;
 const MAX_CARDS_PER_COLUMN = 500;
 const MAX_TOTAL = 1_500;
 
+/**
+ * #116: explicit success/failure outcome token for one Flowboard Check
+ * status submission. A failed derivation (GitHub unreachable, ambiguous
+ * repository topology, invalid canonical file) must be announced as a
+ * failure with its cause category — never as "status checked".
+ */
+export type StudioFlowboardCheckOutcome =
+  | { outcome: 'checked' }
+  | { outcome: 'failed'; reason: 'github' | 'topology' | 'invalid-canonical' };
+
 export interface StudioFlowboardCheckEnvelope {
   kind: typeof STUDIO_FLOWBOARD_CHECK_KIND;
   operationId: string;
   submittedSnapshotId: string;
   checkedSlug: string;
+  check: StudioFlowboardCheckOutcome;
   flowboard: StudioFlowboardProjection;
 }
 
@@ -42,8 +53,71 @@ export function buildStudioFlowboardCheckEnvelope(
   base: { operationId: string; submittedSnapshotId: string },
   checkedSlug: string,
   flowboard: StudioFlowboardProjection,
+  check: StudioFlowboardCheckOutcome,
 ): StudioFlowboardCheckEnvelope {
-  return { kind: STUDIO_FLOWBOARD_CHECK_KIND, ...base, checkedSlug, flowboard };
+  return { kind: STUDIO_FLOWBOARD_CHECK_KIND, ...base, checkedSlug, check, flowboard };
+}
+
+/**
+ * #116: maps a status-derivation result onto the explicit outcome token.
+ * Structural input keeps this client-safe module free of server imports;
+ * any non-topology/invalid-canonical failure reason collapses to `github`.
+ */
+export function buildStudioFlowboardCheckOutcome(
+  status:
+    { ok: true } | { ok: false; failure: { reason: 'github' | 'topology' | 'invalid-canonical' } },
+): StudioFlowboardCheckOutcome {
+  if (status.ok) return { outcome: 'checked' };
+  return { outcome: 'failed', reason: status.failure.reason };
+}
+
+/**
+ * #116: the single announcement sentence for a Flowboard check outcome,
+ * shared verbatim by the full-navigation and enhanced delivery paths so
+ * both announce honestly. Success keeps the existing copy; a failure names
+ * the cause category and tells the operator to retry.
+ */
+export function studioFlowboardCheckAnnouncement(
+  slug: string,
+  check: StudioFlowboardCheckOutcome,
+): string {
+  if (check.outcome === 'checked') return `Status checked for ${slug}.`;
+  switch (check.reason) {
+    case 'topology':
+      return `Could not check ${slug} — the repository state is unexpected. Try again.`;
+    case 'invalid-canonical':
+      return `Could not check ${slug} — the canonical article file is invalid. Try again.`;
+    default:
+      return `Could not check ${slug} — GitHub could not be reached. Try again.`;
+  }
+}
+
+function decodeCheckOutcome(
+  input: unknown,
+  issues: string[],
+): StudioFlowboardCheckOutcome | undefined {
+  if (!isRecord(input)) {
+    issue('envelope.check', issues, 'object');
+    return undefined;
+  }
+  if (input.outcome === 'checked') {
+    rejectUnknownKeys(input, ['outcome'], 'envelope.check', issues);
+    if (issues.length > 0) return undefined;
+    return Object.keys(input).length === 1 ? { outcome: 'checked' } : undefined;
+  }
+  if (
+    input.outcome === 'failed' &&
+    typeof input.reason === 'string' &&
+    ['github', 'topology', 'invalid-canonical'].includes(input.reason)
+  ) {
+    rejectUnknownKeys(input, ['outcome', 'reason'], 'envelope.check', issues);
+    if (issues.length > 0) return undefined;
+    return Object.keys(input).length === 2
+      ? { outcome: 'failed', reason: input.reason as 'github' | 'topology' | 'invalid-canonical' }
+      : undefined;
+  }
+  issue('envelope.check', issues, 'outcome');
+  return undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -315,7 +389,7 @@ export function decodeStudioFlowboardCheckEnvelope(
   if (!isRecord(input)) return { ok: false, issues: ['envelope.object'] };
   rejectUnknownKeys(
     input,
-    ['kind', 'operationId', 'submittedSnapshotId', 'checkedSlug', 'flowboard'],
+    ['kind', 'operationId', 'submittedSnapshotId', 'checkedSlug', 'check', 'flowboard'],
     'envelope',
     issues,
   );
@@ -337,6 +411,12 @@ export function decodeStudioFlowboardCheckEnvelope(
   ) {
     issue('envelope.checkedSlug', issues, 'slug');
   }
+  // #116: the outcome token is mandatory — an envelope without an explicit
+  // success/failure verdict is malformed and must never be announced from.
+  const check = input.check === undefined ? undefined : decodeCheckOutcome(input.check, issues);
+  if (check === undefined && !issues.some((entry) => entry.startsWith('envelope.check'))) {
+    issue('envelope.check', issues, 'missing');
+  }
   const flowboard = decodeStudioFlowboardProjection(input.flowboard);
   if (!flowboard.ok) {
     for (const code of flowboard.issues) issues.push(`envelope.flowboard.${code}`);
@@ -346,6 +426,7 @@ export function decodeStudioFlowboardCheckEnvelope(
     operationId === undefined ||
     submittedSnapshotId === undefined ||
     typeof checkedSlug !== 'string' ||
+    check === undefined ||
     !flowboard.ok
   ) {
     return { ok: false, issues };
@@ -357,6 +438,7 @@ export function decodeStudioFlowboardCheckEnvelope(
       operationId,
       submittedSnapshotId,
       checkedSlug,
+      check,
       flowboard: flowboard.value,
     },
   };

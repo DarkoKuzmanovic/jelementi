@@ -19,15 +19,20 @@
   // `ready`, `checking`, and `check_failed` are included so an Unpublish
   // whose readiness flip succeeded but whose auto-merge failed can still be
   // retried after a reload (the service re-reads topology fresh, so the
-  // retry either completes or reports a conflict). Showing the action for an
-  // ordinary publish-approved draft is safe: unpublishStudioArticle re-reads
-  // the committed draft and still blocks (`differing-draft`) any active
-  // draft that differs byte-for-byte from canonical main, so this approval
-  // path can never clobber a real draft.
+  // retry either completes or reports a conflict). #116: `unverified` joins
+  // them only when the canonical article is published on GitHub — the
+  // archive service still re-reads topology and blocks on any differing
+  // active draft, so removing a published article never required a probe,
+  // while a probe-unverified claim of "Live" is never shown as one. Showing
+  // the action for an ordinary publish-approved draft is safe:
+  // unpublishStudioArticle re-reads the committed draft and still blocks
+  // (`differing-draft`) any active draft that differs byte-for-byte from
+  // canonical main, so this approval path can never clobber a real draft.
   const canUnpublish = $derived(
     status.kind === 'live' ||
       status.kind === 'pending_deployment' ||
       status.kind === 'merged' ||
+      (status.kind === 'unverified' && status.article.status === 'published') ||
       status.kind === 'ready' ||
       status.kind === 'checking' ||
       status.kind === 'check_failed',

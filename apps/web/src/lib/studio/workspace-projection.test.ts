@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatStudioVerifiedAt,
   STUDIO_PUBLISHED_VERSION_LABELS,
   STUDIO_WORKING_CHANGE_LABELS,
   buildStudioWorkspaceProjection,
@@ -50,6 +51,7 @@ function lifecycleFor(kind: (typeof STUDIO_STATUS_KINDS)[number]): StudioLifecyc
     case 'pending_deployment':
     case 'unpublish_pending':
     case 'archived':
+    case 'unverified':
       return { kind, article, mainSha: 'e'.repeat(40) };
     case 'live':
       return {
@@ -160,14 +162,93 @@ describe('buildStudioWorkspaceProjection', () => {
     }
   });
 
-  // #72: "An ordinary load remains conservative and does not probe: a
-  // canonical published article without current probe evidence is
-  // Updating the site." `ready`/`checking`/`check_failed` never carry probe
+  // #72 (conservation) as sharpened by #116: an ordinary load remains
+  // conservative and never probes, and the conservative state is now the
+  // honest neutral "not verified" — no longer the transitional label a
+  // fresh merge earns. `ready`/`checking`/`check_failed` never carry probe
   // evidence, even for an already-published canonical article being edited.
+  it('labels an unverified published article as not verified on this screen, with no transition phrasing', () => {
+    const projection = buildStudioWorkspaceProjection(lifecycleFor('unverified'), concurrency);
+    expect(projection.publishedVersion.label).toBe('Published — not verified');
+    expect(projection.workingChange.label).toBe('No changes in progress');
+    for (const text of [
+      projection.summary,
+      projection.recommendedAction,
+      projection.readerEffect,
+    ]) {
+      expect(text.toLowerCase()).not.toContain('updating');
+      expect(text.toLowerCase()).not.toContain('in progress');
+      expect(text.toLowerCase()).not.toContain('soon');
+    }
+    expect(projection.recommendedAction).toContain('Check status');
+    // Unpublish is gated on a verified-live label, which an unprobed
+    // projection can never carry.
+    expect(projection.actions.unpublish.available).toBe(false);
+  });
+
+  it('labels an unverified archived article as archived but unverified', () => {
+    const lifecycle: StudioLifecycle = {
+      ...lifecycleFor('unverified'),
+      article: { ...article, status: 'archived' },
+    };
+    const projection = buildStudioWorkspaceProjection(lifecycle, concurrency);
+    expect(projection.publishedVersion.label).toBe('Archived — not verified');
+    expect(projection.actions.unpublish.available).toBe(false);
+  });
+
+  it('keeps transitional copy only for genuinely known-recent transitions (story 28)', () => {
+    const merged = buildStudioWorkspaceProjection(lifecycleFor('merged'), concurrency);
+    expect(merged.publishedVersion.label).toBe('Updating the site');
+    const probedPending = buildStudioWorkspaceProjection(
+      lifecycleFor('pending_deployment'),
+      concurrency,
+    );
+    expect(probedPending.publishedVersion.label).toBe('Updating the site');
+    const removalInFlight = buildStudioWorkspaceProjection(
+      lifecycleFor('unpublish_pending'),
+      concurrency,
+    );
+    expect(removalInFlight.publishedVersion.label).toBe('Removing from the site');
+  });
+
+  it('carries when a live outcome was verified so the UI can show "Live — verified <time>"', () => {
+    const lifecycle: StudioLifecycle = {
+      ...lifecycleFor('live'),
+      verifiedAt: '2026-08-22T14:02:00.000Z',
+    } as StudioLifecycle;
+    const projection = buildStudioWorkspaceProjection(lifecycle, concurrency);
+    expect(projection.publishedVersion.label).toBe('Live and verified');
+    expect(projection.publishedVersion.verifiedAt).toBe('2026-08-22T14:02:00.000Z');
+    expect(formatStudioVerifiedAt('2026-08-22T14:02:00.000Z')).toBe('2026-08-22 14:02 UTC');
+  });
+
+  it('carries the verification time of productionLive proven alongside an edit draft', () => {
+    const withProductionLive: StudioLifecycle = {
+      ...lifecycleFor('draft_valid'),
+      productionLive: {
+        mainSha: 'h'.repeat(40),
+        contentVersion: 'i'.repeat(64),
+        verifiedAt: '2026-08-22T09:30:00.000Z',
+        expected: indexEvidence(),
+        observed: indexEvidence(),
+      },
+    } as StudioLifecycle;
+    const projection = buildStudioWorkspaceProjection(withProductionLive, concurrency);
+    expect(projection.publishedVersion.label).toBe('Live and verified');
+    expect(projection.publishedVersion.verifiedAt).toBe('2026-08-22T09:30:00.000Z');
+  });
+
+  it('formats an absent or malformed verification time as empty, never invented', () => {
+    expect(formatStudioVerifiedAt(undefined)).toBe('');
+    expect(formatStudioVerifiedAt('garbage')).toBe('');
+  });
+
   it('never claims Live and verified for a canonical published article without proven probe evidence', () => {
     for (const kind of ['ready', 'checking', 'check_failed'] as const) {
       const projection = buildStudioWorkspaceProjection(lifecycleFor(kind), concurrency);
-      expect(projection.publishedVersion.label).toBe('Updating the site');
+      // #116: without evidence the honest state is "not verified", not a
+      // perpetual rollout.
+      expect(projection.publishedVersion.label).toBe('Published — not verified');
     }
   });
 
@@ -177,7 +258,7 @@ describe('buildStudioWorkspaceProjection', () => {
       article: { ...article, status: 'archived' },
     };
     const projection = buildStudioWorkspaceProjection(lifecycle, concurrency);
-    expect(projection.publishedVersion.label).toBe('Removing from the site');
+    expect(projection.publishedVersion.label).toBe('Archived — not verified');
   });
 
   it('still claims Live and verified when a Refresh has actually proven it, even mid-draft', () => {
@@ -223,6 +304,35 @@ describe('decodeStudioWorkspaceProjection', () => {
       workingChange: { label: 'Totally custom status' },
     });
     expect(result.ok).toBe(false);
+  });
+
+  it('accepts a verification time beside the published-version label and rejects malformed ones', () => {
+    const withTime = decodeStudioWorkspaceProjection({
+      ...valid,
+      publishedVersion: { label: 'Live and verified', verifiedAt: '2026-08-22T14:02:00.000Z' },
+    });
+    expect(withTime).toEqual({
+      ok: true,
+      value: {
+        ...valid,
+        publishedVersion: {
+          label: 'Live and verified',
+          verifiedAt: '2026-08-22T14:02:00.000Z',
+        },
+      },
+    });
+    expect(
+      decodeStudioWorkspaceProjection({
+        ...valid,
+        publishedVersion: { label: 'Live and verified', verifiedAt: 'yesterday' },
+      }).ok,
+    ).toBe(false);
+    expect(
+      decodeStudioWorkspaceProjection({
+        ...valid,
+        publishedVersion: { label: 'Not published', extra: 'x' },
+      }).ok,
+    ).toBe(false);
   });
 
   it('rejects a malformed concurrency SHA', () => {

@@ -30,6 +30,7 @@ export const STUDIO_STATUS_KINDS = [
   'check_failed',
   'merged',
   'pending_deployment',
+  'unverified',
   'live',
   'unpublish_pending',
   'archived',
@@ -131,6 +132,7 @@ export const STUDIO_PRODUCTION_STATES = [
   'absent',
   'live',
   'pending_deployment',
+  'unverified',
   'pending_removal',
 ] as const;
 export type StudioProductionState = (typeof STUDIO_PRODUCTION_STATES)[number];
@@ -265,6 +267,11 @@ export interface StudioLiveEvidence {
   contentVersion: string;
   expected: StudioIndexEvidence;
   observed: StudioIndexEvidence;
+  /**
+   * #116: when this Live proof was observed (bounded ISO instant), so the
+   * UI can say "Live — verified <time>" instead of an unbounded claim.
+   */
+  verifiedAt?: string;
 }
 
 export type StudioLifecycle =
@@ -292,15 +299,31 @@ export type StudioLifecycle =
   | { kind: 'merged'; article: StudioArticleRef; mainSha: string }
   | { kind: 'pending_deployment'; article: StudioArticleRef; mainSha: string }
   | {
+      /** #116: GitHub shows this steady state, but no current probe
+       * evidence proves the public fact — honestly neutral, never a
+       * transition. Distinct from `merged`/`pending_deployment` (story 28). */
+      kind: 'unverified';
+      article: StudioArticleRef;
+      mainSha: string;
+    }
+  | {
       kind: 'live';
       article: StudioArticleRef;
       mainSha: string;
       contentVersion: string;
       expected: StudioIndexEvidence;
       observed: StudioIndexEvidence;
+      /** #116: when the probes proved Live. */
+      verifiedAt?: string;
     }
   | { kind: 'unpublish_pending'; article: StudioArticleRef; mainSha: string }
-  | { kind: 'archived'; article: StudioArticleRef; mainSha: string }
+  | {
+      kind: 'archived';
+      article: StudioArticleRef;
+      mainSha: string;
+      /** #116: when the probes proved absence. */
+      verifiedAt?: string;
+    }
   | {
       kind: 'conflict';
       article: StudioArticleRef;
@@ -815,10 +838,16 @@ function optionalLiveEvidenceValue(
     collectIssues(path, issues, 'object');
     return undefined;
   }
-  rejectUnknownKeys(input, ['mainSha', 'contentVersion', 'expected', 'observed'], path, issues);
+  rejectUnknownKeys(
+    input,
+    ['mainSha', 'contentVersion', 'expected', 'observed', 'verifiedAt'],
+    path,
+    issues,
+  );
   if (issues.length > 0) return undefined;
   const mainSha = shaValue(input.mainSha, `${path}.mainSha`, issues);
   const contentVersion = shaValue(input.contentVersion, `${path}.contentVersion`, issues);
+  const verifiedAt = optionalIsoStampValue(input.verifiedAt, `${path}.verifiedAt`, issues);
   if (contentVersion !== undefined && !SHA64.test(contentVersion)) {
     collectIssues(`${path}.contentVersion`, issues, 'contentVersion');
   }
@@ -840,7 +869,22 @@ function optionalLiveEvidenceValue(
   ) {
     return undefined;
   }
-  return { mainSha, contentVersion, expected, observed };
+  return {
+    mainSha,
+    contentVersion,
+    expected,
+    observed,
+    ...(verifiedAt === undefined ? {} : { verifiedAt }),
+  };
+}
+
+/**
+ * #116: optional bounded ISO verification stamp. Absent input is valid (no
+ * claim); present input must satisfy the shared Studio ISO grammar.
+ */
+function optionalIsoStampValue(input: unknown, path: string, issues: string[]): string | undefined {
+  if (input === undefined) return undefined;
+  return isoDateValue(input, path, issues);
 }
 
 function metadataValue(input: unknown, path: string, issues: string[]): StudioMetadata | undefined {
@@ -1027,9 +1071,10 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
     check_failed: ['kind', 'article', 'pullRequest', 'failedCheck'],
     merged: ['kind', 'article', 'mainSha'],
     pending_deployment: ['kind', 'article', 'mainSha'],
-    live: ['kind', 'article', 'mainSha', 'contentVersion', 'expected', 'observed'],
+    unverified: ['kind', 'article', 'mainSha'],
+    live: ['kind', 'article', 'mainSha', 'contentVersion', 'expected', 'observed', 'verifiedAt'],
     unpublish_pending: ['kind', 'article', 'mainSha'],
-    archived: ['kind', 'article', 'mainSha'],
+    archived: ['kind', 'article', 'mainSha', 'verifiedAt'],
     conflict: ['kind', 'article', 'loaded', 'current'],
     failed: ['kind', 'article', 'phase', 'failure'],
     unknown: ['kind', 'article'],
@@ -1091,13 +1136,28 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
     }
     case 'merged':
     case 'pending_deployment':
-    case 'unpublish_pending':
+    case 'unverified': {
+      const mainSha = shaValue(input.mainSha, 'lifecycle.mainSha', issues);
+      if (issues.length > 0 || mainSha === undefined) return errResult(issues);
+      const lifecycleKind = kind as 'merged' | 'pending_deployment' | 'unverified';
+      return okResult({ kind: lifecycleKind, article, mainSha });
+    }
+    case 'unpublish_pending': {
+      const mainSha = shaValue(input.mainSha, 'lifecycle.mainSha', issues);
+      if (issues.length > 0 || mainSha === undefined) return errResult(issues);
+      return okResult({ kind: 'unpublish_pending', article, mainSha });
+    }
     case 'archived': {
       const mainSha = shaValue(input.mainSha, 'lifecycle.mainSha', issues);
       if (issues.length > 0 || mainSha === undefined) return errResult(issues);
-      const lifecycleKind = kind as
-        'merged' | 'pending_deployment' | 'unpublish_pending' | 'archived';
-      return okResult({ kind: lifecycleKind, article, mainSha });
+      const verifiedAt = optionalIsoStampValue(input.verifiedAt, 'lifecycle.verifiedAt', issues);
+      if (issues.length > 0) return errResult(issues);
+      return okResult({
+        kind: 'archived',
+        article,
+        mainSha,
+        ...(verifiedAt === undefined ? {} : { verifiedAt }),
+      });
     }
     case 'live': {
       const mainSha = shaValue(input.mainSha, 'lifecycle.mainSha', issues);
@@ -1127,7 +1187,17 @@ export function decodeStudioLifecycle(input: unknown): DecodeResult<StudioLifecy
       ) {
         return errResult(issues);
       }
-      return okResult({ kind: 'live', article, mainSha, contentVersion, expected, observed });
+      const verifiedAt = optionalIsoStampValue(input.verifiedAt, 'lifecycle.verifiedAt', issues);
+      if (issues.length > 0) return errResult(issues);
+      return okResult({
+        kind: 'live',
+        article,
+        mainSha,
+        contentVersion,
+        expected,
+        observed,
+        ...(verifiedAt === undefined ? {} : { verifiedAt }),
+      });
     }
     case 'conflict': {
       const loaded = concurrencyEvidenceValue(input.loaded, 'lifecycle.loaded', issues);
