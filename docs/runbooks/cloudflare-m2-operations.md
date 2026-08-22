@@ -54,7 +54,7 @@ Originally: stop until Darko explicitly approves C after accepting the protected
 
 ## Routine deployment
 
-**Production deploys on merge to `main`, automatically, through Workers Builds.** Merging an approved pull request is the deploy action. There is no manual step and no separate checkpoint approval for an ordinary merge; the approval is the merge.
+**Every merge to `main` deploys, automatically, through Workers Builds.** Merging is the deploy action. There is no manual step, no deploy approval, and no checkpoint; the approval is the merge. Deployment is not a decision anyone makes after a merge — it has already happened.
 
 1. Land the change as a pull request with green `verify`. Do not push to `main` directly.
 2. Merge. This triggers Workers Builds, which builds and deploys the new Worker version.
