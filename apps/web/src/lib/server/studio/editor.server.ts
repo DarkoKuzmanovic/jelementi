@@ -348,6 +348,16 @@ export type StudioSaveResult =
        * replacement offer is never presented without it.
        */
       replacementAvailable?: StudioDraftReplacementOffer;
+      /**
+       * #109: present only when the conflict is "an active Studio draft
+       * branch for this slug already exists" observed from unbranched
+       * evidence — the caller never loaded any draft, so copy must offer
+       * open / rename / discard instead of claiming their draft moved.
+       * Genuine moved-during-edit conflicts leave this absent. The PR
+       * reference is best-effort read-only discovery; its absence means
+       * nothing about whether a Draft PR exists.
+       */
+      draftExists?: { pullRequestNumber?: number };
     }
   | {
       kind: 'save_failed';
@@ -450,8 +460,21 @@ export async function saveStudioDraft(
     } else if (branch.sha !== main.value.sha) {
       // The branch already exists but has moved beyond the unbranched state we
       // recognize (e.g. a completed prior save) — fail closed rather than
-      // silently commit on top of unknown branch history.
-      return { kind: 'save_conflict', loaded: input.concurrency, current: currentEvidence() };
+      // silently commit on top of unknown branch history. Because this
+      // caller held no draft evidence at all, the truthful classification
+      // (#109) is "a Studio draft for this slug already exists", not "your
+      // loaded draft moved"; read-only PR discovery names it when possible
+      // and a discovery failure merely omits the reference.
+      const pulls = await adapter.listPullRequests(branchName);
+      const openPull = pulls.ok ? pulls.value.find((pull) => pull.state === 'open') : undefined;
+      return {
+        kind: 'save_conflict',
+        loaded: input.concurrency,
+        current: currentEvidence(),
+        draftExists: {
+          ...(openPull === undefined ? {} : { pullRequestNumber: openPull.number }),
+        },
+      };
     }
     // else: the branch already exists at exactly the observed main SHA — the
     // recoverable "branch created, file commit not yet landed" state an

@@ -89,6 +89,10 @@ function fieldTarget(control: string): StudioValidationTarget {
 function phaseFor(code: string): StudioValidationPhase {
   switch (code) {
     case 'INVALID_FRONTMATTER':
+    // #109 slug-collision rejections are metadata-field problems, not
+    // compiler failures; anchoring keeps them out of the generic phase.
+    case 'SLUG_ALREADY_EXISTS':
+    case 'SLUG_DRAFT_EXISTS':
       return 'metadata';
     case 'INVALID_MEDIA':
       return 'media';
@@ -279,6 +283,10 @@ function targetFor(
       return frontmatterFieldTarget(issue.message, candidate.metadata);
     case 'INVALID_MEDIA':
       return metadataMediaTarget(candidate.metadata);
+    // #109 slug-collision rejections link straight to the Slug control.
+    case 'SLUG_ALREADY_EXISTS':
+    case 'SLUG_DRAFT_EXISTS':
+      return fieldTarget('slug');
     default:
       return { kind: 'source' };
   }

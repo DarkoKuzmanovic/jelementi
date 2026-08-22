@@ -52,6 +52,49 @@ describe('buildStudioSaveRecovery', () => {
     expect(main?.current).toBe('d'.repeat(40));
   });
 
+  it('names the existing draft and offers open/rename/discard paths for a draft-exists conflict', () => {
+    const conflict: StudioSaveResult = {
+      kind: 'save_conflict',
+      loaded: { baseMainSha: 'a'.repeat(40) },
+      current: { baseMainSha: 'a'.repeat(40), draftHeadSha: 'e'.repeat(40) },
+      draftExists: { pullRequestNumber: 42 },
+    };
+
+    const recovery = buildStudioSaveRecovery(conflict);
+
+    expect(recovery?.operation).toBe('save');
+    expect(recovery?.tone).toBe('conflict');
+    expect(recovery?.heading.toLowerCase()).toContain(
+      'a studio draft for this slug already exists',
+    );
+    expect(recovery?.whatHappened).toContain('#42');
+    expect(recovery?.workSafety).toContain('preserved');
+    expect(recovery?.offerReplacement).toBe(false);
+    const nextAction = recovery?.nextAction.toLowerCase() ?? '';
+    expect(nextAction).toContain('open');
+    expect(nextAction).toContain('discard');
+    // The loaded-versus-current comparison stays available for review.
+    const labels = recovery?.comparison?.map((row) => row.label);
+    expect(labels).toEqual(['Main', 'Draft head']);
+  });
+
+  it('omits the pull-request reference for a draft-exists conflict without an open PR', () => {
+    const conflict: StudioSaveResult = {
+      kind: 'save_conflict',
+      loaded: { baseMainSha: 'a'.repeat(40) },
+      current: { baseMainSha: 'd'.repeat(40), draftHeadSha: 'e'.repeat(40) },
+      draftExists: {},
+    };
+
+    const recovery = buildStudioSaveRecovery(conflict);
+
+    expect(recovery?.heading.toLowerCase()).toContain(
+      'a studio draft for this slug already exists',
+    );
+    expect(recovery?.whatHappened).not.toContain('#undefined');
+    expect(recovery?.nextAction.toLowerCase()).toContain('discard');
+  });
+
   it('shows "none" for absent loaded evidence in comparisons', () => {
     const conflict: StudioSaveResult = {
       kind: 'save_conflict',

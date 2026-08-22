@@ -543,7 +543,7 @@ describe('saveStudioDraft', () => {
     expect(branches).toEqual({ ok: true, value: [] });
   });
 
-  it('fails closed on unexpected topology when an existing branch has already moved beyond main', async () => {
+  it('classifies a branch that already exists beyond main as an existing draft, not a moved draft', async () => {
     const adapter = new FakeGithubAdapter(config);
     const main = await adapter.getMainRef();
     if (!main.ok) throw new Error('main missing');
@@ -557,6 +557,8 @@ describe('saveStudioDraft', () => {
 
     // A caller that never saw the branch (still holds the original,
     // branch-less evidence) must not be allowed to commit on top of it.
+    // The conflict is "a Studio draft for this slug already exists" (#109),
+    // not "this draft moved on GitHub" — no draft was ever loaded here.
     const result = await saveStudioDraft(
       adapter,
       slug,
@@ -568,6 +570,50 @@ describe('saveStudioDraft', () => {
       kind: 'save_conflict',
       loaded: { baseMainSha: main.value.sha },
       current: { baseMainSha: main.value.sha, draftHeadSha: other.concurrency.draftHeadSha },
+      draftExists: { pullRequestNumber: other.pullRequest.number },
+    });
+  });
+
+  it('reports an existing draft without a pull-request reference when none is open', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    adapter.seedBranch(`studio/article/${slug}`, 'd'.repeat(40));
+
+    const result = await saveStudioDraft(
+      adapter,
+      slug,
+      { metadata, body: 'Body.', concurrency: { baseMainSha: main.value.sha } },
+      previewOptions,
+    );
+
+    expect(result).toEqual({
+      kind: 'save_conflict',
+      loaded: { baseMainSha: main.value.sha },
+      current: { baseMainSha: main.value.sha, draftHeadSha: 'd'.repeat(40) },
+      draftExists: {},
+    });
+  });
+
+  it('keeps the existing-draft classification when PR discovery fails, omitting the reference', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    adapter.seedBranch(`studio/article/${slug}`, 'd'.repeat(40));
+    adapter.failNextOperation('list-pull-requests');
+
+    const result = await saveStudioDraft(
+      adapter,
+      slug,
+      { metadata, body: 'Body.', concurrency: { baseMainSha: main.value.sha } },
+      previewOptions,
+    );
+
+    expect(result).toEqual({
+      kind: 'save_conflict',
+      loaded: { baseMainSha: main.value.sha },
+      current: { baseMainSha: main.value.sha, draftHeadSha: 'd'.repeat(40) },
+      draftExists: {},
     });
   });
 

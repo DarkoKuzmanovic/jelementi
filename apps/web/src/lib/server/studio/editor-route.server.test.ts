@@ -342,6 +342,183 @@ describe('Studio save route boundary', () => {
     );
   });
 
+  it('rejects a new-article save whose slug matches a canonical article before any GitHub mutation', async () => {
+    const form = validForm();
+    form.set('slug', 'tristan-da-cunha');
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save.kind).toBe('save_rejected');
+    if (result.save.kind !== 'save_rejected') return;
+    expect(result.save.compileIssues).toMatchObject([
+      { code: 'SLUG_ALREADY_EXISTS', sourcePath: 'content/articles/tristan-da-cunha.md' },
+    ]);
+    expect(result.save.compileIssues[0]?.message).toContain(
+      'An article with this slug already exists',
+    );
+    // The rejection anchors to the Slug control like compiler issues do.
+    expect(result.validation?.count).toBe(1);
+    expect(result.validation?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-slug',
+      label: 'Slug',
+    });
+    expect(result.acceptedSlug).toBeUndefined();
+    expect(decodeStudioActionEnvelope(result.envelope)).toMatchObject({
+      ok: true,
+      value: { kind: 'save', save: { kind: 'save_rejected' }, validation: { count: 1 } },
+    });
+    // Rejected before any mutation: no branch was created.
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/tristan-da-cunha',
+    );
+  });
+
+  it('rejects a new-article save whose slug matches an active Studio draft, naming its Draft PR', async () => {
+    const local = new FakeGithubAdapter(config);
+    const main = await local.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+    const branchName = 'studio/article/taken-draft';
+    local.seedBranch(branchName, main.value.sha);
+    const pull = local.seedPullRequest(branchName, { draft: true });
+
+    const form = validForm();
+    form.set('slug', 'taken-draft');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction({
+      request: new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+        method: 'POST',
+        body: form,
+      }),
+      platform: { env },
+      locals: { studioGithubAdapter: local },
+    });
+
+    expect(result.save.kind).toBe('save_rejected');
+    if (result.save.kind !== 'save_rejected') return;
+    expect(result.save.compileIssues).toMatchObject([
+      { code: 'SLUG_DRAFT_EXISTS', sourcePath: 'content/articles/taken-draft.md' },
+    ]);
+    expect(result.save.compileIssues[0]?.message).toContain(`(PR #${pull.number})`);
+    expect(result.save.compileIssues[0]?.message).toContain('pick a different slug');
+    expect(result.validation?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-slug',
+      label: 'Slug',
+    });
+    // Rejected before any mutation: the existing draft is untouched.
+    const committed = await local.getFileContent(branchName, 'content/articles/taken-draft.md');
+    expect(committed.ok).toBe(false);
+  });
+
+  it('offers open/rename/discard paths without a PR reference when the draft has no open pull request', async () => {
+    const local = new FakeGithubAdapter(config);
+    const main = await local.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+    local.seedBranch('studio/article/orphan-draft', main.value.sha);
+
+    const form = validForm();
+    form.set('slug', 'orphan-draft');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction({
+      request: new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+        method: 'POST',
+        body: form,
+      }),
+      platform: { env },
+      locals: { studioGithubAdapter: local },
+    });
+
+    expect(result.save.kind).toBe('save_rejected');
+    if (result.save.kind !== 'save_rejected') return;
+    const message = result.save.compileIssues[0]?.message ?? '';
+    expect(result.save.compileIssues).toMatchObject([
+      { code: 'SLUG_DRAFT_EXISTS', sourcePath: 'content/articles/orphan-draft.md' },
+    ]);
+    expect(message).toContain('A Studio draft for this slug already exists');
+    expect(message).toContain('pick a different slug');
+    expect(message).not.toContain('PR #');
+  });
+
+  it('keeps saving an established article even though its own canonical file exists', async () => {
+    const form = validForm();
+    form.set('slug', 'tristan-da-cunha');
+    form.set('body', 'Edited canonical body.');
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+    form.set('baseMainSha', main.value.sha);
+    form.set('expectedBlobSha', 'b'.repeat(64));
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/tristan-da-cunha?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+      'tristan-da-cunha',
+    );
+
+    expect(result.save.kind).toBe('saved');
+  });
+
+  it('fails closed before any write when the slug-collision lookup cannot read main', async () => {
+    const local = new FakeGithubAdapter(config);
+    local.failNextOperation('get-main-ref');
+    const form = validForm();
+    form.set('slug', 'lookup-failure-save');
+
+    const result = await saveStudioEditorAction({
+      request: new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+        method: 'POST',
+        body: form,
+      }),
+      platform: { env },
+      locals: { studioGithubAdapter: local },
+    });
+
+    expect(result.save).toEqual({ kind: 'save_failed', phase: 'main', reason: 'github' });
+    const branches = await local.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/lookup-failure-save',
+    );
+  });
+
+  it('fails closed before any write when the canonical-file lookup itself fails', async () => {
+    const local = new FakeGithubAdapter(config);
+    local.failNextOperation('get-file-content');
+    const form = validForm();
+    form.set('slug', 'file-lookup-failure-save');
+
+    const result = await saveStudioEditorAction({
+      request: new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+        method: 'POST',
+        body: form,
+      }),
+      platform: { env },
+      locals: { studioGithubAdapter: local },
+    });
+
+    expect(result.save).toEqual({ kind: 'save_failed', phase: 'main', reason: 'github' });
+    const branches = await local.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/file-lookup-failure-save',
+    );
+  });
+
   it('reports 503 when no GitHub adapter is wired', async () => {
     const form = validForm();
     const request = new Request('https://jelementi.quz.ma/studio/articles/new?/save', {

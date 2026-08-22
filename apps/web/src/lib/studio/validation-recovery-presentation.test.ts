@@ -280,10 +280,56 @@ describe('StudioEditor recovery presentation modes', () => {
     }
   });
 
+  it('documents the allowed slug pattern inline next to the slug control', () => {
+    const { body } = render(StudioEditor, { props: { editor } });
+
+    expect(body).toContain('Lowercase letters, numbers, and hyphens.');
+    expect(body).toContain('id="studio-field-slug-help"');
+    expect(body).toContain('aria-describedby="studio-field-slug-help"');
+    expect(body).toContain('pattern="[a-z0-9]+(?:-[a-z0-9]+)*"');
+  });
+
   it('keeps inline conflict presentation and replace button by default', () => {
     const { body } = render(StudioEditor, { props: { editor, save: saveConflict } });
     expect(body).toContain('Save blocked: this draft moved on GitHub');
     expect(body).toContain('formaction="?/replace"');
+  });
+
+  it('presents a draft-already-exists conflict with its own truthful copy', () => {
+    const draftExistsConflict: StudioSaveResult = {
+      kind: 'save_conflict',
+      loaded: { baseMainSha: 'a'.repeat(40) },
+      current: { baseMainSha: 'a'.repeat(40), draftHeadSha: 'e'.repeat(40) },
+      draftExists: { pullRequestNumber: 11 },
+    };
+
+    const { body } = render(StudioEditor, { props: { editor, save: draftExistsConflict } });
+
+    expect(body).toContain('Save blocked: a Studio draft for this slug already exists');
+    expect(body).toContain('#11');
+    expect(body).not.toContain('this draft moved on GitHub');
+  });
+
+  it('renders slug-collision rejections with their messages in the rejected-save list', () => {
+    const rejected: StudioSaveResult = {
+      kind: 'save_rejected',
+      compileIssues: [
+        {
+          code: 'SLUG_DRAFT_EXISTS',
+          message:
+            'A Studio draft for this slug already exists (PR #7). Open it, pick a different slug, or discard the existing draft.',
+          sourcePath: 'content/articles/taken.md',
+          line: 1,
+          column: 1,
+        },
+      ],
+    };
+
+    const { body } = render(StudioEditor, { props: { editor, save: rejected } });
+
+    expect(body).toContain('Save could not read this form');
+    expect(body).toContain('SLUG_DRAFT_EXISTS');
+    expect(body).toContain('(PR #7)');
   });
 
   it('hides inline conflict, failure, and replacement sections in external mode', () => {
