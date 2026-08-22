@@ -252,8 +252,16 @@ test.describe('Recovery copy browser behavior (#78)', () => {
       timeout: 3000,
     });
 
-    // Reload: the stored record matches the loaded evidence.
+    // Reload: the stored record matches the loaded evidence. The editor is
+    // dirty here, so #112 raises the native leave confirmation first —
+    // accepting it is what lets the reload proceed.
+    let leaveDialog: { type: string; accepted: boolean } | undefined;
+    page.once('dialog', (dialog) => {
+      leaveDialog = { type: dialog.type(), accepted: true };
+      void dialog.accept();
+    });
     await page.reload();
+    await expect.poll(() => leaveDialog?.type).toBe('beforeunload');
     await waitForStudioHydration(page, testInfo);
     await expect(page.getByRole('button', { name: 'Restore recovery copy' })).toBeVisible();
     await expect(page.getByText('Not saved yet.', { exact: false }).first()).toBeVisible();
@@ -272,7 +280,8 @@ test.describe('Recovery copy browser behavior (#78)', () => {
       testInfo.project.name.includes('no-js'),
       'Recovery copy is a browser-only convenience.',
     );
-    // Seeded before load with evidence that no longer matches the loaded one.
+    // Seeded before load into PERSISTENT storage (#112) with evidence that
+    // no longer matches the loaded one.
     const staleRecord = {
       version: 1,
       candidate: {
@@ -295,7 +304,7 @@ test.describe('Recovery copy browser behavior (#78)', () => {
       capturedAt: '2026-08-18T12:00:00.000Z',
     };
     await page.addInitScript((record) => {
-      sessionStorage.setItem('jelementi.studio.recovery.lighthouse-watch', JSON.stringify(record));
+      localStorage.setItem('jelementi.studio.recovery.lighthouse-watch', JSON.stringify(record));
     }, staleRecord);
     await openArticleEditor(page, testInfo);
 
@@ -323,7 +332,7 @@ test.describe('Recovery copy browser behavior (#78)', () => {
       'Recovery copy is a browser-only convenience.',
     );
     await page.addInitScript((key) => {
-      sessionStorage.setItem(key, '{not valid json');
+      localStorage.setItem(key, '{not valid json');
     }, RECOVERY_KEY);
     await openArticleEditor(page, testInfo);
 
@@ -343,12 +352,16 @@ test.describe('Recovery copy browser behavior (#78)', () => {
       'Recovery copy is a browser-only convenience.',
     );
     await page.addInitScript(() => {
-      const storage = window.sessionStorage;
       const deny = (): never => {
         throw new DOMException('quota exceeded', 'QuotaExceededError');
       };
-      Object.defineProperty(storage, 'setItem', { value: deny });
-      Object.defineProperty(storage, 'removeItem', { value: deny });
+      // #112: recovery persists in localStorage with a session fallback, so
+      // TOTAL unavailability (the only state that disables the convenience)
+      // must deny both tiers.
+      for (const storage of [window.localStorage, window.sessionStorage]) {
+        Object.defineProperty(storage, 'setItem', { value: deny });
+        Object.defineProperty(storage, 'removeItem', { value: deny });
+      }
     });
     await openArticleEditor(page, testInfo);
 
@@ -475,9 +488,11 @@ test.describe('high-consequence actions stay full navigation (#78)', () => {
 
     await expect(page).toHaveURL(/\/studio\?outcome=draft-discarded/);
     await waitForStudioHydration(page, testInfo);
+    // #112: the record now lives in persistent storage, so the clear must
+    // be proven against localStorage (sessionStorage was never written).
     await expect
       .poll(() =>
-        page.evaluate((key) => sessionStorage.getItem(key), `jelementi.studio.recovery.${slug}`),
+        page.evaluate((key) => localStorage.getItem(key), `jelementi.studio.recovery.${slug}`),
       )
       .toBeNull();
   });
@@ -515,5 +530,122 @@ test.describe('high-consequence actions stay full navigation (#78)', () => {
     await expect(
       page.getByRole('heading', { name: 'The Verified Harbor', level: 2 }),
     ).toBeVisible();
+  });
+});
+
+test.describe('#112 survivable unsaved writing', () => {
+  test('JS: a recovery copy survives fully closing the tab and is offered in a fresh tab', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name.includes('no-js'),
+      'Recovery copy is a browser-only convenience.',
+    );
+    const context = page.context();
+    await openArticleEditor(page, testInfo);
+    await page.getByRole('textbox', { name: 'Body', exact: true }).fill(RECOVERY_CANDIDATE_BODY);
+    await expect(page.getByRole('heading', { name: 'Recovery copy' })).toBeVisible({
+      timeout: 3000,
+    });
+    // The record landed in PERSISTENT storage.
+    await expect
+      .poll(() => page.evaluate((key) => localStorage.getItem(key), RECOVERY_KEY))
+      .toBeTruthy();
+
+    // Full tab close, then a brand-new tab: sessionStorage could not carry
+    // anything across tabs, so any offer below came through localStorage.
+    await page.close();
+    const reopened = await context.newPage();
+    await reopened.setExtraHTTPHeaders(identityHeaders);
+    await reopened.goto(`/studio/articles/${ARTICLE_SLUG}`);
+    await waitForStudioHydration(reopened, testInfo);
+
+    expect(await reopened.evaluate((key) => sessionStorage.getItem(key), RECOVERY_KEY)).toBeNull();
+    await expect(reopened.getByRole('button', { name: 'Restore recovery copy' })).toBeVisible();
+    const body = reopened.getByRole('textbox', { name: 'Body', exact: true });
+    // Never auto-applied: restoration stays an explicit user action.
+    await expect(body).not.toHaveValue(RECOVERY_CANDIDATE_BODY);
+    await reopened.getByRole('button', { name: 'Restore recovery copy' }).click();
+    await expect(body).toHaveValue(RECOVERY_CANDIDATE_BODY);
+    await reopened.close();
+  });
+
+  test('JS: a local quota failure degrades to session-only recovery without breaking editing', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name.includes('no-js'),
+      'Recovery copy is a browser-only convenience.',
+    );
+    await page.addInitScript(() => {
+      const deny = (): never => {
+        throw new DOMException('quota exceeded', 'QuotaExceededError');
+      };
+      // Only LOCAL writes fail: the convenience must degrade to the session
+      // tier instead of disappearing.
+      Object.defineProperty(window.localStorage, 'setItem', { value: deny });
+      Object.defineProperty(window.localStorage, 'removeItem', { value: deny });
+    });
+    await openArticleEditor(page, testInfo);
+
+    const body = page.getByRole('textbox', { name: 'Body', exact: true });
+    await body.fill('Session-tier fallback candidate.');
+    await expect(page.getByRole('heading', { name: 'Recovery copy' })).toBeVisible({
+      timeout: 3000,
+    });
+    await expect
+      .poll(() => page.evaluate((key) => sessionStorage.getItem(key), RECOVERY_KEY))
+      .toBeTruthy();
+
+    // Within the same tab the session-tier record still offers restore.
+    let leaveDialog: string | undefined;
+    page.once('dialog', (dialog) => {
+      leaveDialog = dialog.type();
+      void dialog.accept();
+    });
+    await page.reload();
+    await expect.poll(() => leaveDialog).toBe('beforeunload');
+    await waitForStudioHydration(page, testInfo);
+    await expect(page.getByRole('button', { name: 'Restore recovery copy' })).toBeVisible();
+    await page.getByRole('button', { name: 'Restore recovery copy' }).click();
+    await expect(body).toHaveValue('Session-tier fallback candidate.');
+  });
+
+  test('JS: unloading a dirty editor prompts natively; a clean editor never prompts', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name.includes('no-js'), 'Guard requires hydration.');
+    const context = page.context();
+    await openArticleEditor(page, testInfo);
+
+    // Clean close: no confirmation may appear.
+    let cleanDialogs = 0;
+    page.on('dialog', () => {
+      cleanDialogs += 1;
+    });
+    await page.close({ runBeforeUnload: true });
+    expect(cleanDialogs).toBe(0);
+
+    // Dirty unload: the native beforeunload confirmation appears exactly.
+    // Reload stands in for tab-close here because this Chromium/CDP build
+    // suppresses beforeunload dialogs on programmatic window close while
+    // real navigations (reload, external links) raise the identical
+    // handler-driven dialog the guard installs.
+    const dirtyTab = await context.newPage();
+    await dirtyTab.setExtraHTTPHeaders(identityHeaders);
+    await dirtyTab.goto(`/studio/articles/${ARTICLE_SLUG}`);
+    await waitForStudioHydration(dirtyTab, testInfo);
+    let dirtyPrompt: string | undefined;
+    dirtyTab.on('dialog', (dialog) => {
+      dirtyPrompt = dialog.type();
+      void dialog.accept();
+    });
+    await dirtyTab.getByRole('textbox', { name: 'Body', exact: true }).fill('Closing unsaved.');
+    // The dirty flag flips after the debounced capture lands.
+    await expect(dirtyTab.getByRole('heading', { name: 'Unsaved form changes' })).toBeVisible({
+      timeout: 3000,
+    });
+    await dirtyTab.reload();
+    expect(dirtyPrompt).toBe('beforeunload');
   });
 });

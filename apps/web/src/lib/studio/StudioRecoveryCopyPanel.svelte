@@ -5,6 +5,7 @@
   import {
     createStudioRecoveryStore,
     reconcileStudioRecovery,
+    studioPersistentStorage,
     studioRecoveryKey,
     type StudioRecoveryStore,
   } from './enhancement-recovery';
@@ -24,9 +25,10 @@
    * can never re-render the sibling editor form (which would reset native
    * inputs to their server-bound values).
    *
-   * Behavior contract (#72 "Recovery-copy contract"):
-   * - One sessionStorage record per workspace, written after a 300ms
-   *   debounce and flushed on `pagehide`; always labelled "Not saved yet".
+   * Behavior contract (#72 "Recovery-copy contract", #112 persistence):
+   * - One persistent record per workspace (localStorage first, session
+   *   fallback), written after a 300ms debounce and flushed on `pagehide`;
+   *   always labelled "Not saved yet".
    * - Never auto-applies. Matching evidence offers explicit "Restore
    *   recovery copy"; moved evidence shows fresh server content first and
    *   offers explicit "Compare/Restore" (two-step: compare then restore).
@@ -68,9 +70,10 @@
   let key: string | undefined;
 
   onMount(() => {
-    const recoveryStore = createStudioRecoveryStore(
-      typeof sessionStorage !== 'undefined' ? sessionStorage : undefined,
-    );
+    // #112: records persist in localStorage (session fallback) so recovery
+    // survives full browser restarts; the store's guards keep every
+    // storage failure non-fatal.
+    const recoveryStore = createStudioRecoveryStore(studioPersistentStorage());
     const recoveryKey = studioRecoveryKey(identity);
     const stored = recoveryStore.read(recoveryKey);
     recoveryRecord = stored;

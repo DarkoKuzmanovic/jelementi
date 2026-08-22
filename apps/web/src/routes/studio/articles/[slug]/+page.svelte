@@ -17,9 +17,14 @@
   import { studioEditorCandidateEquals } from '../../../../lib/studio/editorial-candidate';
   import {
     createStudioRecoveryStore,
+    studioPersistentStorage,
     studioRecoveryKey,
     type StudioRecoveryStore,
   } from '../../../../lib/studio/enhancement-recovery';
+  import {
+    installStudioUnsavedGuard,
+    type StudioUnsavedGuard,
+  } from '../../../../lib/studio/unsaved-guard';
   import type { StudioRecoveryTracker } from '../../../../lib/studio/studio-enhancement-controller';
   import {
     applyStudioConcurrencyToForm,
@@ -101,6 +106,9 @@
         clearRecord(): void;
       }
     | undefined;
+  // #112: native leave confirmation, registered only while the candidate
+  // is dirty. $state so the sync effect also runs when the guard mounts.
+  let unsavedGuard = $state<StudioUnsavedGuard | undefined>(undefined);
 
   // Refresh re-reads GitHub AND re-runs probes; its result replaces the
   // loaded status until the page is reloaded. There is no background
@@ -153,7 +161,9 @@
     if (formEl === null) return;
     editorFormEl = formEl;
     if (discardAction?.discard.kind === 'discarded') {
-      createStudioRecoveryStore(sessionStorage).clear(studioRecoveryKey(data.editor.metadata.slug));
+      createStudioRecoveryStore(studioPersistentStorage()).clear(
+        studioRecoveryKey(data.editor.metadata.slug),
+      );
     }
 
     const editorCleanup = installStudioEnhancement(
@@ -223,6 +233,24 @@
       editorCleanup.destroy();
       checkCleanup?.destroy();
     };
+  });
+
+  // #112: the native leave confirmation follows the dirty flag exactly —
+  // a clean editor never registers an unload handler, and same-page form
+  // submissions are exempt inside the guard (Save persists server-side;
+  // Preview/Save candidates are already flushed to the recovery record on
+  // `pagehide`).
+  onMount(() => {
+    const guard = installStudioUnsavedGuard();
+    unsavedGuard = guard;
+    return () => {
+      unsavedGuard = undefined;
+      guard.destroy();
+    };
+  });
+
+  $effect(() => {
+    unsavedGuard?.setDirty(candidateDirty);
   });
 
   function handleActionEnvelope(
