@@ -58,6 +58,38 @@ export function buildStudioSaveRecovery(
     return undefined;
   }
   if (save.kind === 'save_conflict') {
+    // #109: an existing-draft collision observed from unbranched evidence is
+    // not a moved draft — no draft was ever loaded here. The copy must name
+    // the real situation and offer open / rename / discard paths.
+    if (save.draftExists !== undefined) {
+      const pr = save.draftExists.pullRequestNumber;
+      return {
+        operation: 'save',
+        tone: 'conflict',
+        heading: 'Save blocked: a Studio draft for this slug already exists',
+        whatHappened: `A Studio draft for this slug already exists on GitHub${
+          pr === undefined ? '' : ` (Draft PR #${pr})`
+        }, so saving here would collide with it. Nothing was written.`,
+        workSafety: candidatePreserved('Nothing you typed was lost.'),
+        readerEffect: READERS_UNCHANGED,
+        nextAction:
+          'Open the existing draft to resume it, pick a different slug for this text and save again, or discard the existing draft. Your candidate stays in this form for copying.',
+        offerReplacement: false,
+        comparison: [
+          {
+            label: 'Main',
+            loaded: save.loaded.baseMainSha,
+            current: save.current.baseMainSha,
+          },
+          {
+            label: 'Draft head',
+            loaded: save.loaded.draftHeadSha ?? NONE,
+            current: save.current.draftHeadSha ?? NONE,
+          },
+        ],
+        evidence: [],
+      };
+    }
     const offer = save.replacementAvailable;
     const offerReplacement = offer !== undefined;
     return {

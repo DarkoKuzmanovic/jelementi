@@ -5,6 +5,8 @@
     StudioSaveResult,
   } from '../server/studio/editor.server';
   import type { StudioDraftReplacementResult } from '../server/studio/draft-replacement.server';
+  import { untrack } from 'svelte';
+  import { resumesTitleTracking, slugDerivedFromTitle } from './slug-tracking';
 
   let {
     editor,
@@ -53,6 +55,23 @@
   // established article route the server already enforces this on every
   // submit; this only keeps the field itself from inviting a change.
   const slugLocked = $derived(!editor.slugEditable || save?.kind === 'saved');
+
+  // #109: while the writer has not touched the Slug field, it live-tracks
+  // kebab-case(title); a manual edit freezes tracking and clearing the field
+  // resumes it. The state is local to this component instance and seeded
+  // once from the loaded metadata (untrack: deliberately non-reactive) — an
+  // authoritative response never replaces typed form values (#78).
+  let slugValue = $state(untrack(() => metadata.slug));
+  let slugTracksTitle = $state(untrack(() => editor.slugEditable));
+
+  function handleSlugInput(event: Event & { currentTarget: HTMLInputElement }): void {
+    slugTracksTitle = resumesTitleTracking(event.currentTarget.value);
+  }
+
+  function handleTitleInput(event: Event & { currentTarget: HTMLInputElement }): void {
+    const derived = slugDerivedFromTitle(event.currentTarget.value, slugTracksTitle && !slugLocked);
+    if (derived !== undefined) slugValue = derived;
+  }
 </script>
 
 <section class="studio-editor" aria-labelledby="studio-editor-heading">
@@ -68,18 +87,33 @@
       <div class="studio-editor__field-grid">
         <label class="studio-editor__field-wide">
           Title
-          <input id="studio-field-title" name="title" value={metadata.title} required />
-        </label>
-        <label>
-          Slug
           <input
-            id="studio-field-slug"
-            name="slug"
-            value={metadata.slug}
-            readonly={slugLocked}
+            id="studio-field-title"
+            name="title"
+            value={metadata.title}
             required
+            oninput={handleTitleInput}
           />
         </label>
+        <div>
+          <label>
+            Slug
+            <input
+              id="studio-field-slug"
+              name="slug"
+              bind:value={slugValue}
+              oninput={handleSlugInput}
+              readonly={slugLocked}
+              required
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              aria-describedby="studio-field-slug-help"
+            />
+          </label>
+          <!-- Outside the label so the control's accessible name stays "Slug". -->
+          <span id="studio-field-slug-help" class="studio-editor__field-hint">
+            Lowercase letters, numbers, and hyphens.
+          </span>
+        </div>
         <label>
           Status
           <select id="studio-field-status" name="status" value={metadata.status}>
@@ -256,23 +290,39 @@
     </section>
   {:else if inlineRecovery && save?.kind === 'save_conflict'}
     <section aria-labelledby="save-conflict-heading">
-      <h3 id="save-conflict-heading">Save blocked: this draft moved on GitHub</h3>
-      <p>
-        What you loaded no longer matches what is currently on GitHub. Reload the editor to pick up
-        the current state before saving again; your unsaved text above is not lost until you do.
-      </p>
-      <dl>
-        <dt>Loaded</dt>
-        <dd>
-          main {save.loaded.baseMainSha}{#if save.loaded.draftHeadSha}, draft {save.loaded
-              .draftHeadSha}{/if}
-        </dd>
-        <dt>Current</dt>
-        <dd>
-          main {save.current.baseMainSha}{#if save.current.draftHeadSha}, draft {save.current
-              .draftHeadSha}{/if}
-        </dd>
-      </dl>
+      {#if save.draftExists !== undefined}
+        <h3 id="save-conflict-heading">
+          Save blocked: a Studio draft for this slug already exists
+        </h3>
+        <p>
+          A Studio draft for this slug already exists on GitHub{#if save.draftExists.pullRequestNumber !== undefined}
+            (Draft PR #{save.draftExists.pullRequestNumber}){/if}, so saving here would collide with
+          it. Nothing was written.
+        </p>
+        <p>
+          Open the existing draft to resume it, pick a different slug for this text and save again,
+          or discard the existing draft. Your candidate stays in this form for copying.
+        </p>
+      {:else}
+        <h3 id="save-conflict-heading">Save blocked: this draft moved on GitHub</h3>
+        <p>
+          What you loaded no longer matches what is currently on GitHub. Reload the editor to pick
+          up the current state before saving again; your unsaved text above is not lost until you
+          do.
+        </p>
+        <dl>
+          <dt>Loaded</dt>
+          <dd>
+            main {save.loaded.baseMainSha}{#if save.loaded.draftHeadSha}, draft {save.loaded
+                .draftHeadSha}{/if}
+          </dd>
+          <dt>Current</dt>
+          <dd>
+            main {save.current.baseMainSha}{#if save.current.draftHeadSha}, draft {save.current
+                .draftHeadSha}{/if}
+          </dd>
+        </dl>
+      {/if}
     </section>
   {:else if save?.kind === 'save_rejected'}
     <section aria-labelledby="save-rejected-heading">
@@ -380,7 +430,8 @@
   .studio-editor__eyebrow,
   .studio-editor p,
   .studio-editor summary span,
-  .studio-editor label span {
+  .studio-editor label span,
+  .studio-editor__field-hint {
     color: var(--studio-text-muted);
     font-size: var(--studio-text-compact);
   }

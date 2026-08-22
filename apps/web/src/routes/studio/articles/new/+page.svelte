@@ -21,6 +21,7 @@
     type StudioRawActionResponse,
   } from '../../../../lib/studio/studio-enhancement-page';
   import type { StudioPreviewResult } from '../../../../lib/studio/contracts';
+  import type { StudioSaveResult } from '../../../../lib/server/studio/editor.server';
   import type {
     StudioPreviewActionData,
     StudioSaveActionData,
@@ -41,6 +42,11 @@
   // state is owned by StudioRecoveryCopyPanel (its own reactive scope), so
   // keystrokes never re-render the editor form.
   let previewOverride = $state<StudioPreviewResult | undefined>(undefined);
+  // #109: authoritative Save outcomes (slug-collision rejections, conflicts,
+  // failures) must render inline without a navigation — mirroring the
+  // established article route's saveOverride wiring. Typed form values are
+  // never replaced (#78); only the result region updates.
+  let saveOverride = $state<StudioSaveResult | undefined>(undefined);
   let politeOverride = $state('');
   let assertiveMessage = $state('');
   let disabledMessage = $state('');
@@ -87,6 +93,7 @@
             return;
           }
           if (envelope.kind !== 'save') return;
+          saveOverride = envelope.save;
           if (envelope.save.kind === 'saved') {
             const acceptedSlug =
               typeof actionData === 'object' &&
@@ -143,7 +150,7 @@
     <StudioEditor
       editor={data.editor}
       submitted={previewAction?.editor ?? saveAction?.editor}
-      save={saveAction?.save}
+      save={saveOverride ?? saveAction?.save}
     />
   {/snippet}
 

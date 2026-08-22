@@ -15,13 +15,19 @@ import {
   buildStudioValidationProjection,
   type StudioValidationProjection,
 } from './validation-projection.server';
-import type { StudioEditorData, StudioPreviewInput, StudioSaveResult } from './editor.server';
+import type {
+  StudioEditorData,
+  StudioPreviewInput,
+  StudioPreviewOptions,
+  StudioSaveResult,
+} from './editor.server';
 import { buildStudioActionEnvelope, type StudioActionEnvelope } from '../../studio/action-envelope';
 import {
   buildStudioWorkspaceProjection,
   type StudioWorkspaceProjection,
 } from '../../studio/workspace-projection';
 import type {
+  StudioCompileIssue,
   StudioEditorInput,
   StudioLifecycle,
   StudioPreviewResult,
@@ -179,7 +185,7 @@ export async function saveStudioEditorAction(
     };
   }
 
-  const save = await saveStudioDraft(adapter, decoded.value.metadata.slug, decoded.value, {
+  const save = await saveOrRejectSlugCollision(adapter, decoded.value, expectedSlug === undefined, {
     mediaBaseUrl,
   });
   const candidate = { metadata: decoded.value.metadata, body: decoded.value.body };
@@ -355,6 +361,102 @@ function saveWorkspaceProjection(
     lifecycle = { kind: 'unknown', article };
   }
   return buildStudioWorkspaceProjection(lifecycle, concurrency);
+}
+
+/**
+ * #109 new-article slug safety: on the new-article route (no expected
+ * slug), saving is rejected BEFORE any GitHub mutation when the submitted
+ * slug already belongs to a canonical article file on `main` or to an
+ * active Studio draft branch. Established article routes are exempt —
+ * their own canonical file and their own draft are the legitimate edit
+ * target, not collisions. Only definitive positive evidence rejects: a
+ * lookup that cannot be completed fails closed as a plain GitHub failure
+ * rather than risking the silent-overwrite hazard.
+ */
+async function saveOrRejectSlugCollision(
+  adapter: GithubSaveAdapter,
+  input: StudioEditorInput,
+  isNewArticleRoute: boolean,
+  options: StudioPreviewOptions,
+): Promise<StudioSaveResult> {
+  if (!isNewArticleRoute) {
+    return saveStudioDraft(adapter, input.metadata.slug, input, options);
+  }
+  const collision = await findStudioSlugCollision(adapter, input.metadata.slug);
+  if (collision === undefined) {
+    return saveStudioDraft(adapter, input.metadata.slug, input, options);
+  }
+  if (collision === 'unavailable') {
+    return { kind: 'save_failed', phase: 'main', reason: 'github' };
+  }
+  if (collision.kind === 'article') {
+    return {
+      kind: 'save_rejected',
+      compileIssues: [
+        slugCollisionIssue(
+          'SLUG_ALREADY_EXISTS',
+          input.metadata.slug,
+          'An article with this slug already exists — open it instead.',
+        ),
+      ],
+    };
+  }
+  return {
+    kind: 'save_rejected',
+    compileIssues: [
+      slugCollisionIssue(
+        'SLUG_DRAFT_EXISTS',
+        input.metadata.slug,
+        `A Studio draft for this slug already exists${
+          collision.pullRequestNumber === undefined ? '' : ` (PR #${collision.pullRequestNumber})`
+        }. Open it, pick a different slug, or discard the existing draft.`,
+      ),
+    ],
+  };
+}
+
+type StudioSlugCollision =
+  { kind: 'article' } | { kind: 'draft'; pullRequestNumber?: number } | 'unavailable';
+
+/** Read-only collision discovery; never mutates anything. */
+async function findStudioSlugCollision(
+  adapter: GithubReadAdapter,
+  slug: string,
+): Promise<StudioSlugCollision | undefined> {
+  const main = await adapter.getMainRef();
+  if (!main.ok) return 'unavailable';
+  const path = `content/articles/${slug}.md`;
+  const canonical = await adapter.getFileContent(main.value.sha, path);
+  if (canonical.ok) return { kind: 'article' };
+  if (canonical.failure.reason !== 'not-found') return 'unavailable';
+
+  const branchName = `studio/article/${slug}`;
+  const branch = await adapter.getBranch(branchName);
+  if (branch.ok) {
+    // Best-effort PR naming for the message; a failed read only omits it.
+    const pulls = await adapter.listPullRequests(branchName);
+    const openPull = pulls.ok ? pulls.value.find((pull) => pull.state === 'open') : undefined;
+    return {
+      kind: 'draft',
+      ...(openPull === undefined ? {} : { pullRequestNumber: openPull.number }),
+    };
+  }
+  if (branch.failure.reason !== 'not-found') return 'unavailable';
+  return undefined;
+}
+
+function slugCollisionIssue(
+  code: 'SLUG_ALREADY_EXISTS' | 'SLUG_DRAFT_EXISTS',
+  slug: string,
+  message: string,
+): StudioCompileIssue {
+  return {
+    code,
+    message,
+    sourcePath: `content/articles/${slug}.md`,
+    line: 1,
+    column: 1,
+  };
 }
 
 function invalidFormPreview(form: FormData, expectedSlug?: string): StudioPreviewActionData {
