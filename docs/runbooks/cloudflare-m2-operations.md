@@ -52,6 +52,25 @@ Originally: stop until Darko explicitly approves C after accepting the protected
 3. Run the production probe against `/`, every generated article/category route, `/search`, `/about`, a static asset, and an unknown path. Require global `noindex`, normal-route no hydration, `/search` hydration, Sources and Footnotes, and an HTTP 404 with English Jelementi copy plus fallback bootstrap and no redirect.
 4. Record the Worker version, commit, timestamp, probe output, and route state. Do not alter unrelated DNS, Access, tokens, or R2 settings.
 
+## Routine deployment
+
+**Production deploys on merge to `main`, automatically, through Workers Builds.** Merging an approved pull request is the deploy action. There is no manual step and no separate checkpoint approval for an ordinary merge; the approval is the merge.
+
+1. Land the change as a pull request with green `verify`. Do not push to `main` directly.
+2. Merge. This triggers Workers Builds, which builds and deploys the new Worker version.
+3. Watch both checks on the merge commit until they settle:
+
+   ```bash
+   gh api repos/DarkoKuzmanovic/jelementi/commits/<sha>/check-runs \
+     --jq '.check_runs[] | "\(.name): \(.status)/\(.conclusion // "-")"'
+   ```
+
+   Both `verify` and `Workers Builds: jelementi-web` must reach `success`.
+4. Probe production for the change actually reaching the edge. Reader surfaces are anonymous (`/`, `/index.json`, an article route); Studio is behind Access, so a Studio-only change needs an authenticated check rather than a `curl` byte-proof.
+5. If `Workers Builds` fails, production is still serving the previous version. Do not retry blindly and do not reach for `deploy:web` — go to Incident rollback and establish which version is live first.
+
+This covers ordinary application changes only. Media, bindings, routes, Access, DNS, tokens, and R2 are never deployed by merging; they remain separately approved operator actions.
+
 ## Incident rollback
 
 For a reader outage, freeze merges and manual/retry deployment actions. Identify the recorded known-good Worker version, then execute the approved Cloudflare rollback first. Verify the production probe against the restored version. Next create a normal Git revert commit on an incident branch, obtain green CI, merge its pull request, and allow the aligned reverted `main` to deploy through Workers Builds.
