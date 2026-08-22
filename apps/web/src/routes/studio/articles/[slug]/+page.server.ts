@@ -16,6 +16,7 @@ import {
 import {
   decodeStudioFormData,
   reconstructStudioPreviewInput,
+  resolveStoredArticleStatus,
   verifyStudioPublishCandidate,
   type StudioEditorData,
   type StudioPreviewInput,
@@ -226,6 +227,12 @@ export const actions: Actions = {
     if (!decoded.ok || decoded.value.metadata.slug !== event.params.slug) {
       return { publish: unsavedEditorChanges(event.params.slug), editor: submitted };
     }
+
+    // #111: the candidate's lifecycle status is server-derived from the
+    // committed draft branch (never the form), so a crafted status can
+    // neither block an exact-head Publish nor smuggle a status change into
+    // it. Every other field still has to match byte-for-byte below.
+    submitted.metadata.status = await resolveStoredArticleStatus(adapter, event.params.slug);
 
     const verification = await verifyStudioPublishCandidate(
       adapter,

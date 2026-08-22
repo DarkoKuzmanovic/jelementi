@@ -3,6 +3,7 @@ import {
   STUDIO_ACCEPTANCE_IDENTITY_HEADER,
   STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
 } from '../../src/lib/server/studio/request-guard.server';
+import { STUDIO_ACCEPTANCE_PUBLISHABLE_SLUGS } from '../../src/lib/server/studio/acceptance-bootstrap.server';
 import { expectFirstSaveLanded, waitForStudioHydration } from './helpers';
 
 const ARTICLE_SLUG = 'lighthouse-watch';
@@ -30,7 +31,12 @@ test.describe('Editorial desk server baseline', () => {
     await expect(page.getByRole('heading', { name: 'Essentials' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Title', exact: true })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Slug', exact: true })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Status', exact: true })).toBeVisible();
+    // Lifecycle status stays exposed (spec story 8) but is read-only (#111):
+    // a plain-language display of the loaded state, never an editable select.
+    const statusField = page.locator('#studio-field-status');
+    await expect(statusField).toHaveText('Draft');
+    await expect(page.locator('#studio-article-form select[name="status"]')).toHaveCount(0);
+    await expect(page.getByText(/Change publishing state via Publish \/ Unpublish/)).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Excerpt', exact: true })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Body', exact: true })).toBeVisible();
     await expect(page.getByText('Writing · No autosave')).toBeVisible();
@@ -127,29 +133,31 @@ test.describe('Editorial desk server baseline', () => {
   test('completes Save draft then Publish saved version through ordinary full-page forms', async ({
     page,
   }, testInfo) => {
-    const suffix = testInfo.project.name === 'studio-no-js' ? 'no-js' : 'js';
-    const slug = `editorial-journey-${suffix}`;
-
-    await page.goto('/studio/articles/new');
+    // #111: lifecycle Status is read-only in the editor, so a brand-new
+    // draft can no longer be marked `published` through the form. The
+    // ordinary full-page Save→Publish journey therefore starts from a
+    // canonical article that is already published on `main` with no active
+    // draft — its derived draft status stays `published`. Each project uses
+    // its own pristine fixture: publishing merges an edit to `main`, and the
+    // shared acceptance world must not leak that into the other project.
+    const publishableSlug =
+      testInfo.project.name === 'studio-no-js'
+        ? STUDIO_ACCEPTANCE_PUBLISHABLE_SLUGS[1]
+        : STUDIO_ACCEPTANCE_PUBLISHABLE_SLUGS[0];
+    await page.goto(`/studio/articles/${publishableSlug}`);
     await waitForStudioHydration(page, testInfo);
-    await page
-      .getByRole('textbox', { name: 'Title', exact: true })
-      .fill(`Editorial journey ${suffix}`);
-    await page.getByRole('textbox', { name: 'Slug', exact: true }).fill(slug);
-    await page
-      .getByRole('textbox', { name: 'Excerpt', exact: true })
-      .fill('A deterministic publication journey.');
-    await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('published');
+    await expect(page.locator('#studio-field-status')).toHaveText('Published');
+
     await page
       .getByRole('textbox', { name: 'Body', exact: true })
       .fill('A complete ordinary server-form publication journey.');
-    await page.getByText('More metadata', { exact: false }).click();
-    await page.getByRole('textbox', { name: 'Published date', exact: true }).fill('2026-08-18');
-    await page.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Acceptance cover.');
     await page.getByRole('button', { name: 'Save draft' }).click();
-    await expectFirstSaveLanded(page, slug, testInfo);
+    await expect(
+      page.getByRole('heading', { name: 'Studio draft saved', exact: true }),
+    ).toBeVisible();
 
-    await page.goto(`/studio/articles/${slug}`);
+    // Reload for fresh lifecycle evidence before approving the merge.
+    await page.goto(`/studio/articles/${publishableSlug}`);
     await expect(page.getByText('Ready to publish', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Unsaved form changes' })).toHaveCount(0);
@@ -157,5 +165,47 @@ test.describe('Editorial desk server baseline', () => {
     await page.getByRole('button', { name: 'Publish saved version' }).click();
 
     await expect(page.getByRole('heading', { name: 'Published', exact: true })).toBeVisible();
+  });
+
+  test('a brand-new article reaches publication through the server-authored status flip (#111 Design A)', async ({
+    page,
+  }, testInfo) => {
+    // Lifecycle Status is read-only in the editor, so a brand-new draft is
+    // saved as Draft. Publish itself originates the one byte-minimal
+    // status-flip commit and binds readiness + auto-merge to the POST-flip
+    // head — so the ordinary create→save→publish journey completes without
+    // the form ever carrying a lifecycle value. Per-project slug: the merge
+    // mutates the shared acceptance world.
+    const suffix = testInfo.project.name === 'studio-no-js' ? 'no-js' : 'js';
+    const slug = `first-light-${suffix}`;
+
+    await page.goto('/studio/articles/new');
+    await waitForStudioHydration(page, testInfo);
+    await expect(page.locator('#studio-field-status')).toHaveText('Draft');
+    await page.getByRole('textbox', { name: 'Title', exact: true }).fill(`First Light ${suffix}`);
+    await page.getByRole('textbox', { name: 'Slug', exact: true }).fill(slug);
+    await page
+      .getByRole('textbox', { name: 'Excerpt', exact: true })
+      .fill('A first publication carried by the server-authored flip.');
+    await page.getByText('More metadata', { exact: false }).click();
+    await page.getByRole('textbox', { name: 'Published date', exact: true }).fill('2026-08-18');
+    await page.getByRole('textbox', { name: 'Alt text', exact: true }).fill('First light cover.');
+    await page
+      .getByRole('textbox', { name: 'Body', exact: true })
+      .fill('A brand-new article body published through the guarded flip.');
+    await page.getByRole('button', { name: 'Save draft' }).click();
+    await expectFirstSaveLanded(page, slug, testInfo);
+
+    await page.goto(`/studio/articles/${slug}`);
+    await expect(page.locator('#studio-field-status')).toHaveText('Draft');
+    await expect(page.getByText('Ready to publish', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Publish saved version' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Published', exact: true })).toBeVisible();
+
+    // The committed draft now says `published` (the flip landed), which is
+    // exactly what the read-only status display derives from on a reload.
+    await page.goto(`/studio/articles/${slug}`);
+    await expect(page.locator('#studio-field-status')).toHaveText('Published');
   });
 });

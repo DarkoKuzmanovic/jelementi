@@ -271,8 +271,15 @@ export function captureStudioSubmittedSnapshot(form: FormData): StudioEditorInpu
     const value = form.get(name);
     return typeof value === 'string' ? value : '';
   };
-  const status = read('status');
-  if (status !== 'draft' && status !== 'published' && status !== 'archived') return undefined;
+  // #111: the editor form no longer submits lifecycle state at all, so an
+  // absent or malformed `status` field no longer disqualifies the snapshot —
+  // the field is simply omitted and the canonical decoder applies its
+  // new-article default. The stored status is server-derived anyway.
+  const rawStatus = read('status');
+  const status =
+    rawStatus === 'draft' || rawStatus === 'published' || rawStatus === 'archived'
+      ? rawStatus
+      : undefined;
 
   const references: StudioReference[] = [];
   const titles = form.getAll('referenceTitle');
@@ -305,7 +312,7 @@ export function captureStudioSubmittedSnapshot(form: FormData): StudioEditorInpu
       title: read('title'),
       slug: read('slug'),
       excerpt: read('excerpt'),
-      status,
+      ...(status === undefined ? {} : { status }),
       ...(publishedAt === '' ? {} : { publishedAt }),
       updatedAt: read('updatedAt'),
       category: read('category'),

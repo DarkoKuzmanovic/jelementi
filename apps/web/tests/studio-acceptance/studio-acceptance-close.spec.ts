@@ -436,12 +436,13 @@ test.describe('keyboard-only operation — #79 criterion 5', () => {
     await page.goto(`/studio/articles/${ARTICLE_SLUG}`);
     await waitForStudioHydration(page, testInfo);
 
-    const fieldLabels = ['Title', 'Slug', 'Status', 'Excerpt', 'Body'] as const;
+    // #111: lifecycle Status is presentation-only — still exposed next to the
+    // other essentials, but not an interactive Tab stop.
+    await expect(page.locator('#studio-field-status')).toBeVisible();
+
+    const fieldLabels = ['Title', 'Slug', 'Excerpt', 'Body'] as const;
     for (const label of fieldLabels) {
-      const ctrl =
-        label === 'Status'
-          ? page.getByRole('combobox', { name: label, exact: true })
-          : page.getByRole('textbox', { name: label, exact: true });
+      const ctrl = page.getByRole('textbox', { name: label, exact: true });
       await ctrl.focus();
       await expect(ctrl).toBeFocused();
       // Focus ring must be visible on each field.

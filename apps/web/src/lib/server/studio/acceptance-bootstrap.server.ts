@@ -32,6 +32,25 @@ export const STUDIO_ACCEPTANCE_LIVE_SLUG = 'verified-harbor';
 export const STUDIO_ACCEPTANCE_FLOWBOARD_HEADER = 'x-studio-acceptance-flowboard';
 
 /**
+ * #111 fixtures. With lifecycle Status read-only in the editor form, a
+ * brand-new Studio draft can never carry `status: published`, so the
+ * ordinary Save→Publish acceptance journey starts from a canonical article
+ * that is already published on `main` (its derived draft status stays
+ * `published`). One pristine fixture PER BROWSER PROJECT: the journey's
+ * Publish merges an edit into `main`, and the shared acceptance world means
+ * the second project would otherwise start from the first project's merged
+ * state. The undated companion is a committed-but-invalid draft whose only
+ * compile issue is a published status without `publishedAt` — the
+ * deterministic anchor for validation-targeting journeys.
+ */
+const STUDIO_ACCEPTANCE_PUBLISHABLE_BASE = 'open-cove';
+export const STUDIO_ACCEPTANCE_PUBLISHABLE_SLUGS = [
+  `${STUDIO_ACCEPTANCE_PUBLISHABLE_BASE}-js`,
+  `${STUDIO_ACCEPTANCE_PUBLISHABLE_BASE}-no-js`,
+] as const;
+export const STUDIO_ACCEPTANCE_UNDATED_SLUG = 'undated-notes';
+
+/**
  * Deterministic recovery-scenario trigger owned by #77. A Playwright test
  * sets this header on a Studio mutation to make the shared fake-GitHub
  * world change out from under the operator *before* the real domain
@@ -160,6 +179,36 @@ async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapt
     liveSource,
     'd'.repeat(64),
   );
+  // #111: seeded BEFORE any Studio branch exists, so every later draft
+  // branch's tree differs from canonical main by exactly its own article
+  // file — the invariant Draft-replacement eligibility checks.
+  for (const [index, publishableSlug] of STUDIO_ACCEPTANCE_PUBLISHABLE_SLUGS.entries()) {
+    adapter.seedFile(
+      'main',
+      `content/articles/${publishableSlug}.md`,
+      serializeArticleSource({
+        frontmatter: {
+          title: 'The Open Cove',
+          slug: publishableSlug,
+          excerpt: 'A canonical published article with no active draft.',
+          publishedAt: '2026-02-01',
+          updatedAt: '2026-02-01',
+          status: 'published',
+          category: 'Fixtures',
+          tags: ['acceptance'],
+          author: 'Studio Acceptance',
+          cover: {
+            src: `articles/${publishableSlug}/cover.svg`,
+            alt: 'An open cove.',
+          },
+          references: [],
+        },
+        body: 'A deterministic published paragraph awaiting an ordinary edit journey.',
+      }),
+      // Distinct per-fixture blob identity; the fake only requires shape.
+      `e${String(index).padStart(63, '0')}`,
+    );
+  }
 
   const main = await adapter.getMainRef();
   if (!main.ok) {
@@ -212,6 +261,28 @@ async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapt
   );
   if (invalid.kind !== 'saved') {
     throw new Error(`Studio acceptance bootstrap failed to seed invalid work (${invalid.kind}).`);
+  }
+
+  // #111: a committed draft whose single compile issue is a published status
+  // without `publishedAt`, so validation targets the Published date control.
+  const undated = await saveStudioDraft(
+    adapter,
+    STUDIO_ACCEPTANCE_UNDATED_SLUG,
+    {
+      metadata: {
+        ...metadata,
+        title: 'Undated Notes',
+        slug: STUDIO_ACCEPTANCE_UNDATED_SLUG,
+        status: 'published',
+        cover: { src: 'articles/undated-notes/cover.svg', alt: 'Undated notes.' },
+      },
+      body: 'A valid paragraph whose metadata is not publishable yet.',
+      concurrency: { baseMainSha: main.value.sha },
+    },
+    { mediaBaseUrl: FIXTURE_MEDIA_BASE_URL },
+  );
+  if (undated.kind !== 'saved') {
+    throw new Error(`Studio acceptance bootstrap failed to seed undated work (${undated.kind}).`);
   }
 
   const failedPullNumber = await seedApprovedChange(

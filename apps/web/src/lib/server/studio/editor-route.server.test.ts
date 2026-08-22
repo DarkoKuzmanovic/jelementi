@@ -9,6 +9,7 @@ import {
   replaceStudioEditorAction,
   saveStudioEditorAction,
 } from './editor-route.server';
+import { saveStudioDraft } from './editor.server';
 
 const { requireStudioAccess, requireStudioMutation } = vi.hoisted(() => ({
   requireStudioAccess: vi.fn(async () => ({ ok: true as const, email: 'darko@example.com' })),
@@ -766,5 +767,146 @@ describe('Studio Draft replacement route boundary', () => {
       },
       editor: { metadata: { slug: 'a-draft' }, body: 'Keep this tampered submission visible.' },
     });
+  });
+});
+
+describe('Studio save ignores form-supplied status (#111)', () => {
+  const publishedCanonical = serializeArticleSource({
+    frontmatter: {
+      title: 'The 250 People at the End of the World',
+      slug: 'tristan-da-cunha',
+      excerpt: 'A remote settlement.',
+      publishedAt: '2026-07-26',
+      updatedAt: '2026-07-26',
+      status: 'published',
+      category: 'History',
+      tags: ['islands'],
+      author: 'Jelementi',
+      cover: { src: 'articles/tristan-da-cunha/cover.svg', alt: 'Island' },
+      references: [],
+    },
+    body: 'Body.',
+  });
+
+  function localEvent(local: FakeGithubAdapter, form: FormData, url: string) {
+    return {
+      request: new Request(url, { method: 'POST', body: form }),
+      platform: { env },
+      locals: { studioGithubAdapter: local },
+    };
+  }
+
+  async function committedBranchContent(local: FakeGithubAdapter, slug: string): Promise<string> {
+    const branch = await local.getBranch(`studio/article/${slug}`);
+    if (!branch.ok) throw new Error('draft branch missing');
+    const file = await local.getFileContent(branch.value.sha, `content/articles/${slug}.md`);
+    if (!file.ok) throw new Error('committed draft file missing');
+    return file.value.content;
+  }
+
+  it('stores the derived lifecycle status when an established-article Save crafts another one', async () => {
+    const local = new FakeGithubAdapter(config);
+    local.seedFile(
+      'main',
+      'content/articles/tristan-da-cunha.md',
+      publishedCanonical,
+      'b'.repeat(64),
+    );
+    const main = await local.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+
+    const form = validForm();
+    form.set('slug', 'tristan-da-cunha');
+    form.set('status', 'archived');
+    form.set('publishedAt', '2026-07-26');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction(
+      localEvent(local, form, 'https://jelementi.quz.ma/studio/articles/tristan-da-cunha?/save'),
+      'tristan-da-cunha',
+    );
+
+    expect(result.save.kind).toBe('saved');
+    // The stored frontmatter keeps its lifecycle-derived status; the crafted
+    // form value is inert.
+    const content = await committedBranchContent(local, 'tristan-da-cunha');
+    expect(content).toContain('status: published');
+    expect(content).not.toContain('archived');
+  });
+
+  it('starts a brand-new article from the draft default even when the form crafts published', async () => {
+    const local = new FakeGithubAdapter(config);
+    const main = await local.getMainRef();
+    if (!main.ok) throw new Error('expected main ref');
+
+    const form = validForm();
+    form.set('slug', 'fresh-ink');
+    form.set('status', 'published');
+    form.set('publishedAt', '2026-08-21');
+    form.set('baseMainSha', main.value.sha);
+
+    const result = await saveStudioEditorAction(
+      localEvent(local, form, 'https://jelementi.quz.ma/studio/articles/new?/save'),
+    );
+
+    expect(result.save.kind).toBe('saved');
+    const content = await committedBranchContent(local, 'fresh-ink');
+    expect(content).toContain('status: draft');
+    expect(content).not.toContain('status: published');
+  });
+
+  it('keeps the committed lifecycle status when a stale-draft replacement crafts another one', async () => {
+    const local = new FakeGithubAdapter(config);
+    const initial = await local.getMainRef();
+    if (!initial.ok) throw new Error('expected main ref');
+    const saved = await saveStudioDraft(
+      local,
+      'replace-me',
+      {
+        metadata: {
+          title: 'Replace Me',
+          slug: 'replace-me',
+          excerpt: 'A replacement normalization fixture.',
+          status: 'published',
+          publishedAt: '2026-08-01',
+          updatedAt: '2026-08-01',
+          category: 'Ideas',
+          tags: [],
+          author: 'Jelementi',
+          cover: { src: 'articles/replace-me/cover-v1.svg', alt: '' },
+          references: [],
+        },
+        body: 'Saved body.',
+        concurrency: { baseMainSha: initial.value.sha },
+      },
+      { mediaBaseUrl: env.PUBLIC_MEDIA_BASE_URL as string },
+    );
+    if (saved.kind !== 'saved' || saved.concurrency.draftHeadSha === undefined) {
+      throw new Error(`save failed: ${saved.kind}`);
+    }
+    // The operator loaded at the pre-move main; the move is what makes the
+    // follow-up Save conflict and offer the replacement.
+    local.advanceMain();
+
+    const form = validForm();
+    form.set('slug', 'replace-me');
+    form.set('title', 'Replace Me');
+    form.set('excerpt', 'A replacement normalization fixture.');
+    form.set('status', 'archived');
+    form.set('publishedAt', '2026-08-01');
+    form.set('updatedAt', '2026-08-01');
+    form.set('coverSrc', 'articles/replace-me/cover-v1.svg');
+    form.set('baseMainSha', initial.value.sha);
+    form.set('draftHeadSha', saved.concurrency.draftHeadSha);
+
+    const result = await replaceStudioEditorAction(
+      localEvent(local, form, 'https://jelementi.quz.ma/studio/articles/replace-me?/replace'),
+      'replace-me',
+    );
+
+    expect(result.replacement.kind).toBe('replaced');
+    const content = await committedBranchContent(local, 'replace-me');
+    expect(content).toContain('status: published');
+    expect(content).not.toContain('archived');
   });
 });

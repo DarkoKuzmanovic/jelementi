@@ -129,3 +129,26 @@ describe('StudioEditor date inputs (#110)', () => {
     for (const value of rejected) expect(anchored.test(value)).toBe(false);
   });
 });
+
+describe('StudioEditor read-only lifecycle status (#111)', () => {
+  it('renders status as a non-editable output with a plain-language label, never as a select', () => {
+    const html = renderEditorHtml();
+
+    expect(html).toContain('<output id="studio-field-status"');
+    expect(html).not.toMatch(/<select[^>]*name="status"/);
+    // The loaded draft state is what the field presents.
+    expect(html).toMatch(/>\s*Draft\s*<\/output>/);
+    // No writable binding: the element carries no form name at all.
+    const outputTag = html.match(/<output id="studio-field-status"[^>]*>/)?.[0] ?? '';
+    expect(outputTag).not.toContain('name=');
+  });
+
+  it('shows the loaded published state and points to the sanctioned mutation paths', () => {
+    const html = render(StudioEditor, {
+      props: { editor: { ...editor, metadata: { ...metadata, status: 'published' } } },
+    }).body;
+
+    expect(html).toMatch(/>\s*Published\s*<\/output>/);
+    expect(html).toContain('publication panel');
+  });
+});

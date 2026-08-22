@@ -749,6 +749,120 @@ describe('Studio publish & refresh actions', () => {
     expect(productionFetch).toHaveBeenCalled();
   });
 
+  it('ignores a crafted form status: Publish verifies against the committed lifecycle status (#111)', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      draftSlug,
+      {
+        metadata: publishableMetadata,
+        body: 'Saved body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
+    );
+    if (saved.kind !== 'saved' || saved.concurrency.draftHeadSha === undefined) {
+      throw new Error('save failed');
+    }
+
+    // Everything matches the committed draft except the crafted status.
+    const form = publishForm(
+      publishableMetadata,
+      'Saved body.',
+      saved.concurrency,
+      saved.concurrency.draftHeadSha,
+    );
+    form.set('status', 'archived');
+
+    const result = await (async () => {
+      // Same bounded transport stub as the byte-identical publish journey:
+      // every probed media URL answers HTTP 200.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => new Response(null, { status: 200 })),
+      );
+      try {
+        return await studioArticleActions.publish?.(
+          actionEventFor(draftSlug, { studioGithubAdapter: adapter }, { env: studioEnv }, form),
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    })();
+
+    expect(result).toMatchObject({
+      publish: { kind: 'published', pullRequest: { number: saved.pullRequest.number } },
+    });
+    const committed = await adapter.getFileContent(
+      saved.concurrency.draftHeadSha,
+      `content/articles/${draftSlug}.md`,
+    );
+    if (!committed.ok) throw new Error('committed draft missing');
+    expect(committed.value.content).toContain('status: published');
+  });
+
+  it('ignores a crafted form status on a first publication: the server-authored flip wins (#111 Design A)', async () => {
+    const adapter = new FakeGithubAdapter(githubConfig);
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    // A brand-new draft: status 'draft' but already carrying publishedAt, so
+    // the flipped source satisfies every published-metadata invariant.
+    const saved = await saveStudioDraft(
+      adapter,
+      draftSlug,
+      {
+        metadata: { ...draftMetadata, publishedAt: '2026-08-01' },
+        body: 'Saved body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: studioEnv.PUBLIC_MEDIA_BASE_URL as string },
+    );
+    if (saved.kind !== 'saved' || saved.concurrency.draftHeadSha === undefined) {
+      throw new Error('save failed');
+    }
+
+    const form = publishForm(
+      { ...draftMetadata, publishedAt: '2026-08-01' },
+      'Saved body.',
+      saved.concurrency,
+      saved.concurrency.draftHeadSha,
+    );
+    form.set('status', 'archived');
+
+    const result = await (async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => new Response(null, { status: 200 })),
+      );
+      try {
+        return await studioArticleActions.publish?.(
+          actionEventFor(draftSlug, { studioGithubAdapter: adapter }, { env: studioEnv }, form),
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    })();
+
+    expect(result).toMatchObject({
+      publish: { kind: 'published', pullRequest: { number: saved.pullRequest.number } },
+    });
+    if (result === undefined || result.publish.kind !== 'published') {
+      throw new Error('expected published result');
+    }
+    // The merged head is the POST-flip commit and its frontmatter says
+    // published — never the crafted form value.
+    expect(result.publish.headSha).not.toBe(saved.concurrency.draftHeadSha);
+    const committed = await adapter.getFileContent(
+      result.publish.headSha,
+      `content/articles/${draftSlug}.md`,
+    );
+    if (!committed.ok) throw new Error('flipped commit missing');
+    expect(committed.value.content).toContain('status: published');
+    expect(committed.value.content).not.toContain('archived');
+  });
+
   it('injects the bounded deterministic media transport only in exact acceptance mode', async () => {
     const adapter = new FakeGithubAdapter(githubConfig);
     const main = await adapter.getMainRef();
@@ -1043,6 +1157,42 @@ describe('StudioPublishPanel unpublish retry availability', () => {
     // only a revalidated committed draft (`draft_valid`) enables it.
     expect(body).toContain('disabled=""');
     expect(body).toContain('Publish saved version');
+  });
+
+  it('distinguishes a local transform rejection from unreachable GitHub (#111 NIT 2)', () => {
+    const transform = render(StudioPublishPanel, {
+      props: {
+        status: {
+          kind: 'draft_valid',
+          article,
+          branch: {
+            name: `studio/article/${article.slug}`,
+            url: pullRequest.url,
+            headSha: pullRequest.headSha,
+          },
+        },
+        publish: { kind: 'publish_failed', phase: 'status-flip', reason: 'transform' },
+      },
+    }).body;
+    // GitHub was never contacted, so the copy must not claim an outage.
+    expect(transform).toContain('could not derive the published form');
+    expect(transform).not.toContain('GitHub could not be reached');
+
+    const offline = render(StudioPublishPanel, {
+      props: {
+        status: {
+          kind: 'draft_valid',
+          article,
+          branch: {
+            name: `studio/article/${article.slug}`,
+            url: pullRequest.url,
+            headSha: pullRequest.headSha,
+          },
+        },
+        publish: { kind: 'publish_failed', phase: 'status-flip', reason: 'github' },
+      },
+    }).body;
+    expect(offline).toContain('GitHub could not be reached');
   });
 });
 

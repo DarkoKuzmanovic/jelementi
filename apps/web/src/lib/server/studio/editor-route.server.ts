@@ -5,6 +5,7 @@ import {
   loadStudioEditor,
   previewFromEditorInput,
   reconstructStudioPreviewInput,
+  resolveStoredArticleStatus,
   saveStudioDraft,
 } from './editor.server';
 import { getStudioConfig, type StudioConfig } from './config.server';
@@ -265,6 +266,10 @@ export async function replaceStudioEditorAction(
   if (adapter === undefined) error(503, 'Studio draft replacement unavailable.');
 
   const candidate = { metadata: decoded.value.metadata, body: decoded.value.body };
+  // #111: same normalization as Save — the replacement recommits the
+  // candidate with the lifecycle status derived from the committed draft
+  // branch / canonical main, never the form's value.
+  candidate.metadata.status = await resolveStoredArticleStatus(adapter, expectedSlug);
   const replacement = await replaceStudioDraft(
     adapter,
     expectedSlug,
@@ -389,11 +394,14 @@ async function saveOrRejectSlugCollision(
   options: StudioPreviewOptions,
 ): Promise<StudioSaveResult> {
   if (!isNewArticleRoute) {
-    return saveStudioDraft(adapter, input.metadata.slug, input, options);
+    return saveWithDerivedStatus(adapter, input, options);
   }
   const collision = await findStudioSlugCollision(adapter, input.metadata.slug);
   if (collision === undefined) {
-    return saveStudioDraft(adapter, input.metadata.slug, input, options);
+    // #111: normalization happens only on the path that actually saves —
+    // never ahead of the fail-closed collision reads, whose failure order
+    // existing guarantees depend on.
+    return saveWithDerivedStatus(adapter, input, options);
   }
   if (collision === 'unavailable') {
     return { kind: 'save_failed', phase: 'main', reason: 'github' };
@@ -422,6 +430,22 @@ async function saveOrRejectSlugCollision(
       ),
     ],
   };
+}
+
+/**
+ * #111: the form channel never writes lifecycle state. Whatever the
+ * submission claimed, the stored frontmatter status is derived from the
+ * committed draft branch / canonical main (or the new-article default), so
+ * crafted values cannot archive a live article or force a draft live
+ * through Save (+Publish).
+ */
+async function saveWithDerivedStatus(
+  adapter: GithubSaveAdapter,
+  input: StudioEditorInput,
+  options: StudioPreviewOptions,
+): Promise<StudioSaveResult> {
+  input.metadata.status = await resolveStoredArticleStatus(adapter, input.metadata.slug);
+  return saveStudioDraft(adapter, input.metadata.slug, input, options);
 }
 
 type StudioSlugCollision =
