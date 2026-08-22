@@ -51,6 +51,20 @@ export const STUDIO_ACCEPTANCE_PUBLISHABLE_SLUGS = [
 export const STUDIO_ACCEPTANCE_UNDATED_SLUG = 'undated-notes';
 
 /**
+ * #115 fixtures. One pristine canonical published article PER BROWSER
+ * PROJECT for the save-advances-lifecycle journey: it edits a published
+ * article with no prior draft and proves Publish unlocks from the Save
+ * response alone, then saves an invalid body to prove both lifecycle
+ * surfaces flip coherently. The journey leaves its own fixture with a
+ * committed draft; no other spec reads these slugs.
+ */
+const STUDIO_ACCEPTANCE_SAVE_UNLOCK_BASE = 'calm-bay';
+export const STUDIO_ACCEPTANCE_SAVE_UNLOCK_SLUGS = [
+  `${STUDIO_ACCEPTANCE_SAVE_UNLOCK_BASE}-js`,
+  `${STUDIO_ACCEPTANCE_SAVE_UNLOCK_BASE}-no-js`,
+] as const;
+
+/**
  * Deterministic recovery-scenario trigger owned by #77. A Playwright test
  * sets this header on a Studio mutation to make the shared fake-GitHub
  * world change out from under the operator *before* the real domain
@@ -207,6 +221,35 @@ async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapt
       }),
       // Distinct per-fixture blob identity; the fake only requires shape.
       `e${String(index).padStart(63, '0')}`,
+    );
+  }
+
+  // #115: seeded alongside the #111 fixtures and BEFORE any Studio branch
+  // exists, preserving the same one-file-draft-tree invariant.
+  for (const [index, saveUnlockSlug] of STUDIO_ACCEPTANCE_SAVE_UNLOCK_SLUGS.entries()) {
+    adapter.seedFile(
+      'main',
+      `content/articles/${saveUnlockSlug}.md`,
+      serializeArticleSource({
+        frontmatter: {
+          title: 'The Calm Bay',
+          slug: saveUnlockSlug,
+          excerpt: 'A canonical published article awaiting its first edit draft.',
+          publishedAt: '2026-03-01',
+          updatedAt: '2026-03-01',
+          status: 'published',
+          category: 'Fixtures',
+          tags: ['acceptance'],
+          author: 'Studio Acceptance',
+          cover: {
+            src: `articles/${saveUnlockSlug}/cover.svg`,
+            alt: 'A calm bay.',
+          },
+          references: [],
+        },
+        body: 'A deterministic published paragraph whose first Save must unlock Publish.',
+      }),
+      `f${String(index).padStart(63, '0')}`,
     );
   }
 

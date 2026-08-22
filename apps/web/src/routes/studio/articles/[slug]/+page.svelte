@@ -37,7 +37,8 @@
   } from '../../../../lib/studio/studio-enhancement-page';
   import type { StudioActionEnvelope } from '../../../../lib/studio/action-envelope';
   import type { StudioWorkspaceProjection } from '../../../../lib/studio/workspace-projection';
-  import type { StudioPreviewResult } from '../../../../lib/studio/contracts';
+  import type { StudioPreviewResult, StudioLifecycle } from '../../../../lib/studio/contracts';
+  import { decodeStudioLifecycle } from '../../../../lib/studio/contracts';
   import type {
     StudioDraftReplacementActionData,
     StudioPreviewActionData,
@@ -91,6 +92,10 @@
   let previewOverride = $state<StudioPreviewResult | undefined>(undefined);
   let workspaceOverride = $state<StudioWorkspaceProjection | undefined>(undefined);
   let saveOverride = $state<StudioSaveActionData['save'] | undefined>(undefined);
+  // #115: the enhanced Save response's synthesized post-save lifecycle.
+  // Like every result override it survives until a full navigation remounts
+  // the page; only authoritative save envelopes ever write it.
+  let statusOverride = $state<StudioLifecycle | undefined>(undefined);
   let liveCandidateDirty = $state(false);
   let politeOverride = $state('');
   let assertiveMessage = $state('');
@@ -117,9 +122,18 @@
   let previewStale = $state(false);
 
   // Refresh re-reads GitHub AND re-runs probes; its result replaces the
-  // loaded status until the page is reloaded. There is no background
-  // polling — this is the only way `status` changes without a reload.
-  const status = $derived(replacementAction?.status ?? refreshAction?.status ?? data.status);
+  // loaded status until the page is reloaded. #115: so does a successful
+  // Save — its synthesized post-save lifecycle is authoritative without a
+  // Check-status click or reload, in both delivery paths (enhanced
+  // override and full-navigation action result). There is no background
+  // polling; these are the only ways `status` changes without a reload.
+  const status = $derived(
+    statusOverride ??
+      replacementAction?.status ??
+      saveAction?.status ??
+      refreshAction?.status ??
+      data.status,
+  );
 
   const submittedCandidate = $derived(
     previewAction?.editor ??
@@ -271,9 +285,23 @@
     unsavedGuard?.setDirty(candidateDirty);
   });
 
+  /**
+   * #115: the save action result's synthesized `status` field (absent for
+   * outcomes that mutated nothing). Read from the raw action data — the
+   * established channel for server-authored envelope companions
+   * (`acceptedSlug`) — and handed to `decodeStudioLifecycle` by the caller,
+   * so nothing unbounded is ever applied.
+   */
+  function actionDataStatusOf(actionData: unknown): unknown {
+    if (typeof actionData !== 'object' || actionData === null || !('status' in actionData)) {
+      return undefined;
+    }
+    return (actionData as { status?: unknown }).status;
+  }
+
   function handleActionEnvelope(
     envelope: StudioActionEnvelope,
-    _actionData: unknown,
+    actionData: unknown,
     liveMatches: boolean,
   ): void {
     if (envelope.kind === 'preview') {
@@ -301,6 +329,16 @@
       workspaceOverride = envelope.workspace;
       validationOverride = envelope.validation;
       validationOverrideSet = true;
+      // #115: the same response carries the synthesized post-save lifecycle
+      // (server-authored next to the save result, like `acceptedSlug`).
+      // Applied through the strict lifecycle decoder so an unexpected shape
+      // is dropped rather than trusted; when present it advances the page's
+      // derived status immediately, so Publish unlocks without a reload or
+      // Check-status click and both invalid surfaces flip together.
+      const postSave = decodeStudioLifecycle(actionDataStatusOf(actionData));
+      if (postSave.ok) {
+        statusOverride = postSave.value;
+      }
       if (editorFormEl !== undefined) {
         applyStudioConcurrencyToForm(editorFormEl, envelope.workspace.concurrency);
       }
