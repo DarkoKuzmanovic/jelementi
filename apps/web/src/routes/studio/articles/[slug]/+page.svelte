@@ -31,6 +31,7 @@
     buildCheckControllerOptions,
     buildEditorControllerOptions,
     installStudioEnhancement,
+    schedulePreviewHeadingFocus,
     toStudioActionResponse,
     type StudioRawActionResponse,
   } from '../../../../lib/studio/studio-enhancement-page';
@@ -109,6 +110,11 @@
   // #112: native leave confirmation, registered only while the candidate
   // is dirty. $state so the sync effect also runs when the guard mounts.
   let unsavedGuard = $state<StudioUnsavedGuard | undefined>(undefined);
+  // #114: true once the form changed after the snapshot the displayed
+  // preview was rendered from. Cleared by each authoritative preview
+  // result; announced politely on the false→true transition only, so a
+  // burst of typing never spams the status region.
+  let previewStale = $state(false);
 
   // Refresh re-reads GitHub AND re-runs probes; its result replaces the
   // loaded status until the page is reloaded. There is no background
@@ -194,6 +200,17 @@
       {},
     );
 
+    // #114: any change to the live form after a rendered preview marks the
+    // pane stale. The recovery panel and the unsaved guard keep their own
+    // listeners; this one only feeds the out-of-date indicator.
+    const markPreviewStale = (): void => {
+      if (!previewStale && (previewOverride ?? previewAction?.preview) !== undefined) {
+        politeOverride = 'Preview is out of date.';
+      }
+      previewStale = true;
+    };
+    formEl.addEventListener('input', markPreviewStale);
+
     const checkForm = document.querySelector<HTMLFormElement>('form[action="?/refresh"]');
     const checkCleanup =
       checkForm === null
@@ -232,6 +249,7 @@
       editorFormEl = undefined;
       editorCleanup.destroy();
       checkCleanup?.destroy();
+      formEl.removeEventListener('input', markPreviewStale);
     };
   });
 
@@ -267,6 +285,15 @@
         validationOverride = envelope.validation;
         validationOverrideSet = true;
       }
+      // #114: the rendered snapshot is exactly the submitted one. When the
+      // live form already moved past it (typing during the request), the
+      // pane starts out stale; otherwise a fresh result clears the mark.
+      previewStale = !liveMatches;
+      // Focus follows only when the user is still on the submitted
+      // snapshot — yanking focus mid-typing would steal the caret from
+      // newer input. The "your newer typing was kept" announcement covers
+      // that case instead.
+      if (liveMatches) schedulePreviewHeadingFocus();
       return;
     }
     if (envelope.kind === 'save') {
@@ -309,7 +336,7 @@
   {/snippet}
 
   {#snippet preview()}
-    <StudioPreviewPane preview={previewOverride ?? previewAction?.preview} />
+    <StudioPreviewPane preview={previewOverride ?? previewAction?.preview} stale={previewStale} />
   {/snippet}
 
   {#snippet publication()}

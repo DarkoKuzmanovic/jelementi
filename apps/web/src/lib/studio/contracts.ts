@@ -903,8 +903,14 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
   if (!isRecord(input.cover)) {
     collectIssues(path, issues, 'cover');
   } else {
+    // #114: the unknown-key guard is scoped to THIS sub-object's own keys.
+    // It must compare against the issue count before the check, never the
+    // global array — an unrelated earlier failure (an emptied Title) used
+    // to suppress cover validation entirely, hiding its missing-field
+    // anchoring from the save-while-invalid pipeline.
+    const issuesBeforeCoverKeys = issues.length;
     rejectUnknownKeys(input.cover, ['src', 'alt'], `${path}.cover`, issues);
-    if (issues.length > 0) return undefined;
+    if (issues.length > issuesBeforeCoverKeys) return undefined;
     mediaKeyValue(input.cover.src, `${path}.cover.src`, issues);
     stringIssue(input.cover.alt, `${path}.cover.alt`, issues, { max: EDITOR_INPUT_LIMITS.altMax });
   }
@@ -912,8 +918,9 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
     if (!isRecord(input.audio)) {
       collectIssues(path, issues, 'audio');
     } else {
+      const issuesBeforeAudioKeys = issues.length;
       rejectUnknownKeys(input.audio, ['src', 'durationSeconds'], `${path}.audio`, issues);
-      if (issues.length > 0) return undefined;
+      if (issues.length > issuesBeforeAudioKeys) return undefined;
       mediaKeyValue(input.audio.src, `${path}.audio.src`, issues);
       if (input.audio.durationSeconds !== undefined) {
         intAtLeastOne(input.audio.durationSeconds, `${path}.audio.durationSeconds`, issues);
@@ -928,13 +935,14 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
         collectIssues(path, issues, 'reference');
         continue;
       }
+      const issuesBeforeReference = issues.length;
       rejectUnknownKeys(
         reference,
         ['title', 'url', 'publisher', 'accessedAt'],
         `${path}.references[${index}]`,
         issues,
       );
-      if (issues.length > 0) return undefined;
+      if (issues.length > issuesBeforeReference) return undefined;
       stringIssue(reference.title, `${path}.references[${index}].title`, issues, {
         max: EDITOR_INPUT_LIMITS.referenceTitleMax,
       });
@@ -947,7 +955,9 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
       if (reference.accessedAt !== undefined) {
         isoDateValue(reference.accessedAt, `${path}.references[${index}].accessedAt`, issues);
       }
-      if (issues.length > 0) return undefined;
+      // Stop at this reference only when THIS reference produced a new
+      // issue — unrelated earlier failures never mask later references.
+      if (issues.length > issuesBeforeReference) return undefined;
     }
   }
   if (issues.length > 0 || slug === undefined || updatedAt === undefined) return undefined;

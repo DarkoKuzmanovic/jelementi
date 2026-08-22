@@ -18,9 +18,11 @@
   import {
     buildEditorControllerOptions,
     installStudioEnhancement,
+    schedulePreviewHeadingFocus,
     toStudioActionResponse,
     type StudioRawActionResponse,
   } from '../../../../lib/studio/studio-enhancement-page';
+  import type { StudioActionEnvelope } from '../../../../lib/studio/action-envelope';
   import type { StudioPreviewResult } from '../../../../lib/studio/contracts';
   import type { StudioSaveResult } from '../../../../lib/server/studio/editor.server';
   import type { StudioValidationProjection } from '../../../../lib/server/studio/validation-projection.server';
@@ -65,6 +67,10 @@
         clearRecord(): void;
       }
     | undefined;
+  // #114: true once the form changed after the snapshot the displayed
+  // preview was rendered from; cleared by each authoritative preview
+  // result and announced politely on the false→true transition only.
+  let previewStale = $state(false);
 
   onMount(() => {
     const formEl = document.getElementById('studio-article-form') as HTMLFormElement | null;
@@ -93,60 +99,82 @@
         onRedirect: (location) => {
           window.location.assign(location);
         },
-        onActionEnvelope: (envelope, actionData, liveMatches) => {
-          if (envelope.kind === 'preview') {
-            previewOverride = envelope.preview;
-            // #110: a Preview whose form failed decoding carries the same
-            // field-anchored validation projection as Save. Previews without
-            // one leave any displayed validation untouched.
-            if (envelope.validation !== undefined) {
-              validationOverride = envelope.validation;
-            }
-            return;
-          }
-          if (envelope.kind !== 'save') return;
-          saveOverride = envelope.save;
-          validationOverride = envelope.validation;
-          if (envelope.save.kind === 'saved') {
-            const acceptedSlug =
-              typeof actionData === 'object' &&
-              actionData !== null &&
-              'acceptedSlug' in actionData &&
-              typeof (actionData as { acceptedSlug?: unknown }).acceptedSlug === 'string'
-                ? (actionData as { acceptedSlug: string }).acceptedSlug
-                : undefined;
-            // Save clears only the submitted snapshot: when the live form
-            // still equals the submitted candidate, the matching `new`
-            // recovery record is cleared. Newer typing stays recoverable.
-            if (liveMatches) {
-              recoveryDeps?.clearRecord();
-            }
-            if (acceptedSlug !== undefined) {
-              // First successful Save: the server accepts the slug and the
-              // workspace moves to the established route. Migrate only the
-              // matching `new` recovery record (newer typing, if any) to the
-              // accepted slug's key, then navigate — slug authority stays
-              // entirely server-side.
-              if (!liveMatches && recoveryDeps !== undefined) {
-                recoveryDeps.tracker.flush();
-                const record = recoveryDeps.store.read(recoveryDeps.key);
-                if (record !== undefined) {
-                  recoveryDeps.store.write(studioRecoveryKey(acceptedSlug), record);
-                  recoveryDeps.store.clear(recoveryDeps.key);
-                }
-              }
-              window.location.replace(`/studio/articles/${acceptedSlug}`);
-            }
-          }
-        },
+        onActionEnvelope: handleActionEnvelope,
       }),
       {},
     );
 
+    // #114: any change to the live form after a rendered preview marks the
+    // pane stale (the recovery panel keeps its own listener).
+    const markPreviewStale = (): void => {
+      if (!previewStale && (previewOverride ?? previewAction?.preview) !== undefined) {
+        politeOverride = 'Preview is out of date.';
+      }
+      previewStale = true;
+    };
+    formEl.addEventListener('input', markPreviewStale);
+
     return () => {
+      formEl.removeEventListener('input', markPreviewStale);
       cleanup.destroy();
     };
   });
+
+  function handleActionEnvelope(
+    envelope: StudioActionEnvelope,
+    actionData: unknown,
+    liveMatches: boolean,
+  ): void {
+    if (envelope.kind === 'preview') {
+      previewOverride = envelope.preview;
+      // #110: a Preview whose form failed decoding carries the same
+      // field-anchored validation projection as Save. Previews without one
+      // leave any displayed validation untouched.
+      if (envelope.validation !== undefined) {
+        validationOverride = envelope.validation;
+      }
+      // #114: fresh result clears staleness unless newer typing already
+      // moved past the submitted snapshot; focus follows only when the user
+      // is still on it (never mid-typing).
+      previewStale = !liveMatches;
+      if (liveMatches) schedulePreviewHeadingFocus();
+      return;
+    }
+    if (envelope.kind !== 'save') return;
+    saveOverride = envelope.save;
+    validationOverride = envelope.validation;
+    if (envelope.save.kind === 'saved') {
+      const acceptedSlug =
+        typeof actionData === 'object' &&
+        actionData !== null &&
+        'acceptedSlug' in actionData &&
+        typeof (actionData as { acceptedSlug?: unknown }).acceptedSlug === 'string'
+          ? (actionData as { acceptedSlug: string }).acceptedSlug
+          : undefined;
+      // Save clears only the submitted snapshot: when the live form still
+      // equals the submitted candidate, the matching `new` recovery record
+      // is cleared. Newer typing stays recoverable.
+      if (liveMatches) {
+        recoveryDeps?.clearRecord();
+      }
+      if (acceptedSlug !== undefined) {
+        // First successful Save: the server accepts the slug and the
+        // workspace moves to the established route. Migrate only the
+        // matching `new` recovery record (newer typing, if any) to the
+        // accepted slug's key, then navigate — slug authority stays
+        // entirely server-side.
+        if (!liveMatches && recoveryDeps !== undefined) {
+          recoveryDeps.tracker.flush();
+          const record = recoveryDeps.store.read(recoveryDeps.key);
+          if (record !== undefined) {
+            recoveryDeps.store.write(studioRecoveryKey(acceptedSlug), record);
+            recoveryDeps.store.clear(recoveryDeps.key);
+          }
+        }
+        window.location.replace(`/studio/articles/${acceptedSlug}`);
+      }
+    }
+  }
 </script>
 
 <StudioStatusAnnouncer politeMessage={politeOverride} {assertiveMessage} />
@@ -168,7 +196,7 @@
   {/snippet}
 
   {#snippet preview()}
-    <StudioPreviewPane preview={previewOverride ?? previewAction?.preview} />
+    <StudioPreviewPane preview={previewOverride ?? previewAction?.preview} stale={previewStale} />
   {/snippet}
 
   {#snippet publication()}

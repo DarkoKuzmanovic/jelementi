@@ -431,6 +431,21 @@ export function restoreCandidateToForm(
   }
 }
 
+const STUDIO_PREVIEW_HEADING_ID = 'studio-preview-heading';
+
+/**
+ * #114: after an enhanced Preview completes, move focus to the preview
+ * region heading so keyboard/screen-reader users land on the result.
+ * Scheduled as a macrotask on purpose: the enhancement controller's
+ * completion housekeeping restores focus to the submitter button first;
+ * the heading then takes over once the result region has been applied.
+ */
+export function schedulePreviewHeadingFocus(): void {
+  window.setTimeout(() => {
+    document.getElementById(STUDIO_PREVIEW_HEADING_ID)?.focus();
+  }, 0);
+}
+
 /** Advances only server-authored hidden concurrency fields after Save/Check. */
 export function applyStudioConcurrencyToForm(
   form: HTMLFormElement,
