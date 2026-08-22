@@ -59,8 +59,33 @@ const SHA40 = /^[0-9a-f]{40}$/i;
 const SHA64 = /^[0-9a-f]{64}$/i;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const BRANCH_PATTERN = /^studio\/article\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const ISO_DATE_PATTERN =
-  /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2}))?$/;
+/**
+ * Accepted date grammar without anchors: "YYYY-MM-DD" plus an optional full
+ * ISO timestamp (#110). The Studio editor markup consumes this exact source
+ * as its `pattern` attribute so the browser can never client-block a value
+ * the decoder would accept (native date inputs would reject timestamps).
+ */
+export const STUDIO_ISO_DATE_PATTERN = String.raw`\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2}))?`;
+const ISO_DATE_PATTERN = new RegExp(`^${STUDIO_ISO_DATE_PATTERN}$`);
+/**
+ * Authoritative editor-input length bounds (#110), defined once here beside
+ * the decoders that enforce them; the editor markup consumes the same
+ * values as `maxlength` so the browser and server can never drift.
+ */
+export const EDITOR_INPUT_LIMITS = {
+  titleMax: 500,
+  slugMax: 100,
+  excerptMax: 2_000,
+  categoryMax: 200,
+  authorMax: 200,
+  tagMax: 200,
+  mediaKeyMax: 500,
+  altMax: 2_000,
+  urlMax: MAX_URL,
+  referenceTitleMax: 500,
+  referencePublisherMax: 500,
+  bodyMax: MAX_BODY,
+} as const;
 const HTTPS_PATTERN = /^https:\/\//i;
 const SAFE_KEY = /^[A-Za-z0-9._-]{1,32}$/;
 
@@ -366,7 +391,11 @@ function slugValue(value: unknown, path: string, issues: string[]): string | und
     collectIssues(path, issues, 'string');
     return undefined;
   }
-  if (value.length === 0 || value.length > 100 || !SLUG_PATTERN.test(value)) {
+  if (
+    value.length === 0 ||
+    value.length > EDITOR_INPUT_LIMITS.slugMax ||
+    !SLUG_PATTERN.test(value)
+  ) {
     collectIssues(path, issues, 'slug');
     return undefined;
   }
@@ -421,7 +450,7 @@ function mediaKeyValue(value: unknown, path: string, issues: string[]): string |
   }
   if (
     value.length === 0 ||
-    value.length > 500 ||
+    value.length > EDITOR_INPUT_LIMITS.mediaKeyMax ||
     value.includes('\\') ||
     value.includes('%') ||
     /\s/.test(value) ||
@@ -839,9 +868,9 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
     issues,
   );
   if (issues.length > 0) return undefined;
-  stringIssue(input.title, `${path}.title`, issues, { max: 500 });
+  stringIssue(input.title, `${path}.title`, issues, { max: EDITOR_INPUT_LIMITS.titleMax });
   const slug = slugValue(input.slug, `${path}.slug`, issues);
-  stringIssue(input.excerpt, `${path}.excerpt`, issues, { max: 2_000 });
+  stringIssue(input.excerpt, `${path}.excerpt`, issues, { max: EDITOR_INPUT_LIMITS.excerptMax });
   const status = input.status;
   if (
     typeof status !== 'string' ||
@@ -854,13 +883,13 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
       ? undefined
       : isoDateValue(input.publishedAt, `${path}.publishedAt`, issues);
   const updatedAt = isoDateValue(input.updatedAt, `${path}.updatedAt`, issues);
-  stringIssue(input.category, `${path}.category`, issues, { max: 200 });
-  stringIssue(input.author, `${path}.author`, issues, { max: 200 });
+  stringIssue(input.category, `${path}.category`, issues, { max: EDITOR_INPUT_LIMITS.categoryMax });
+  stringIssue(input.author, `${path}.author`, issues, { max: EDITOR_INPUT_LIMITS.authorMax });
   if (!Array.isArray(input.tags) || input.tags.length > MAX_LIST) {
     collectIssues(path, issues, 'tags');
   } else {
     for (const [index, tag] of input.tags.entries()) {
-      stringIssue(tag, `${path}.tags[${index}]`, issues, { max: 200 });
+      stringIssue(tag, `${path}.tags[${index}]`, issues, { max: EDITOR_INPUT_LIMITS.tagMax });
     }
   }
   if (!isRecord(input.cover)) {
@@ -869,7 +898,7 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
     rejectUnknownKeys(input.cover, ['src', 'alt'], `${path}.cover`, issues);
     if (issues.length > 0) return undefined;
     mediaKeyValue(input.cover.src, `${path}.cover.src`, issues);
-    stringIssue(input.cover.alt, `${path}.cover.alt`, issues, { max: 2_000 });
+    stringIssue(input.cover.alt, `${path}.cover.alt`, issues, { max: EDITOR_INPUT_LIMITS.altMax });
   }
   if (input.audio !== undefined) {
     if (!isRecord(input.audio)) {
@@ -898,11 +927,13 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
         issues,
       );
       if (issues.length > 0) return undefined;
-      stringIssue(reference.title, `${path}.references[${index}].title`, issues, { max: 500 });
+      stringIssue(reference.title, `${path}.references[${index}].title`, issues, {
+        max: EDITOR_INPUT_LIMITS.referenceTitleMax,
+      });
       httpsUrlValue(reference.url, `${path}.references[${index}].url`, issues);
       if (reference.publisher !== undefined) {
         stringIssue(reference.publisher, `${path}.references[${index}].publisher`, issues, {
-          max: 500,
+          max: EDITOR_INPUT_LIMITS.referencePublisherMax,
         });
       }
       if (reference.accessedAt !== undefined) {

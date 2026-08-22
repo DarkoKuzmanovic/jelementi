@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { serializeArticleSource } from '@jelementi/content-compiler';
 import type { StudioCompileIssue, StudioMetadata } from '../../studio/contracts';
-import { buildStudioValidationProjection } from './validation-projection.server';
+import {
+  buildEditorInputIssues,
+  buildStudioValidationProjection,
+} from './validation-projection.server';
 
 const metadata: StudioMetadata = {
   title: 'A Draft Article',
@@ -411,5 +414,123 @@ describe('buildStudioValidationProjection', () => {
 
     expect(projection).toBeDefined();
     expect(projection?.first.target.kind).toBe('source');
+  });
+});
+
+describe('buildEditorInputIssues (#110 form-decode anchoring)', () => {
+  it('anchors an oversized title to the Title control with a length requirement', () => {
+    const issues = buildEditorInputIssues(['input.metadata.title.max'], metadata.slug);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      code: 'EDITOR_INPUT_TITLE',
+      message: 'Title must be at most 500 characters.',
+      sourcePath: 'content/articles/a-draft-article.md',
+      line: 1,
+      column: 1,
+    });
+  });
+
+  it('anchors a malformed slug to the Slug control with the kebab-case requirement', () => {
+    const issues = buildEditorInputIssues(['input.metadata.slug.slug'], metadata.slug);
+
+    expect(issues[0]?.code).toBe('EDITOR_INPUT_SLUG');
+    expect(issues[0]?.message).toContain('lowercase letters, digits, and hyphens');
+  });
+
+  it('anchors a malformed date to its own field with the accepted format', () => {
+    const issues = buildEditorInputIssues(
+      ['input.metadata.updatedAt.date', 'input.metadata.publishedAt.date'],
+      metadata.slug,
+    );
+
+    expect(issues.map((entry) => entry.code)).toEqual([
+      'EDITOR_INPUT_UPDATED_AT',
+      'EDITOR_INPUT_PUBLISHED_AT',
+    ]);
+    for (const entry of issues) {
+      expect(entry.message).toContain('YYYY-MM-DD');
+    }
+  });
+
+  it('anchors reference failures to the References fieldset regardless of index', () => {
+    const issues = buildEditorInputIssues(
+      ['input.metadata.references[2].url.url', 'input.metadata.references.array'],
+      metadata.slug,
+    );
+
+    for (const entry of issues) expect(entry.code).toBe('EDITOR_INPUT_REFERENCES');
+    expect(issues[0]?.message).toContain('https://');
+  });
+
+  it('anchors an over-limit body to the body textarea', () => {
+    const issues = buildEditorInputIssues(['input.body.max'], metadata.slug);
+
+    expect(issues[0]?.code).toBe('EDITOR_INPUT_BODY');
+    expect(issues[0]?.message).toContain('2,000,000');
+  });
+
+  it('deduplicates identical anchored requirements from repeated fields', () => {
+    const issues = buildEditorInputIssues(
+      ['input.metadata.references[0].title.max', 'input.metadata.references[1].title.max'],
+      metadata.slug,
+    );
+
+    expect(issues).toHaveLength(1);
+  });
+
+  it('leaves unmappable decode paths to the caller-provided generic fallback', () => {
+    expect(buildEditorInputIssues(['input.concurrency.baseMainSha.sha'], metadata.slug)).toEqual(
+      [],
+    );
+    expect(buildEditorInputIssues([], metadata.slug)).toEqual([]);
+  });
+});
+
+describe('projection targeting of decode-originated codes (#110)', () => {
+  it('targets a decode-originated title issue at the Title control in the metadata phase', () => {
+    const projection = buildStudioValidationProjection(
+      [issue({ code: 'EDITOR_INPUT_TITLE', message: 'Title must be at most 500 characters.' })],
+      { metadata, body: 'Body.' },
+    );
+
+    expect(projection?.first.phase).toBe('metadata');
+    expect(projection?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-title',
+      label: 'Title',
+    });
+  });
+
+  it('targets a decode-originated date issue at its own date control', () => {
+    const projection = buildStudioValidationProjection(
+      [
+        issue({
+          code: 'EDITOR_INPUT_PUBLISHED_AT',
+          message: 'Published date must be YYYY-MM-DD or an ISO timestamp.',
+        }),
+      ],
+      { metadata, body: 'Body.' },
+    );
+
+    expect(projection?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-publishedAt',
+      label: 'Published date',
+    });
+  });
+
+  it('targets a decode-originated body issue at the body textarea in the body phase', () => {
+    const projection = buildStudioValidationProjection(
+      [issue({ code: 'EDITOR_INPUT_BODY', message: 'Body must be at most 2,000,000 characters.' })],
+      { metadata, body: 'Body.' },
+    );
+
+    expect(projection?.first.phase).toBe('body');
+    expect(projection?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-body',
+      label: 'Body',
+    });
   });
 });

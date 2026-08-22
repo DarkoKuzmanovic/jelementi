@@ -7,6 +7,7 @@
   import type { StudioDraftReplacementResult } from '../server/studio/draft-replacement.server';
   import { untrack } from 'svelte';
   import { resumesTitleTracking, slugDerivedFromTitle } from './slug-tracking';
+  import { EDITOR_INPUT_LIMITS, STUDIO_ISO_DATE_PATTERN } from './contracts';
 
   let {
     editor,
@@ -92,6 +93,7 @@
             name="title"
             value={metadata.title}
             required
+            maxlength={EDITOR_INPUT_LIMITS.titleMax}
             oninput={handleTitleInput}
           />
         </label>
@@ -105,6 +107,7 @@
               oninput={handleSlugInput}
               readonly={slugLocked}
               required
+              maxlength={EDITOR_INPUT_LIMITS.slugMax}
               pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
               aria-describedby="studio-field-slug-help"
             />
@@ -124,8 +127,12 @@
         </label>
         <label class="studio-editor__field-wide">
           Excerpt
-          <textarea id="studio-field-excerpt" name="excerpt" rows="3" required
-            >{metadata.excerpt}</textarea
+          <textarea
+            id="studio-field-excerpt"
+            name="excerpt"
+            rows="3"
+            required
+            maxlength={EDITOR_INPUT_LIMITS.excerptMax}>{metadata.excerpt}</textarea
           >
         </label>
       </div>
@@ -139,7 +146,14 @@
       <div class="studio-editor__field-grid">
         <label>
           Updated date
-          <input id="studio-field-updatedAt" name="updatedAt" value={metadata.updatedAt} required />
+          <input
+            id="studio-field-updatedAt"
+            name="updatedAt"
+            value={metadata.updatedAt}
+            required
+            placeholder="YYYY-MM-DD"
+            pattern={STUDIO_ISO_DATE_PATTERN}
+          />
         </label>
         <label>
           Published date
@@ -147,19 +161,36 @@
             id="studio-field-publishedAt"
             name="publishedAt"
             value={metadata.publishedAt ?? ''}
+            placeholder="YYYY-MM-DD"
+            pattern={STUDIO_ISO_DATE_PATTERN}
           />
         </label>
         <label>
           Category
-          <input id="studio-field-category" name="category" value={metadata.category} required />
+          <input
+            id="studio-field-category"
+            name="category"
+            value={metadata.category}
+            required
+            maxlength={EDITOR_INPUT_LIMITS.categoryMax}
+          />
         </label>
         <label>
           Tags <span>(comma-separated)</span>
+          <!-- No maxlength (#110): the server limit is per tag, not on the
+               combined comma-separated text, so capping the input could
+               client-block a valid multi-tag list. -->
           <input id="studio-field-tags" name="tags" value={metadata.tags.join(', ')} />
         </label>
         <label class="studio-editor__field-wide">
           Author
-          <input id="studio-field-author" name="author" value={metadata.author} required />
+          <input
+            id="studio-field-author"
+            name="author"
+            value={metadata.author}
+            required
+            maxlength={EDITOR_INPUT_LIMITS.authorMax}
+          />
         </label>
       </div>
 
@@ -168,11 +199,22 @@
         <div class="studio-editor__field-grid">
           <label>
             Media key
-            <input id="studio-field-coverSrc" name="coverSrc" value={metadata.cover.src} required />
+            <input
+              id="studio-field-coverSrc"
+              name="coverSrc"
+              value={metadata.cover.src}
+              required
+              maxlength={EDITOR_INPUT_LIMITS.mediaKeyMax}
+            />
           </label>
           <label>
             Alt text
-            <input id="studio-field-coverAlt" name="coverAlt" value={metadata.cover.alt} />
+            <input
+              id="studio-field-coverAlt"
+              name="coverAlt"
+              value={metadata.cover.alt}
+              maxlength={EDITOR_INPUT_LIMITS.altMax}
+            />
           </label>
         </div>
       </fieldset>
@@ -182,7 +224,12 @@
         <div class="studio-editor__field-grid">
           <label>
             Media key
-            <input id="studio-field-audioSrc" name="audioSrc" value={metadata.audio?.src ?? ''} />
+            <input
+              id="studio-field-audioSrc"
+              name="audioSrc"
+              value={metadata.audio?.src ?? ''}
+              maxlength={EDITOR_INPUT_LIMITS.mediaKeyMax}
+            />
           </label>
           <label>
             Duration in seconds
@@ -203,38 +250,63 @@
           <div class="studio-reference-fields">
             <label>
               Title
-              <input name="referenceTitle" value={reference.title} />
+              <input
+                name="referenceTitle"
+                value={reference.title}
+                maxlength={EDITOR_INPUT_LIMITS.referenceTitleMax}
+              />
             </label>
             <label>
               URL
-              <input name="referenceUrl" type="url" value={reference.url} />
+              <input
+                name="referenceUrl"
+                type="url"
+                value={reference.url}
+                maxlength={EDITOR_INPUT_LIMITS.urlMax}
+              />
             </label>
             <label>
               Publisher
-              <input name="referencePublisher" value={reference.publisher ?? ''} />
+              <input
+                name="referencePublisher"
+                value={reference.publisher ?? ''}
+                maxlength={EDITOR_INPUT_LIMITS.referencePublisherMax}
+              />
             </label>
             <label>
               Accessed date
-              <input name="referenceAccessedAt" value={reference.accessedAt ?? ''} />
+              <input
+                name="referenceAccessedAt"
+                value={reference.accessedAt ?? ''}
+                placeholder="YYYY-MM-DD"
+                pattern={STUDIO_ISO_DATE_PATTERN}
+              />
             </label>
           </div>
         {/each}
         <div class="studio-reference-fields" aria-label="New reference">
           <label>
             Title
-            <input name="referenceTitle" />
+            <input name="referenceTitle" maxlength={EDITOR_INPUT_LIMITS.referenceTitleMax} />
           </label>
           <label>
             URL
-            <input name="referenceUrl" type="url" />
+            <input name="referenceUrl" type="url" maxlength={EDITOR_INPUT_LIMITS.urlMax} />
           </label>
           <label>
             Publisher
-            <input name="referencePublisher" />
+            <input
+              name="referencePublisher"
+              maxlength={EDITOR_INPUT_LIMITS.referencePublisherMax}
+            />
           </label>
           <label>
             Accessed date
-            <input name="referenceAccessedAt" />
+            <input
+              name="referenceAccessedAt"
+              placeholder="YYYY-MM-DD"
+              pattern={STUDIO_ISO_DATE_PATTERN}
+            />
           </label>
         </div>
       </fieldset>

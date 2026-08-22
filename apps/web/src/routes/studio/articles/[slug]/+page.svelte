@@ -137,6 +137,7 @@
       : (saveAction?.validation ??
           replacementAction?.validation ??
           publishAction?.validation ??
+          previewAction?.validation ??
           data.validation),
   );
   const recovery = $derived(
@@ -231,6 +232,13 @@
   ): void {
     if (envelope.kind === 'preview') {
       previewOverride = envelope.preview;
+      // #110: a Preview whose form failed decoding carries the same
+      // field-anchored validation projection as Save. Previews without one
+      // leave any displayed validation untouched.
+      if (envelope.validation !== undefined) {
+        validationOverride = envelope.validation;
+        validationOverrideSet = true;
+      }
       return;
     }
     if (envelope.kind === 'save') {

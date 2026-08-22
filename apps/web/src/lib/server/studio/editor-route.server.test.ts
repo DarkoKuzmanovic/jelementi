@@ -154,6 +154,105 @@ describe('Studio editor route boundary', () => {
     expect(result.editor?.body).toBe('The **body**.');
   });
 
+  it('anchors an oversized title to the Title control on Preview (#110)', async () => {
+    const form = validForm();
+    form.set('title', 'x'.repeat(501));
+
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.preview.kind).toBe('preview_issues');
+    if (result.preview.kind !== 'preview_issues') throw new Error('expected preview_issues');
+    expect(result.preview.compileIssues).toHaveLength(1);
+    expect(result.preview.compileIssues[0]).toMatchObject({
+      code: 'EDITOR_INPUT_TITLE',
+      // The submitted form's own valid slug names the safe location.
+      sourcePath: 'content/articles/a-draft.md',
+      line: 1,
+      column: 1,
+    });
+    expect(result.preview.compileIssues[0]?.message).toContain('at most 500 characters');
+    // No generic catch-all may ride along with an anchored field issue.
+    expect(JSON.stringify(result.preview)).not.toContain('INVALID_EDITOR_INPUT');
+    // Redisplay stays bounded by the existing display bound.
+    expect(result.editor?.metadata.title).toHaveLength(500);
+    // Same go-to-field machinery compiler issues use.
+    expect(result.validation?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-title',
+      label: 'Title',
+    });
+  });
+
+  it('anchors a malformed date to its own field on Preview (#110)', async () => {
+    const form = validForm();
+    form.set('updatedAt', 'Aug 22, 2026');
+
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.preview.kind).toBe('preview_issues');
+    if (result.preview.kind !== 'preview_issues') throw new Error('expected preview_issues');
+    expect(result.preview.compileIssues[0]?.code).toBe('EDITOR_INPUT_UPDATED_AT');
+    expect(result.preview.compileIssues[0]?.message).toContain('YYYY-MM-DD');
+    expect(result.validation?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-updatedAt',
+      label: 'Updated date',
+    });
+  });
+
+  it('keeps the generic INVALID_EDITOR_INPUT fallback only for unmappable decode failures (#110)', async () => {
+    const form = validForm();
+    form.set('baseMainSha', 'not-a-sha');
+
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/draft-notes?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.preview.kind).toBe('preview_issues');
+    if (result.preview.kind !== 'preview_issues') throw new Error('expected preview_issues');
+    expect(result.preview.compileIssues.map((entry) => entry.code)).toEqual([
+      'INVALID_EDITOR_INPUT',
+    ]);
+  });
+
+  it('drops the generic fallback when at least one field anchors on a mixed invalid form (#110)', async () => {
+    const form = validForm();
+    form.set('title', 'x'.repeat(501));
+    form.set('baseMainSha', 'not-a-sha');
+
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/draft-notes?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.preview.kind).toBe('preview_issues');
+    if (result.preview.kind !== 'preview_issues') throw new Error('expected preview_issues');
+    expect(result.preview.compileIssues.map((entry) => entry.code)).toEqual(['EDITOR_INPUT_TITLE']);
+  });
+
   it('does not reflect over-limit body input beyond the display bound', async () => {
     const form = validForm();
     form.set('body', 'x'.repeat(2_000_001));
@@ -291,6 +390,50 @@ describe('Studio save route boundary', () => {
     const branches = await adapter.listStudioBranches();
     expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
       'studio/article/bad-save',
+    );
+  });
+
+  it('anchors an oversized title to the Title control on Save and carries the projection in the envelope (#110)', async () => {
+    const form = validForm();
+    form.set('slug', 'bad-title-save');
+    form.set('title', 'x'.repeat(501));
+
+    const result = await saveStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/save', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.save.kind).toBe('save_rejected');
+    if (result.save.kind !== 'save_rejected') throw new Error('expected save_rejected');
+    expect(result.save.compileIssues).toHaveLength(1);
+    expect(result.save.compileIssues[0]).toMatchObject({
+      code: 'EDITOR_INPUT_TITLE',
+      sourcePath: 'content/articles/bad-title-save.md',
+    });
+    expect(result.save.compileIssues[0]?.message).toContain('at most 500 characters');
+    // Identical behavior to Preview for the same failure.
+    expect(JSON.stringify(result.save.compileIssues)).not.toContain('INVALID_EDITOR_INPUT');
+    expect(result.validation?.count).toBe(1);
+    expect(result.validation?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-title',
+      label: 'Title',
+    });
+    expect(decodeStudioActionEnvelope(result.envelope)).toMatchObject({
+      ok: true,
+      value: {
+        kind: 'save',
+        validation: { count: 1, first: { target: { controlId: 'studio-field-title' } } },
+      },
+    });
+    // Rejected before any mutation: no branch was created.
+    const branches = await adapter.listStudioBranches();
+    expect(branches.ok && branches.value.map((b) => b.name)).not.toContain(
+      'studio/article/bad-title-save',
     );
   });
 
