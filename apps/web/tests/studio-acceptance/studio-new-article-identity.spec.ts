@@ -39,6 +39,16 @@ async function fillForSave(
   await page.getByRole('textbox', { name: 'Body', exact: true }).fill('Never committed.');
 }
 
+/**
+ * The editor's own inline save-result region. Since #110, the publication
+ * center's validation summary co-displays the same rejection copy ("first
+ * issue" paragraph plus list items), so rejection-copy assertions anchor
+ * here instead of the whole page.
+ */
+function editorSaveRejection(page: Page) {
+  return page.getByRole('region', { name: 'Save could not read this form' });
+}
+
 test.describe('new-article slug safety (#109)', () => {
   test('documents the allowed slug pattern inline next to the Slug control', async ({
     page,
@@ -85,7 +95,9 @@ test.describe('new-article slug safety (#109)', () => {
     await page.getByRole('button', { name: 'Save draft' }).click();
 
     await expect(
-      page.getByText('An article with this slug already exists — open it instead.'),
+      editorSaveRejection(page).getByText(
+        'An article with this slug already exists — open it instead.',
+      ),
     ).toBeVisible();
     // Rejected before any GitHub mutation: no draft branch was created, so
     // no "Studio draft saved" confirmation can appear anywhere.
@@ -112,10 +124,14 @@ test.describe('new-article slug safety (#109)', () => {
     await page.getByRole('button', { name: 'Save draft' }).click();
 
     await expect(
-      page.getByText(/A Studio draft for this slug already exists \(PR #\d+\)\./),
+      editorSaveRejection(page).getByText(
+        /A Studio draft for this slug already exists \(PR #\d+\)\./,
+      ),
     ).toBeVisible();
     await expect(
-      page.getByText('Open it, pick a different slug, or discard the existing draft.'),
+      editorSaveRejection(page).getByText(
+        'Open it, pick a different slug, or discard the existing draft.',
+      ),
     ).toBeVisible();
     await expect(page.getByText('this draft moved on GitHub')).toHaveCount(0);
     if (testInfo.project.name === 'studio-no-js') return;
