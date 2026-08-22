@@ -200,6 +200,68 @@ describe('StudioEditor insert-image affordance (#113)', () => {
   });
 });
 
+describe('StudioEditor unconstrained metadata inputs (#114)', () => {
+  it('drops native required from every metadata control so incomplete drafts can submit', () => {
+    const html = renderEditorHtml();
+    // Exactly the controls that previously blocked Preview/Save client-side;
+    // the save-while-invalid pipeline (#110) owns located feedback instead.
+    for (const id of [
+      'studio-field-title',
+      'studio-field-slug',
+      'studio-field-excerpt',
+      'studio-field-updatedAt',
+      'studio-field-category',
+      'studio-field-author',
+      'studio-field-coverSrc',
+    ]) {
+      expect(tagWithId(inputTags(html), id), id).not.toMatch(/\srequired(=|[\s/>])/);
+    }
+  });
+
+  it('keeps every other constraint intact on the now-unblocked fields', () => {
+    const html = renderEditorHtml();
+    expect(tagWithId(inputTags(html), 'studio-field-title')).toContain('maxlength="500"');
+    expect(tagWithId(inputTags(html), 'studio-field-slug')).toContain(
+      'pattern="[a-z0-9]+(?:-[a-z0-9]+)*"',
+    );
+    const updatedAt = tagWithId(inputTags(html), 'studio-field-updatedAt');
+    expect(updatedAt).toContain('placeholder="YYYY-MM-DD"');
+    expect(updatedAt).toMatch(/pattern="[^"]*d\{4\}[^"]*"/);
+    expect(tagWithId(inputTags(html), 'studio-field-coverSrc')).toContain('maxlength="500"');
+  });
+
+  it('keeps the body textarea free of native constraints too', () => {
+    const html = renderEditorHtml();
+    const body = html.match(/<textarea[^>]*id="studio-body"[^>]*>/)?.[0];
+    expect(body).toBeDefined();
+    expect(body).not.toMatch(/\srequired(=|[\s/>])/);
+  });
+});
+
+describe('StudioEditor live word count (#114)', () => {
+  it('renders a whitespace-collapsing word count beside the reading-time note', () => {
+    const counted = render(StudioEditor, {
+      props: { editor: { ...editor, body: 'one  two\n\nthree' } },
+    }).body;
+    const match = counted.match(/id="studio-body-word-count"[^>]*>\s*Word count:\s*(\d+)/);
+    expect(match?.[1]).toBe('3');
+    // Beside the reading-time note, in the same writing section.
+    const countIndex = counted.indexOf('studio-body-word-count');
+    const readingTimeIndex = counted.indexOf('Reading time is generated');
+    expect(countIndex).toBeGreaterThan(-1);
+    expect(readingTimeIndex).toBeGreaterThan(-1);
+    expect(Math.abs(countIndex - readingTimeIndex)).toBeLessThan(400);
+  });
+
+  it('renders zero for whitespace-only bodies', () => {
+    const counted = render(StudioEditor, {
+      props: { editor: { ...editor, body: '   \n\t ' } },
+    }).body;
+    const match = counted.match(/id="studio-body-word-count"[^>]*>\s*Word count:\s*(\d+)/);
+    expect(match?.[1]).toBe('0');
+  });
+});
+
 describe('StudioEditor read-only lifecycle status (#111)', () => {
   it('renders status as a non-editable output with a plain-language label, never as a select', () => {
     const html = renderEditorHtml();

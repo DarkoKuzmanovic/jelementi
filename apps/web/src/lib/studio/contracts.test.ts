@@ -270,6 +270,45 @@ describe('decodeStudioEditorInput', () => {
     }
   });
 
+  it('reports cover, audio, and reference failures even when an unrelated field failed first (#114)', () => {
+    // #114 removed the native `required` attributes, so emptied metadata
+    // reaches this decoder on every Preview/Save. Field checks must not be
+    // suppressed by earlier failures: each invalid sub-object still yields
+    // its own anchored decode path.
+    const result = decodeStudioEditorInput({
+      ...minimalDraftInput,
+      metadata: {
+        ...minimalDraftInput.metadata,
+        title: '',
+        cover: { src: 'has spaces', alt: '' },
+        audio: { src: '/absolute' },
+        references: [{ title: 'Source', url: 'ftp://example.org/file' }],
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toContain('input.metadata.title.empty');
+      expect(result.issues).toContain('input.metadata.cover.src.mediaKey');
+      expect(result.issues).toContain('input.metadata.cover.alt.empty');
+      expect(result.issues).toContain('input.metadata.audio.src.mediaKey');
+      expect(result.issues).toContain('input.metadata.references[0].url.url');
+    }
+  });
+
+  it('still stops validating a sub-object whose own keys were tampered (#114)', () => {
+    // The unknown-key guard keeps its per-sub-object scope: a tampered cover
+    // skips cover field validation, but unrelated failures never trigger it.
+    const result = decodeStudioEditorInput({
+      ...minimalDraftInput,
+      metadata: { ...minimalDraftInput.metadata, cover: { src: '', alt: '', extra: 'x' } },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toContain('input.metadata.cover.unknownKey.extra');
+      expect(result.issues).not.toContain('input.metadata.cover.src.mediaKey');
+    }
+  });
+
   it('rejects path-like and malformed slugs', () => {
     for (const slug of [
       '../escape',

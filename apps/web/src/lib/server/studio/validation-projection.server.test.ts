@@ -534,3 +534,82 @@ describe('projection targeting of decode-originated codes (#110)', () => {
     });
   });
 });
+
+describe('missing-field anchoring for unconstrained metadata (#114)', () => {
+  /**
+   * #114 removed the native `required` attributes, so empty metadata now
+   * reaches the server. Each case pairs the exact decode-issue path an
+   * EMPTY form value produces (see `stringIssue`/`slugValue`/
+   * `isoDateValue`/`mediaKeyValue` in contracts.ts) with the control the
+   * projection must anchor it to — the save-while-invalid promise only
+   * holds if every unblocked field lands somewhere actionable.
+   */
+  const emptyFieldCases: Array<[decodeIssue: string, controlId: string, label: string]> = [
+    ['input.metadata.title.empty', 'studio-field-title', 'Title'],
+    ['input.metadata.slug.slug', 'studio-field-slug', 'Slug'],
+    ['input.metadata.excerpt.empty', 'studio-field-excerpt', 'Excerpt'],
+    ['input.metadata.updatedAt.date', 'studio-field-updatedAt', 'Updated date'],
+    ['input.metadata.category.empty', 'studio-field-category', 'Category'],
+    ['input.metadata.author.empty', 'studio-field-author', 'Author'],
+    ['input.metadata.cover.src.mediaKey', 'studio-field-coverSrc', 'Cover media key'],
+  ];
+
+  for (const [decodeIssue, controlId, label] of emptyFieldCases) {
+    it(`anchors "${decodeIssue}" to the ${label} control`, () => {
+      const compileIssues = buildEditorInputIssues([decodeIssue], 'a-draft-article');
+      expect(compileIssues).toHaveLength(1);
+      const projection = buildStudioValidationProjection(compileIssues, {
+        metadata,
+        body: 'Body.',
+      });
+      expect(projection?.first.phase).toBe('metadata');
+      expect(projection?.first.target).toEqual({ kind: 'field', controlId, label });
+    });
+  }
+
+  it('anchors a fully empty-metadata draft to one distinct control per field', () => {
+    const decodeIssues = emptyFieldCases.map(([decodeIssue]) => decodeIssue);
+    const compileIssues = buildEditorInputIssues(decodeIssues, 'a-draft-article');
+    const projection = buildStudioValidationProjection(compileIssues, { metadata, body: '' });
+    const controls = projection?.issues.map((view) =>
+      view.target.kind === 'field' ? view.target.controlId : view.location,
+    );
+    expect(projection?.count).toBe(emptyFieldCases.length);
+    expect(new Set(controls).size).toBe(emptyFieldCases.length);
+    expect(projection?.phases).toEqual(['metadata']);
+  });
+
+  it('anchors every issue the real decoder emits for an emptied form', async () => {
+    // Not fixtures: the genuine decode failure paths of an all-empty form,
+    // shaped exactly like rawStudioForm's output for blank controls.
+    const { decodeStudioEditorInput } = await import('../../studio/contracts');
+    const decoded = decodeStudioEditorInput({
+      metadata: {
+        title: '',
+        slug: '',
+        excerpt: '',
+        status: undefined,
+        updatedAt: '',
+        category: '',
+        tags: [],
+        author: '',
+        cover: { src: '', alt: '' },
+        references: [],
+      },
+      body: '',
+      concurrency: { baseMainSha: 'a'.repeat(40) },
+    });
+    if (decoded.ok) throw new Error('an emptied form must fail decoding');
+    const compileIssues = buildEditorInputIssues(decoded.issues, 'a-draft-article');
+    const projection = buildStudioValidationProjection(compileIssues, { metadata, body: '' });
+    const anchored = new Set(
+      projection?.issues
+        .filter((view) => view.target.kind === 'field')
+        .map((view) => (view.target.kind === 'field' ? view.target.controlId : '')) ?? [],
+    );
+    for (const [, controlId] of emptyFieldCases) {
+      expect(anchored.has(controlId), controlId).toBe(true);
+    }
+    expect(projection?.phases).toEqual(['metadata']);
+  });
+});

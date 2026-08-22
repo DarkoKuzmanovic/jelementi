@@ -15,6 +15,12 @@
     buildStandaloneImageSnippet,
     insertSnippetAtCursor,
   } from './markdown-dialect';
+  import {
+    indentStudioBodySelection,
+    outdentStudioBodySelection,
+    resolveStudioBodyKeyIntent,
+  } from './body-editing';
+  import StudioWordCount from './StudioWordCount.svelte';
 
   let {
     editor,
@@ -92,6 +98,45 @@
     // dirty tracking (#112) sees inserted content like typed text.
     bodyTextarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
+
+  // #114: the form and its Preview submitter are bound so a keydown inside
+  // the body can request the exact Preview submission (the enhancement
+  // controller's submit listener sees it like a button click).
+  let editorFormEl: HTMLFormElement | undefined = $state();
+  let previewSubmitButton: HTMLButtonElement | undefined = $state();
+
+  function handleBodyKeyDown(event: KeyboardEvent): void {
+    const intent = resolveStudioBodyKeyIntent(event);
+    if (intent === undefined) return;
+    event.preventDefault();
+    switch (intent) {
+      case 'preview-submit': {
+        // While an enhanced submission is pending, syncPendingControls has
+        // disabled this submitter; a second shortcut then does nothing
+        // rather than throwing out of requestSubmit.
+        if (editorFormEl === undefined || previewSubmitButton?.disabled === true) return;
+        editorFormEl.requestSubmit(previewSubmitButton);
+        return;
+      }
+      case 'indent':
+        if (bodyTextarea !== undefined) {
+          indentStudioBodySelection(bodyTextarea);
+          announceBodyEdit();
+        }
+        return;
+      case 'outdent':
+        if (bodyTextarea !== undefined) {
+          outdentStudioBodySelection(bodyTextarea);
+          announceBodyEdit();
+        }
+        return;
+    }
+  }
+
+  /** Tab edits bypass native input events; mirror them for #112/#114 listeners. */
+  function announceBodyEdit(): void {
+    bodyTextarea?.dispatchEvent(new Event('input', { bubbles: true }));
+  }
 </script>
 
 <section class="studio-editor" aria-labelledby="studio-editor-heading">
@@ -100,7 +145,13 @@
   </p>
   <h2 id="studio-editor-heading">{metadata.title}</h2>
 
-  <form id={formId} method="POST" action="?/preview" class="studio-editor-form">
+  <form
+    bind:this={editorFormEl}
+    id={formId}
+    method="POST"
+    action="?/preview"
+    class="studio-editor-form"
+  >
     <section class="studio-editor__section" aria-labelledby="studio-essentials-heading">
       <h3 id="studio-essentials-heading">Essentials</h3>
       <p>Required to understand the article.</p>
@@ -111,7 +162,6 @@
             id="studio-field-title"
             name="title"
             value={metadata.title}
-            required
             maxlength={EDITOR_INPUT_LIMITS.titleMax}
             oninput={handleTitleInput}
           />
@@ -125,7 +175,6 @@
               bind:value={slugValue}
               oninput={handleSlugInput}
               readonly={slugLocked}
-              required
               maxlength={EDITOR_INPUT_LIMITS.slugMax}
               pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
               aria-describedby="studio-field-slug-help"
@@ -158,7 +207,6 @@
             id="studio-field-excerpt"
             name="excerpt"
             rows="3"
-            required
             maxlength={EDITOR_INPUT_LIMITS.excerptMax}>{metadata.excerpt}</textarea
           >
         </label>
@@ -177,7 +225,6 @@
             id="studio-field-updatedAt"
             name="updatedAt"
             value={metadata.updatedAt}
-            required
             placeholder="YYYY-MM-DD"
             pattern={STUDIO_ISO_DATE_PATTERN}
           />
@@ -198,7 +245,6 @@
             id="studio-field-category"
             name="category"
             value={metadata.category}
-            required
             maxlength={EDITOR_INPUT_LIMITS.categoryMax}
           />
         </label>
@@ -215,7 +261,6 @@
             id="studio-field-author"
             name="author"
             value={metadata.author}
-            required
             maxlength={EDITOR_INPUT_LIMITS.authorMax}
           />
         </label>
@@ -231,7 +276,6 @@
                 id="studio-field-coverSrc"
                 name="coverSrc"
                 value={metadata.cover.src}
-                required
                 maxlength={EDITOR_INPUT_LIMITS.mediaKeyMax}
                 aria-describedby="studio-field-coverSrc-help"
               />
@@ -358,8 +402,13 @@
       <h3 id="studio-body-heading">Markdown body</h3>
       <label>
         Body
-        <textarea bind:this={bodyTextarea} id="studio-body" name="body" rows="24" spellcheck="true"
-          >{visible.body}</textarea
+        <textarea
+          bind:this={bodyTextarea}
+          id="studio-body"
+          name="body"
+          rows="24"
+          spellcheck="true"
+          onkeydown={handleBodyKeyDown}>{visible.body}</textarea
         >
       </label>
       <div class="studio-editor__body-tools">
@@ -390,6 +439,8 @@
       </details>
       <p>Unsaved text stays in this form. Save draft is the only commit action.</p>
       <p>Reading time is generated by the compiler and is not editable.</p>
+      <!-- #114: live count beside the reading-time note, in its own reactive scope. -->
+      <StudioWordCount initial={visible.body} />
     </section>
 
     <input type="hidden" name="baseMainSha" value={concurrency.baseMainSha} />
@@ -400,7 +451,9 @@
       <input type="hidden" name="expectedBlobSha" value={concurrency.expectedBlobSha} />
     {/if}
     <div class="studio-editor__actions">
-      <button type="submit">Preview</button>
+      <button bind:this={previewSubmitButton} type="submit" id="studio-preview-submit">
+        Preview
+      </button>
       <button type="submit" formaction="?/save">Save draft</button>
       {#if inlineRecovery && save?.kind === 'save_conflict' && save.replacementAvailable}
         <button type="submit" formaction="?/replace">Replace stale Studio draft</button>

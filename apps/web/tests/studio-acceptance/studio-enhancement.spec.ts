@@ -83,10 +83,12 @@ test.describe('targeted Preview and Save (#78)', () => {
     // In-place: no navigation, no full-page reload, candidate preserved.
     expect(page.url()).not.toContain('?/preview');
     await expect(body).toHaveValue('A targeted in-place preview paragraph.');
-    // Routine success preserves focus on the submitted control.
+    // #114 supersedes #78's submitter-focus preservation here: the enhanced
+    // Preview completion now lands focus on the preview region heading so
+    // keyboard/screen-reader users land on the result.
     await expect
-      .poll(() => page.evaluate(() => document.activeElement?.textContent?.trim() ?? ''))
-      .toBe('Preview');
+      .poll(() => page.evaluate(() => document.activeElement?.id ?? ''))
+      .toBe('studio-preview-heading');
     // Exactly one enhanced request — no extra automatic requests.
     await page.waitForTimeout(400);
     expect(enhancedPosts()).toBe(1);

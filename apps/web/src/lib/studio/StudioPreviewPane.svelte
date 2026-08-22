@@ -7,13 +7,27 @@
     { value: 'narrow', label: 'Narrow (320px)' },
   ] as const;
 
-  let { preview }: { preview?: StudioPreviewResult } = $props();
+  let {
+    preview,
+    // #114: true once the form changed after the rendered snapshot; the
+    // owning page derives this and clears it by running Preview again.
+    stale = false,
+  }: { preview?: StudioPreviewResult; stale?: boolean } = $props();
   let selectedWidth: 'wide' | 'narrow' = $state('wide');
 </script>
 
 <section class="studio-preview-pane" aria-labelledby="studio-preview-heading">
   <p class="studio-preview-pane__eyebrow">Reader view</p>
-  <h2 id="studio-preview-heading">Explicit preview</h2>
+  <!-- tabindex="-1": the enhanced-path completion moves focus here (#114) so
+       keyboard/screen-reader users land on the result without a tab stop
+       leaking into the normal order. -->
+  <h2 id="studio-preview-heading" tabindex="-1">Explicit preview</h2>
+
+  {#if preview !== undefined && stale}
+    <p class="studio-preview-pane__stale" data-studio-preview-stale="true">
+      Out of date — the form changed after this preview. Run Preview again to refresh it.
+    </p>
+  {/if}
 
   {#if preview === undefined}
     <p>No preview has been requested for this form yet.</p>
@@ -85,6 +99,17 @@
   .studio-preview-pane__eyebrow,
   .studio-preview-pane__snapshot {
     color: var(--studio-text-muted);
+    font-size: var(--studio-text-compact);
+  }
+
+  /* #114 out-of-date indicator: informational surface, matching the page's
+     dirty notice so one staleness vocabulary spans editor and preview. */
+  .studio-preview-pane__stale {
+    margin: 0;
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-2) var(--studio-space-3);
+    background: var(--studio-info-surface);
+    color: var(--studio-info-text);
     font-size: var(--studio-text-compact);
   }
 
