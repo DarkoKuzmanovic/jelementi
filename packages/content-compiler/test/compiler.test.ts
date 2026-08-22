@@ -123,6 +123,62 @@ describe('compileArticle', () => {
   });
 });
 
+describe('diagnostic guidance (#113)', () => {
+  function firstIssueMessage(markdown: string, mediaBaseUrl = 'https://media.example.org'): string {
+    try {
+      compileArticle({
+        markdown,
+        sourcePath: 'content/articles/remote-island.md',
+        mediaBaseUrl,
+      });
+    } catch (error: unknown) {
+      if (error instanceof ContentCompileError && error.issues[0]) {
+        return error.issues[0].message;
+      }
+      throw error;
+    }
+    throw new Error(`Expected compilation to fail for: ${JSON.stringify(markdown)}`);
+  }
+
+  it('heading-depth errors state the supported ## to #### range', () => {
+    for (const heading of ['# Too shallow', '##### Too deep']) {
+      const message = firstIssueMessage(`${frontmatter}\n\n${heading}`);
+      expect(message).toContain('Only level 2 through 4 headings');
+      expect(message).toContain('(## through ####)');
+    }
+  });
+
+  it('table rejections suggest a list as the alternative', () => {
+    const message = firstIssueMessage(`${frontmatter}\n\n| one | two |\n| --- | --- |\n| a | b |`);
+    expect(message).toContain('list');
+  });
+
+  it('raw HTML rejections name Markdown formatting as the alternative', () => {
+    const message = firstIssueMessage(`${frontmatter}\n\n<div>Not allowed</div>`);
+    expect(message).toContain('Markdown');
+  });
+
+  it('the generic unsupported-node fallback names the allowed constructs', () => {
+    // A leaf directive (::name) has no specific hint, so it exercises the
+    // generic fallback listing every allowed block construct.
+    const message = firstIssueMessage(`${frontmatter}\n\n::shrug`);
+    expect(message).toMatch(/footnotes/i);
+    expect(message).toMatch(/callouts/i);
+  });
+
+  it('fenced-code rejections point at inline code within a paragraph', () => {
+    const message = firstIssueMessage(`${frontmatter}\n\n\`\`\`ts\nconst x = 1;\n\`\`\``);
+    expect(message).toMatch(/inline `code`/);
+  });
+
+  it('invalid-media errors explain the relative-key rule plainly', () => {
+    const markdown = frontmatter.replace('articles/remote-island/cover.webp', '../escape.webp');
+    const message = firstIssueMessage(markdown);
+    expect(message).toContain('relative paths');
+    expect(message).toContain('articles/example/file-v1.ext');
+  });
+});
+
 describe('media boundary containment', () => {
   const baseWithPrefix = 'https://media.example.org/base/';
 

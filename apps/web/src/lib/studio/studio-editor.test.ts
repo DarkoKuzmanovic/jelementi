@@ -130,6 +130,76 @@ describe('StudioEditor date inputs (#110)', () => {
   });
 });
 
+describe('StudioEditor allowed-markdown reference (#113)', () => {
+  it('renders a collapsible reference beside the body field', () => {
+    const html = renderEditorHtml();
+    expect(html).toMatch(/<details[^>]*id="studio-markdown-dialect"/);
+    expect(html).toContain('Allowed Markdown</summary>');
+    const bodyIndex = html.indexOf('id="studio-body"');
+    const dialectIndex = html.indexOf('studio-markdown-dialect');
+    expect(bodyIndex).toBeGreaterThan(-1);
+    expect(dialectIndex).toBeGreaterThan(bodyIndex);
+  });
+
+  it('renders every documented rule and example from the shared reference', async () => {
+    const { MARKDOWN_DIALECT_REFERENCE } = await import('./markdown-dialect');
+    const html = renderEditorHtml();
+    for (const entry of MARKDOWN_DIALECT_REFERENCE) {
+      expect(html, `rule for ${entry.id}`).toContain(entry.rule);
+      for (const example of entry.examples ?? []) {
+        expect(html, `example for ${entry.id}`).toContain(example);
+      }
+    }
+  });
+});
+
+describe('StudioEditor media-key helper text (#113)', () => {
+  /** Svelte escapes "<" in interpolated text; unescape for string asserts. */
+  function unescapeAngleBrackets(html: string): string {
+    return html.replaceAll('&lt;', '<');
+  }
+
+  it('describes the exact relative key pattern next to the cover key', async () => {
+    const { COVER_MEDIA_KEY_HINT } = await import('./markdown-dialect');
+    const html = renderEditorHtml();
+    expect(tagWithId(inputTags(html), 'studio-field-coverSrc')).toContain(
+      'aria-describedby="studio-field-coverSrc-help"',
+    );
+    expect(html).toContain('id="studio-field-coverSrc-help"');
+    expect(unescapeAngleBrackets(html)).toContain(COVER_MEDIA_KEY_HINT);
+  });
+
+  it('describes the exact relative key pattern next to the audio key', async () => {
+    const { AUDIO_MEDIA_KEY_HINT } = await import('./markdown-dialect');
+    const html = renderEditorHtml();
+    expect(tagWithId(inputTags(html), 'studio-field-audioSrc')).toContain(
+      'aria-describedby="studio-field-audioSrc-help"',
+    );
+    expect(html).toContain('id="studio-field-audioSrc-help"');
+    expect(unescapeAngleBrackets(html)).toContain(AUDIO_MEDIA_KEY_HINT);
+  });
+});
+
+describe('StudioEditor insert-image affordance (#113)', () => {
+  it('offers a plain button that can never submit the form', () => {
+    const html = renderEditorHtml();
+    const button = html.match(/<button[^>]*id="studio-insert-image"[^>]*>/)?.[0];
+    expect(button).toBeDefined();
+    expect(button).toContain('type="button"');
+    expect(button).not.toContain('formaction');
+    expect(html).toContain('>Insert image</button>');
+  });
+
+  it('labels the affordance with its effect on the body field', () => {
+    const html = renderEditorHtml();
+    const buttonIndex = html.indexOf('id="studio-insert-image"');
+    const bodyLabelIndex = html.indexOf('id="studio-body"');
+    expect(buttonIndex).toBeGreaterThan(-1);
+    // The affordance sits with the body field it edits.
+    expect(Math.abs(buttonIndex - bodyLabelIndex)).toBeLessThan(500);
+  });
+});
+
 describe('StudioEditor read-only lifecycle status (#111)', () => {
   it('renders status as a non-editable output with a plain-language label, never as a select', () => {
     const html = renderEditorHtml();
