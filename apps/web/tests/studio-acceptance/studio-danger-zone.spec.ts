@@ -128,7 +128,9 @@ test.describe('Enhanced confirmation dialog', () => {
 
     // Opening and cancelling mutated nothing: the article is still published.
     await page.reload();
-    await expect(page.getByText('production probes have not yet proven')).toBeVisible();
+    // #116: the plain load is honestly unverified — the article is still
+    // published on main, nothing mutated, and nothing is in flight.
+    await expect(page.getByText('Published — not verified', { exact: true })).toBeVisible();
     await expect(page.getByText('Approved and waiting')).toBeHidden();
   });
 });
@@ -150,7 +152,9 @@ test.describe('No-JS confirmation safety', () => {
     expect(response.status()).toBe(400);
 
     await page.goto(`/studio/articles/${LIVE_SLUG}`);
-    await expect(page.getByText('production probes have not yet proven')).toBeVisible();
+    // #116: the plain load is honestly unverified — the article is still
+    // published on main, nothing mutated, and nothing is in flight.
+    await expect(page.getByText('Published — not verified', { exact: true })).toBeVisible();
     await expect(page.getByText('Approved and waiting')).toBeHidden();
   });
 });

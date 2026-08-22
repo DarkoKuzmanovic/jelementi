@@ -388,6 +388,12 @@ async function buildStudioAcceptanceAdapter(env: WorkerEnv): Promise<GithubAdapt
  * - `save-offline` — makes exactly the NEXT `get-main-ref` call fail with
  *   a transport failure (one-shot), so the targeted Save reports
  *   `save_failed` while the follow-up page load still renders.
+ * - `check-offline` (#116) — makes exactly the NEXT `get-main-ref` call
+ *   fail with a transport failure (one-shot). Wired into the Flowboard
+ *   Check status action: the status derivation for the submitted card hits
+ *   the armed failure while the follow-up board re-derivation succeeds, so
+ *   the journey proves the honest "could not check" announcement alongside
+ *   graceful per-card degradation.
  * - `replace-late-offline` — advances `main` by one unrelated commit AND
  *   makes exactly the NEXT `delete-branch` call fail with a transport
  *   failure (one-shot), so a targeted Replace verifies eligibility against
@@ -429,6 +435,12 @@ export async function applyStudioAcceptanceRecoveryScenario(
       return;
     }
     case 'save-offline': {
+      adapter.failNextOperation('get-main-ref');
+      return;
+    }
+    case 'check-offline': {
+      // #116: one-shot transport failure for the Flowboard Check status
+      // journey (see the doc comment above).
       adapter.failNextOperation('get-main-ref');
       return;
     }

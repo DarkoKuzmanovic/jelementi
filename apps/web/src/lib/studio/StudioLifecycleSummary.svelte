@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { StudioWorkspaceProjection } from '$lib/studio/workspace-projection';
+  import { formatStudioVerifiedAt, type StudioWorkspaceProjection } from './workspace-projection';
 
   /**
    * StudioLifecycleSummary — renders the plain-language summary and the two
@@ -8,6 +8,10 @@
    * derives lifecycle truth itself.
    */
   let { projection }: { projection: StudioWorkspaceProjection } = $props();
+
+  // #116: a verified outcome shows when it was verified, so "Live and
+  // verified" stays visibly bounded in time ("Live — verified <time>").
+  const verifiedAt = $derived(formatStudioVerifiedAt(projection.publishedVersion.verifiedAt));
 </script>
 
 <section class="studio-lifecycle-summary" aria-labelledby="studio-lifecycle-summary-heading">
@@ -18,7 +22,11 @@
   <div class="studio-lifecycle-summary__axis">
     <div>
       <p class="studio-lifecycle-summary__axis-title">Published version</p>
-      <p class="studio-lifecycle-summary__label">{projection.publishedVersion.label}</p>
+      <p class="studio-lifecycle-summary__label">
+        <span>{projection.publishedVersion.label}</span>{#if verifiedAt}<span
+            >&nbsp;· verified {verifiedAt}</span
+          >{/if}
+      </p>
     </div>
     <div>
       <p class="studio-lifecycle-summary__axis-title">Working change</p>

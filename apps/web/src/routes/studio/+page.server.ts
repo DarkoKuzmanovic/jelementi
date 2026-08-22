@@ -7,9 +7,14 @@ import {
   deriveStudioArticleStatus,
 } from '../../lib/server/studio/lifecycle.server';
 import {
+  applyStudioAcceptanceRecoveryScenario,
   isStudioAcceptanceMode,
   STUDIO_ACCEPTANCE_FLOWBOARD_HEADER,
 } from '../../lib/server/studio/acceptance-bootstrap.server';
+import {
+  buildStudioFlowboardCheckOutcome,
+  type StudioFlowboardCheckOutcome,
+} from '../../lib/studio/flowboard-envelope';
 import {
   requireStudioAccess,
   requireStudioMutation,
@@ -116,6 +121,11 @@ export const actions: Actions = {
       error(400, 'Invalid Check status request.');
     }
 
+    // Acceptance-only recovery scenario (#77 pattern, #116): can arm a
+    // one-shot GitHub transport failure so a browser journey can prove the
+    // honest failure announcement. A no-op outside acceptance mode.
+    await applyStudioAcceptanceRecoveryScenario(event.request, event.platform?.env, slug);
+
     const adapter = (event.locals as StudioLocals).studioGithubAdapter;
     if (adapter === undefined) error(503, 'Studio status unavailable.');
     const config = loadConfig(event.platform);
@@ -131,6 +141,10 @@ export const actions: Actions = {
       includeProbe: true,
       probeOptions: { fetch: self.fetch.bind(self) as typeof globalThis.fetch },
     });
+    // #116: the outcome is explicit. A failed derivation still re-derives
+    // the complete board (every card degrades gracefully to its fresh list
+    // projection), but the announcement says the check could not complete.
+    const checkOutcome: StudioFlowboardCheckOutcome = buildStudioFlowboardCheckOutcome(status);
     const flowboard = await deriveFlowboard(
       adapter,
       event.platform,
@@ -140,7 +154,8 @@ export const actions: Actions = {
       envelopeIds(form),
       slug,
       flowboard,
+      checkOutcome,
     );
-    return { flowboard, checkedSlug: slug, envelope };
+    return { flowboard, checkedSlug: slug, checkOutcome, envelope };
   },
 };

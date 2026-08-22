@@ -92,6 +92,11 @@
       On <code>main</code> at {status.mainSha}, but production probes have not yet proven the public
       article and index match. A merge or successful build alone is never Live.
     </p>
+  {:else if status.kind === 'unverified'}
+    <p>
+      On <code>main</code> at {status.mainSha}, but this screen has not verified what the public
+      site currently serves. Check status to verify; nothing is in flight.
+    </p>
   {:else if status.kind === 'live'}
     <p>
       Live: the public article fingerprint and index metadata both match <code

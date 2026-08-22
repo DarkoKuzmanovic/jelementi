@@ -1,8 +1,12 @@
 <script lang="ts">
   import StudioEvidenceDisclosure from './StudioEvidenceDisclosure.svelte';
+  import { formatStudioVerifiedAt } from './workspace-projection';
   import type { StudioFlowboardCard } from './flowboard-projection';
 
   let { card, hidden = false }: { card: StudioFlowboardCard; hidden?: boolean } = $props();
+
+  // #116: a verified card shows when it was verified ("Live — verified <time>").
+  const verifiedAt = $derived(formatStudioVerifiedAt(card.projection.publishedVersion.verifiedAt));
 </script>
 
 <article class="studio-flowboard-card" data-article-slug={card.slug} {hidden}>
@@ -17,7 +21,11 @@
   <dl class="facts">
     <div>
       <dt>Published version</dt>
-      <dd>{card.projection.publishedVersion.label}</dd>
+      <dd>
+        <span>{card.projection.publishedVersion.label}</span>{#if verifiedAt}<span class="verified"
+            >&nbsp;· verified {verifiedAt}</span
+          >{/if}
+      </dd>
     </div>
     <div>
       <dt>Working change</dt>
@@ -114,6 +122,11 @@
     background: var(--studio-surface-selected);
     color: var(--studio-text-selected);
     font-size: var(--studio-text-compact);
+  }
+
+  /* #116: the "· verified <time>" stamp reads as secondary evidence. */
+  .verified {
+    color: var(--studio-text-muted);
   }
 
   .reader-effect,

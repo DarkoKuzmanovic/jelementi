@@ -30,7 +30,10 @@ export interface StudioFlowboardProjection {
   };
 }
 
-function publishedVersionLabel(production: StudioProductionState): StudioPublishedVersionLabel {
+function publishedVersionLabel(
+  production: StudioProductionState,
+  canonicalStatus: StudioArticleListEntry['canonicalStatus'],
+): StudioPublishedVersionLabel {
   switch (production) {
     case 'live':
       return 'Live and verified';
@@ -38,6 +41,12 @@ function publishedVersionLabel(production: StudioProductionState): StudioPublish
       return 'Updating the site';
     case 'pending_removal':
       return 'Removing from the site';
+    // #116: frontmatter alone is honestly neutral — never a perpetual
+    // rollout. The label distinguishes the two steady states.
+    case 'unverified':
+      return canonicalStatus === 'archived'
+        ? 'Archived — not verified'
+        : 'Published — not verified';
     case 'absent':
       return 'Not published';
   }
@@ -182,11 +191,24 @@ function readerEffectFor(
   if (published === 'Updating the site') {
     return 'The reader result is not verified yet.';
   }
+  if (published === 'Published — not verified' || published === 'Archived — not verified') {
+    // #116: honest neutral — what readers see is simply unverified here.
+    return 'What readers currently see has not been verified on this screen.';
+  }
   return 'Readers see no published version of this article.';
 }
 
 function listWorkspaceProjection(entry: StudioArticleListEntry): StudioWorkspaceProjection {
-  const publishedLabel = publishedVersionLabel(entry.production);
+  // #116: a known-recent merged change (its merge is still observable on
+  // the article's Draft PR) earns the transitional copy; the frontmatter
+  // default stays honest neutral. Story 28 distinctions stay visible here:
+  // merged-in-flight ≠ unverified steady state.
+  const transitional = entry.change === 'merged' && entry.production === 'unverified';
+  const publishedLabel: StudioPublishedVersionLabel = transitional
+    ? entry.canonicalStatus === 'archived'
+      ? 'Removing from the site'
+      : 'Updating the site'
+    : publishedVersionLabel(entry.production, entry.canonicalStatus);
   const workingLabel = workingChangeLabel(entry);
   const workingPresentation = WORKING_CHANGE_PRESENTATION[workingLabel];
   const evidence: StudioWorkspaceProjection['evidence'] = [

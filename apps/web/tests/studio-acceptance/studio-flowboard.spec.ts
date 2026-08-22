@@ -3,6 +3,7 @@ import {
   STUDIO_ACCEPTANCE_IDENTITY_HEADER,
   STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
 } from '../../src/lib/server/studio/request-guard.server';
+import { STUDIO_ACCEPTANCE_RECOVERY_HEADER } from '../../src/lib/server/studio/acceptance-bootstrap.server';
 import { expectFirstSaveLanded, waitForStudioHydration } from './helpers';
 
 const FLOWBOARD_SCENARIO_HEADER = 'x-studio-acceptance-flowboard';
@@ -113,26 +114,58 @@ test.describe('Flowboard server projection', () => {
   }) => {
     await page.goto('/studio');
     const card = page.locator(`[data-article-slug="${LIVE_SLUG}"]`);
-    await expect(card.getByText('Updating the site')).toBeVisible();
+    // #116: the unprobed default is honest neutral, never a perpetual rollout.
+    await expect(card.getByText('Published — not verified')).toBeVisible();
 
     await Promise.all([
       page.waitForNavigation(),
       card.getByRole('button', { name: 'Check status' }).click(),
     ]);
 
-    await expect(
-      page
-        .locator(`[data-article-slug="${LIVE_SLUG}"]`)
-        .getByText('Live and verified', { exact: true }),
-    ).toBeVisible();
+    const checkedCard = page.locator(`[data-article-slug="${LIVE_SLUG}"]`);
+    await expect(checkedCard.getByText('Live and verified', { exact: true })).toBeVisible();
+    // #116: a verified outcome shows when it was verified.
+    await expect(checkedCard.getByText(/verified \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/)).toBeVisible();
     await expect(page.getByText(`Status checked for ${LIVE_SLUG}.`)).toBeVisible();
 
     await page.goto('/studio');
     await expect(
       page
         .locator(`[data-article-slug="${LIVE_SLUG}"]`)
-        .getByText('Updating the site', { exact: true }),
+        .getByText('Published — not verified', { exact: true }),
     ).toBeVisible();
+  });
+
+  test('announces a failed check honestly while every card degrades gracefully (#116)', async ({
+    page,
+  }, testInfo) => {
+    await page.setExtraHTTPHeaders({
+      [STUDIO_ACCEPTANCE_IDENTITY_HEADER]: STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
+      [STUDIO_ACCEPTANCE_RECOVERY_HEADER]: 'check-offline',
+    });
+    await page.goto('/studio');
+    await waitForStudioHydration(page, testInfo);
+    const slugs = await expectCompleteUniqueArticleSet(page);
+
+    const card = page.locator(`[data-article-slug="${READY_SLUG}"]`);
+    if (testInfo.project.name === 'studio-no-js') {
+      await Promise.all([
+        page.waitForNavigation(),
+        card.getByRole('button', { name: 'Check status' }).click(),
+      ]);
+    } else {
+      await card.getByRole('button', { name: 'Check status' }).click();
+    }
+
+    // #116: the failure names its cause category with retry guidance —
+    // never "Status checked".
+    await expect(
+      page.getByText(`Could not check ${READY_SLUG} — GitHub could not be reached. Try again.`),
+    ).toBeVisible();
+    await expect(page.getByText(`Status checked for ${READY_SLUG}.`)).toHaveCount(0);
+    // Graceful degradation: the complete board still renders.
+    await expectCompleteUniqueArticleSet(page);
+    expect(slugs.length).toBeGreaterThan(0);
   });
 
   test('stacks columns in approved order without losing cards or horizontal reflow', async ({

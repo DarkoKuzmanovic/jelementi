@@ -13,7 +13,9 @@ function row(
     title: slug.replaceAll('-', ' '),
     canonicalStatus: 'published',
     updatedAt: '2026-08-17',
-    production: 'pending_deployment',
+    // #116: frontmatter alone can never claim a public fact, so the
+    // unprobed list default is the honest neutral state.
+    production: 'unverified',
     change: 'none',
     mainSha,
     publicUrl: `https://jelementi.quz.ma/articles/${slug}`,
@@ -22,6 +24,53 @@ function row(
 }
 
 describe('buildStudioFlowboard', () => {
+  // #116: the board's production axis comes from frontmatter alone, so its
+  // unprobed default must read as honest neutral — never as a rollout that
+  // never ends. Only a known-recent merged change keeps transition copy.
+  it('labels steady articles as not verified and reserves transition copy for known-recent merges', () => {
+    const flowboard = buildStudioFlowboard([
+      row('steady-published'),
+      row('recently-merged', { change: 'merged' }),
+      row('archived-steady', { canonicalStatus: 'archived' }),
+      row('archived-merging', { canonicalStatus: 'archived', change: 'merged' }),
+    ]);
+
+    const byslug = new Map(
+      Object.values(flowboard.columns)
+        .flat()
+        .map((card) => [card.slug, card]),
+    );
+    expect(byslug.get('steady-published')?.projection.publishedVersion.label).toBe(
+      'Published — not verified',
+    );
+    expect(byslug.get('recently-merged')?.projection.publishedVersion.label).toBe(
+      'Updating the site',
+    );
+    expect(byslug.get('archived-steady')?.projection.publishedVersion.label).toBe(
+      'Archived — not verified',
+    );
+    expect(byslug.get('archived-merging')?.projection.publishedVersion.label).toBe(
+      'Removing from the site',
+    );
+
+    // A steady article is Library work, not a perpetual rollout.
+    expect(flowboard.columns.library.map((card) => card.slug)).toContain('steady-published');
+  });
+
+  it('gates unpublish availability on a verified-live label only', () => {
+    const flowboard = buildStudioFlowboard([
+      row('unverified-live'),
+      row('verified-live', { change: 'draft', draftValidity: 'valid' }),
+    ]);
+    const byslug = new Map(
+      Object.values(flowboard.columns)
+        .flat()
+        .map((card) => [card.slug, card]),
+    );
+    expect(byslug.get('unverified-live')?.projection.actions.unpublish.available).toBe(false);
+    expect(byslug.get('verified-live')?.projection.actions.unpublish.available).toBe(false);
+  });
+
   it('assigns every article exactly once across the three columns', () => {
     const flowboard = buildStudioFlowboard([
       row('invalid-draft', { change: 'draft', draftValidity: 'invalid' }),

@@ -54,6 +54,7 @@ describe('decodeStudioFlowboardCheckEnvelope', () => {
       { operationId: 'op-1', submittedSnapshotId: 'snap-1' },
       'lighthouse-watch',
       flowboard,
+      { outcome: 'checked' },
     );
     expect(decodeStudioFlowboardCheckEnvelope(envelope)).toEqual({ ok: true, value: envelope });
   });
@@ -80,6 +81,7 @@ describe('decodeStudioFlowboardCheckEnvelope', () => {
             library: [],
           },
         },
+        { outcome: 'checked' },
       ),
     );
     expect(wrongColumn.ok).toBe(false);
@@ -108,6 +110,7 @@ describe('decodeStudioFlowboardCheckEnvelope', () => {
             library: [],
           },
         },
+        { outcome: 'checked' },
       ),
     );
     expect(badProjection.ok).toBe(false);

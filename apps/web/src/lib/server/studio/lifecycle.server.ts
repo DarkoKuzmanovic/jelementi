@@ -322,11 +322,13 @@ async function deriveDraftState(
 }
 
 function productionState(status: ArticleSourceFrontmatter['status']): StudioProductionState {
-  // Probe evidence owns `live` and proven removal (#17/T5). Until that
-  // evidence exists, GitHub-only state stays conservatively pending rather
-  // than claiming a public fact from frontmatter alone.
-  if (status === 'archived') return 'pending_removal';
-  if (status === 'published') return 'pending_deployment';
+  // Probe evidence owns `live` and proven removal (#17/T5). Frontmatter
+  // alone can never claim a public fact — and it cannot know whether a
+  // merge/removal is genuinely recent — so a GitHub-only steady state is
+  // the honest neutral `unverified` (#116), never the transitional
+  // pending states a known-recent transition earns (story 28).
+  if (status === 'archived') return 'unverified';
+  if (status === 'published') return 'unverified';
   return 'absent';
 }
 
@@ -465,11 +467,12 @@ export async function deriveStudioArticleStatus(
       if (canonical.frontmatter.status === 'archived') {
         if (!options.includeProbe) {
           // A plain load never claims `archived`: absence is a negative public
-          // fact only an explicit Refresh can prove. Until then the article is
-          // conservatively still in flight.
+          // fact only an explicit Refresh can prove. With no known-recent
+          // removal in flight either, the honest state is neutral unverified
+          // (#116) — never "removal in progress" for a settled archive.
           return {
             ok: true,
-            value: { kind: 'unpublish_pending', article, mainSha: main.value.sha },
+            value: { kind: 'unverified', article, mainSha: main.value.sha },
           };
         }
         return {
@@ -481,9 +484,12 @@ export async function deriveStudioArticleStatus(
         return { ok: true, value: { kind: 'unknown', article } };
       }
       if (!options.includeProbe) {
+        // #116: an ordinary load never probes, so a steady published article
+        // is honestly unverified — never the pending_deployment state only a
+        // genuine recent merge (`merged`) or a probed rollout earns.
         return {
           ok: true,
-          value: { kind: 'pending_deployment', article, mainSha: main.value.sha },
+          value: { kind: 'unverified', article, mainSha: main.value.sha },
         };
       }
       return {
@@ -789,6 +795,7 @@ async function reconcileProbes(
       contentVersion: expectedFingerprint,
       expected: expectedIndex,
       observed: observedIndex,
+      verifiedAt: options.now?.() ?? new Date().toISOString(),
     },
   };
 }
@@ -838,7 +845,13 @@ async function resolveProbedAbsence(
   const indexAbsent = indexProbe.ok && !indexProbe.entries.some((entry) => entry.slug === slug);
   const routeNotFound = !articleProbe.ok && articleProbe.status === 404;
   if (indexAbsent && routeNotFound) {
-    return { kind: 'archived', article, mainSha };
+    // #116: a proven absence carries when it was verified.
+    return {
+      kind: 'archived',
+      article,
+      mainSha,
+      verifiedAt: options.now?.() ?? new Date().toISOString(),
+    };
   }
   return { kind: 'unpublish_pending', article, mainSha };
 }

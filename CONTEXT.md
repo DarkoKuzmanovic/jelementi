@@ -28,7 +28,7 @@ The single trusted human who can access and operate Studio. Identified by one co
 _Avoid_: User, author, admin, editor
 
 **Studio lifecycle**:
-Two independent axes per article, never merged into one line. **Production**: absent / live / pending deployment / pending removal. **Change**: none / draft / ready / checking / merged. The UI may combine them, but the facts stay separate.
+Two independent axes per article, never merged into one line. **Production**: absent / live / pending deployment / pending removal / unverified — frontmatter alone never claims a public fact, so an unprobed published article reads `unverified` until a Check status proves it. **Change**: none / draft / ready / checking / merged. The UI may combine them, but the facts stay separate.
 _Avoid_: Status, state, phase, one linear state machine
 
 **Publish**:

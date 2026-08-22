@@ -210,7 +210,7 @@ test.describe('Flowboard Check status in place (#78)', () => {
     await waitForStudioHydration(page, testInfo);
 
     const liveCard = page.locator(`[data-article-slug="${LIVE_SLUG}"]`);
-    await expect(liveCard.getByText('Updating the site')).toBeVisible();
+    await expect(liveCard.getByText('Published — not verified')).toBeVisible();
     await liveCard.getByRole('button', { name: 'Check status' }).click();
 
     await expect(page.getByText(`Status checked for ${LIVE_SLUG}.`)).toBeVisible();
@@ -235,6 +235,32 @@ test.describe('Flowboard Check status in place (#78)', () => {
     // Exactly two enhanced requests; no background polling follows.
     await page.waitForTimeout(600);
     expect(enhancedPosts()).toBe(2);
+  });
+
+  // #116 (folds the T115-adjacent gap): the enhanced Check-status response
+  // carries the refreshed lifecycle next to its workspace projection, so
+  // the Publication center flips coherently — panel copy, verified time,
+  // and projection together — with no reload and no navigation.
+  test('JS: enhanced Check-status completion updates the publication panel status coherently', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name.includes('no-js'), 'Enhanced submission requires hydration.');
+    await page.goto(`/studio/articles/${LIVE_SLUG}`);
+    await waitForStudioHydration(page, testInfo);
+
+    // Plain load never probes: honestly unverified, never "in flight".
+    await expect(page.getByText('Published — not verified', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Live: the public article fingerprint/)).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Check status — refresh evidence' }).click();
+
+    // The whole status surface moves together, in place.
+    await expect(page.getByText(/^Live: the public article fingerprint/)).toBeVisible();
+    await expect(page.getByText(/· verified \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/)).toBeVisible();
+    await expect(
+      page.getByText('The published version is live and verified in production.'),
+    ).toBeVisible();
+    expect(page.url()).not.toContain('?/refresh');
   });
 });
 
