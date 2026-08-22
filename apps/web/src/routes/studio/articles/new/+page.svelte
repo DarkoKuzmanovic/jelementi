@@ -8,6 +8,7 @@
   import StudioStatusAnnouncer from '../../../../lib/studio/StudioStatusAnnouncer.svelte';
   import StudioRecoveryCopyPanel from '../../../../lib/studio/StudioRecoveryCopyPanel.svelte';
   import StudioNewArticlePublicationCenter from '../../../../lib/studio/StudioNewArticlePublicationCenter.svelte';
+  import StudioValidationSummary from '../../../../lib/studio/StudioValidationSummary.svelte';
   import {
     studioRecoveryKey,
     STUDIO_RECOVERY_NEW_IDENTITY,
@@ -22,6 +23,7 @@
   } from '../../../../lib/studio/studio-enhancement-page';
   import type { StudioPreviewResult } from '../../../../lib/studio/contracts';
   import type { StudioSaveResult } from '../../../../lib/server/studio/editor.server';
+  import type { StudioValidationProjection } from '../../../../lib/server/studio/validation-projection.server';
   import type {
     StudioPreviewActionData,
     StudioSaveActionData,
@@ -47,6 +49,10 @@
   // established article route's saveOverride wiring. Typed form values are
   // never replaced (#78); only the result region updates.
   let saveOverride = $state<StudioSaveResult | undefined>(undefined);
+  // #110: field-anchored validation for Preview/Save responses whose form
+  // failed decoding — the new-article route presents the same go-to-field
+  // summary as the established route.
+  let validationOverride = $state<StudioValidationProjection | undefined>(undefined);
   let politeOverride = $state('');
   let assertiveMessage = $state('');
   let disabledMessage = $state('');
@@ -90,10 +96,17 @@
         onActionEnvelope: (envelope, actionData, liveMatches) => {
           if (envelope.kind === 'preview') {
             previewOverride = envelope.preview;
+            // #110: a Preview whose form failed decoding carries the same
+            // field-anchored validation projection as Save. Previews without
+            // one leave any displayed validation untouched.
+            if (envelope.validation !== undefined) {
+              validationOverride = envelope.validation;
+            }
             return;
           }
           if (envelope.kind !== 'save') return;
           saveOverride = envelope.save;
+          validationOverride = envelope.validation;
           if (envelope.save.kind === 'saved') {
             const acceptedSlug =
               typeof actionData === 'object' &&
@@ -160,6 +173,9 @@
 
   {#snippet publication()}
     <StudioNewArticlePublicationCenter concurrency={data.editor.concurrency} />
+    <StudioValidationSummary
+      validation={validationOverride ?? previewAction?.validation ?? saveAction?.validation}
+    />
     <StudioRecoveryCopyPanel
       identity={STUDIO_RECOVERY_NEW_IDENTITY}
       loadedConcurrency={data.editor.concurrency}

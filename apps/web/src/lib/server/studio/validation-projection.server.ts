@@ -1,4 +1,5 @@
 import { serializeArticleSource } from '@jelementi/content-compiler';
+import { EDITOR_INPUT_LIMITS } from '../../studio/contracts';
 import type { StudioCompileIssue, StudioMetadata } from '../../studio/contracts';
 
 /**
@@ -78,6 +79,118 @@ const QUOTED_FIELD_CONTROLS: Record<string, string> = {
   references: 'references',
 };
 
+/**
+ * #110 form-decode anchoring. Maps decoder paths (e.g.
+ * `input.metadata.title.max`, reference indices stripped) to the stable
+ * decode-originated issue code and human-readable requirement for that
+ * control. Paths without an entry are genuinely unexpected (hidden
+ * concurrency fields, tampered envelopes) and stay on the generic
+ * INVALID_EDITOR_INPUT fallback at the route boundary.
+ */
+const DECODE_FIELD_REQUIREMENTS: Record<string, { code: string; message: string }> = {
+  'input.metadata.title': {
+    code: 'EDITOR_INPUT_TITLE',
+    message: `Title must be at most ${EDITOR_INPUT_LIMITS.titleMax} characters.`,
+  },
+  'input.metadata.slug': {
+    code: 'EDITOR_INPUT_SLUG',
+    message: `Slug must use lowercase letters, digits, and hyphens with no leading or trailing hyphen (at most ${EDITOR_INPUT_LIMITS.slugMax} characters).`,
+  },
+  'input.metadata.excerpt': {
+    code: 'EDITOR_INPUT_EXCERPT',
+    message: `Excerpt must be at most ${EDITOR_INPUT_LIMITS.excerptMax} characters.`,
+  },
+  'input.metadata.status': {
+    code: 'EDITOR_INPUT_STATUS',
+    message: 'Status must be draft, published, or archived.',
+  },
+  'input.metadata.publishedAt': {
+    code: 'EDITOR_INPUT_PUBLISHED_AT',
+    message:
+      'Published date must be YYYY-MM-DD or a full ISO timestamp such as 2026-08-22T09:30:00Z.',
+  },
+  'input.metadata.updatedAt': {
+    code: 'EDITOR_INPUT_UPDATED_AT',
+    message:
+      'Updated date must be YYYY-MM-DD or a full ISO timestamp such as 2026-08-22T09:30:00Z.',
+  },
+  'input.metadata.category': {
+    code: 'EDITOR_INPUT_CATEGORY',
+    message: `Category must be at most ${EDITOR_INPUT_LIMITS.categoryMax} characters.`,
+  },
+  'input.metadata.author': {
+    code: 'EDITOR_INPUT_AUTHOR',
+    message: `Author must be at most ${EDITOR_INPUT_LIMITS.authorMax} characters.`,
+  },
+  'input.metadata.tags': {
+    code: 'EDITOR_INPUT_TAGS',
+    message: `Tags must be comma-separated and each 1–${EDITOR_INPUT_LIMITS.tagMax} characters (at most 100 tags).`,
+  },
+  'input.metadata.cover.src': {
+    code: 'EDITOR_INPUT_COVER_SRC',
+    message: `Cover media key must be a relative library key such as articles/slug/cover-v1.svg (no spaces or backslashes, at most ${EDITOR_INPUT_LIMITS.mediaKeyMax} characters).`,
+  },
+  'input.metadata.cover.alt': {
+    code: 'EDITOR_INPUT_COVER_ALT',
+    message: `Cover alt text is required and must be at most ${EDITOR_INPUT_LIMITS.altMax} characters.`,
+  },
+  'input.metadata.audio.src': {
+    code: 'EDITOR_INPUT_AUDIO_SRC',
+    message: `Audio media key must be a relative library key such as articles/slug/audio-v1.mp3 (no spaces or backslashes, at most ${EDITOR_INPUT_LIMITS.mediaKeyMax} characters).`,
+  },
+  'input.metadata.audio.durationSeconds': {
+    code: 'EDITOR_INPUT_AUDIO_DURATION',
+    message: 'Audio duration must be a whole number of seconds of at least 1.',
+  },
+  'input.metadata.references.title': {
+    code: 'EDITOR_INPUT_REFERENCES',
+    message: `Each reference title must be 1–${EDITOR_INPUT_LIMITS.referenceTitleMax} characters.`,
+  },
+  'input.metadata.references.url': {
+    code: 'EDITOR_INPUT_REFERENCES',
+    message: `Each reference URL must start with https:// and be at most ${EDITOR_INPUT_LIMITS.urlMax} characters.`,
+  },
+  'input.metadata.references.publisher': {
+    code: 'EDITOR_INPUT_REFERENCES',
+    message: `Each reference publisher must be at most ${EDITOR_INPUT_LIMITS.referencePublisherMax} characters.`,
+  },
+  'input.metadata.references.accessedAt': {
+    code: 'EDITOR_INPUT_REFERENCES',
+    message:
+      'Accessed dates must be YYYY-MM-DD or a full ISO timestamp such as 2026-08-22T09:30:00Z.',
+  },
+  'input.metadata.references': {
+    code: 'EDITOR_INPUT_REFERENCES',
+    message: 'There can be at most 100 references.',
+  },
+  'input.body': {
+    code: 'EDITOR_INPUT_BODY',
+    message: `Body must be at most ${EDITOR_INPUT_LIMITS.bodyMax.toLocaleString('en-US')} characters.`,
+  },
+};
+
+/**
+ * Decode-originated codes mapped to their editor control. The body maps to
+ * the textarea's own id (`studio-body`), not a `studio-field-*` control.
+ */
+const DECODE_ISSUE_CONTROLS: Record<string, string> = {
+  EDITOR_INPUT_TITLE: 'title',
+  EDITOR_INPUT_SLUG: 'slug',
+  EDITOR_INPUT_EXCERPT: 'excerpt',
+  EDITOR_INPUT_STATUS: 'status',
+  EDITOR_INPUT_PUBLISHED_AT: 'publishedAt',
+  EDITOR_INPUT_UPDATED_AT: 'updatedAt',
+  EDITOR_INPUT_CATEGORY: 'category',
+  EDITOR_INPUT_TAGS: 'tags',
+  EDITOR_INPUT_AUTHOR: 'author',
+  EDITOR_INPUT_COVER_SRC: 'coverSrc',
+  EDITOR_INPUT_COVER_ALT: 'coverAlt',
+  EDITOR_INPUT_AUDIO_SRC: 'audioSrc',
+  EDITOR_INPUT_AUDIO_DURATION: 'audioDurationSeconds',
+  EDITOR_INPUT_REFERENCES: 'references',
+  EDITOR_INPUT_BODY: 'body',
+};
+
 function fieldTarget(control: string): StudioValidationTarget {
   return {
     kind: 'field',
@@ -86,7 +199,24 @@ function fieldTarget(control: string): StudioValidationTarget {
   };
 }
 
+function decodeIssueTarget(code: string): StudioValidationTarget | undefined {
+  const control = DECODE_ISSUE_CONTROLS[code];
+  if (control === undefined) return undefined;
+  if (control === 'body') {
+    return { kind: 'field', controlId: 'studio-body', label: 'Body' };
+  }
+  return fieldTarget(control);
+}
+
 function phaseFor(code: string): StudioValidationPhase {
+  if (code === 'EDITOR_INPUT_BODY') {
+    return 'body';
+  }
+  // #110 decode-originated field rejections are metadata-field problems,
+  // not compiler failures; anchoring keeps them out of the generic phase.
+  if (code.startsWith('EDITOR_INPUT_')) {
+    return 'metadata';
+  }
   switch (code) {
     case 'INVALID_FRONTMATTER':
     // #109 slug-collision rejections are metadata-field problems, not
@@ -287,8 +417,12 @@ function targetFor(
     case 'SLUG_ALREADY_EXISTS':
     case 'SLUG_DRAFT_EXISTS':
       return fieldTarget('slug');
-    default:
-      return { kind: 'source' };
+    default: {
+      // #110 decode-originated rejections anchor to the field the decoder
+      // named, using the same go-to-field machinery as compiler issues.
+      const decode = decodeIssueTarget(issue.code);
+      return decode ?? { kind: 'source' };
+    }
   }
 }
 
@@ -329,4 +463,46 @@ export function buildStudioValidationProjection(
     first,
     issues: views,
   };
+}
+
+/**
+ * #110: translates form-decode failure paths (e.g. `input.metadata.title.max`)
+ * into per-field anchored editor-input issues. Every mapped path becomes a
+ * located issue naming its requirement; unmappable paths return nothing so
+ * the route boundary can decide on its generic fallback. Identical
+ * requirements from repeated fields (e.g. several bad reference titles)
+ * collapse to one issue.
+ */
+export function buildEditorInputIssues(
+  decodeIssues: readonly string[],
+  slug: string,
+): StudioCompileIssue[] {
+  const issues: StudioCompileIssue[] = [];
+  const seen = new Set<string>();
+  for (const decodeIssue of decodeIssues) {
+    const entry = decodeFieldRequirement(decodeIssue);
+    if (entry === undefined) continue;
+    const key = `${entry.code}\n${entry.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    issues.push({
+      code: entry.code,
+      message: entry.message,
+      sourcePath: `content/articles/${slug}.md`,
+      line: 1,
+      column: 1,
+    });
+  }
+  return issues;
+}
+
+function decodeFieldRequirement(
+  decodeIssue: string,
+): { code: string; message: string } | undefined {
+  const cut = decodeIssue.lastIndexOf('.');
+  if (cut <= 0) return undefined;
+  // Reference indices carry no distinct control: `references[2].url` and
+  // `references.array` both anchor to the References fieldset.
+  const path = decodeIssue.slice(0, cut).replace(/\[\d+\]/g, '');
+  return DECODE_FIELD_REQUIREMENTS[path];
 }

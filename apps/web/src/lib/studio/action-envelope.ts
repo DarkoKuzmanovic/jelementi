@@ -54,7 +54,12 @@ export interface StudioActionEnvelopeBase {
 }
 
 export type StudioActionEnvelope =
-  | (StudioActionEnvelopeBase & { kind: 'preview'; preview: StudioPreviewResult })
+  | (StudioActionEnvelopeBase & {
+      kind: 'preview';
+      preview: StudioPreviewResult;
+      /** #110: field-anchored projection for a form that failed decoding. */
+      validation?: StudioValidationProjection;
+    })
   | (StudioActionEnvelopeBase & {
       kind: 'save';
       save: StudioSaveResult;
@@ -66,7 +71,7 @@ export type StudioActionEnvelope =
 export function buildStudioActionEnvelope(
   base: StudioActionEnvelopeBase,
   payload:
-    | { kind: 'preview'; preview: StudioPreviewResult }
+    | { kind: 'preview'; preview: StudioPreviewResult; validation?: StudioValidationProjection }
     | {
         kind: 'save';
         save: StudioSaveResult;
@@ -309,7 +314,7 @@ export function decodeStudioActionEnvelope(input: unknown): DecodeResult<StudioA
   }
 
   const allowedByKind: Readonly<Record<string, readonly string[]>> = {
-    preview: ['kind', 'operationId', 'submittedSnapshotId', 'preview'],
+    preview: ['kind', 'operationId', 'submittedSnapshotId', 'preview', 'validation'],
     save: ['kind', 'operationId', 'submittedSnapshotId', 'save', 'workspace', 'validation'],
     check_status: ['kind', 'operationId', 'submittedSnapshotId', 'workspace'],
   };
@@ -336,9 +341,20 @@ export function decodeStudioActionEnvelope(input: unknown): DecodeResult<StudioA
     if (!preview.ok) {
       return { ok: false, issues: preview.issues.map((code) => `envelope.${code}`) };
     }
+    const validation =
+      input.validation === undefined
+        ? undefined
+        : validationProjectionValue(input.validation, 'envelope.validation', issues);
+    if (issues.length > 0) return { ok: false, issues };
     return {
       ok: true,
-      value: { kind: 'preview', operationId, submittedSnapshotId, preview: preview.value },
+      value: {
+        kind: 'preview',
+        operationId,
+        submittedSnapshotId,
+        preview: preview.value,
+        ...(validation === undefined ? {} : { validation }),
+      },
     };
   }
 

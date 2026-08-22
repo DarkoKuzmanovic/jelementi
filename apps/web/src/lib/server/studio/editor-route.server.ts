@@ -13,6 +13,7 @@ import type { GithubAdapter, GithubReadAdapter, GithubSaveAdapter } from './gith
 import { requireStudioAccess, requireStudioMutation } from './request-guard.server';
 import {
   buildStudioValidationProjection,
+  buildEditorInputIssues,
   type StudioValidationProjection,
 } from './validation-projection.server';
 import type {
@@ -28,6 +29,7 @@ import {
 } from '../../studio/workspace-projection';
 import type {
   StudioCompileIssue,
+  StudioConcurrencyEvidence,
   StudioEditorInput,
   StudioLifecycle,
   StudioPreviewResult,
@@ -35,6 +37,7 @@ import type {
 
 const MAX_SLUG_LENGTH = 100;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SHA_PATTERN = /^[0-9a-f]{40}$|^[0-9a-f]{64}$/i;
 
 export interface StudioEditorRouteEvent {
   request: Request;
@@ -45,6 +48,12 @@ export interface StudioEditorRouteEvent {
 export interface StudioPreviewActionData {
   preview: StudioPreviewResult;
   editor?: StudioPreviewInput;
+  /**
+   * #110: field-anchored validation projection for a form that failed
+   * decoding, mirroring the Save boundary so Preview and Save present the
+   * same go-to-field issues. Present only on decode-failure paths.
+   */
+  validation?: StudioValidationProjection;
   /**
    * Shared decoded action-response envelope (#78). Present on the
    * server-accepted path; full-navigation rendering and enhanced rendering
@@ -122,7 +131,7 @@ export async function previewStudioEditorAction(
   const form = await event.request.formData();
   const decoded = decodeStudioFormData(form);
   if (!decoded.ok) {
-    return invalidFormPreview(form, expectedSlug);
+    return invalidFormPreview(form, expectedSlug, decoded.issues);
   }
   if (expectedSlug !== undefined && decoded.value.metadata.slug !== expectedSlug) {
     const submitted = reconstructStudioPreviewInput(form);
@@ -172,7 +181,7 @@ export async function saveStudioEditorAction(
   const form = await event.request.formData();
   const decoded = decodeStudioFormData(form);
   if (!decoded.ok) {
-    return invalidFormSave(form, expectedSlug);
+    return invalidFormSave(form, expectedSlug, decoded.issues, studioConfig);
   }
   if (expectedSlug !== undefined && decoded.value.metadata.slug !== expectedSlug) {
     const submitted = reconstructStudioPreviewInput(form);
@@ -459,27 +468,118 @@ function slugCollisionIssue(
   };
 }
 
-function invalidFormPreview(form: FormData, expectedSlug?: string): StudioPreviewActionData {
+/**
+ * #110: a form that failed decoding still produces actionable feedback.
+ * Each decodable field failure becomes its own anchored issue (see
+ * `buildEditorInputIssues`); the generic INVALID_EDITOR_INPUT issue remains
+ * only as the last-resort fallback when nothing could be anchored.
+ * Preview and Save share this behavior identically.
+ */
+function invalidFormPreview(
+  form: FormData,
+  expectedSlug: string | undefined,
+  decodeIssues: string[],
+): StudioPreviewActionData {
   const submitted = reconstructStudioPreviewInput(form);
   const slug = invalidFormSlug(form, expectedSlug);
   if (expectedSlug !== undefined) submitted.metadata.slug = expectedSlug;
+  const compileIssues = invalidEditorInputIssues(decodeIssues, slug);
+  const preview: StudioPreviewResult = {
+    kind: 'preview_issues',
+    compileIssues,
+  };
   return {
-    preview: {
-      kind: 'preview_issues',
-      compileIssues: [invalidEditorInputIssue(slug)],
-    },
+    preview,
     editor: submitted,
+    validation: buildStudioValidationProjection(compileIssues, submitted),
+    envelope: buildStudioActionEnvelope(envelopeIds(form, 'preview'), {
+      kind: 'preview',
+      preview,
+    }),
   };
 }
 
-function invalidFormSave(form: FormData, expectedSlug?: string): StudioSaveActionData {
+function invalidFormSave(
+  form: FormData,
+  expectedSlug: string | undefined,
+  decodeIssues: string[],
+  studioConfig?: StudioConfig,
+): StudioSaveActionData {
   const submitted = reconstructStudioPreviewInput(form);
   const slug = invalidFormSlug(form, expectedSlug);
   if (expectedSlug !== undefined) submitted.metadata.slug = expectedSlug;
+  const compileIssues = invalidEditorInputIssues(decodeIssues, slug);
+  const save: StudioSaveResult = { kind: 'save_rejected', compileIssues };
   return {
-    save: { kind: 'save_rejected', compileIssues: [invalidEditorInputIssue(slug)] },
+    save,
     editor: submitted,
+    validation: buildStudioValidationProjection(compileIssues, submitted),
+    ...(studioConfig === undefined
+      ? {}
+      : {
+          envelope: buildStudioActionEnvelope(envelopeIds(form, 'save'), {
+            kind: 'save',
+            save,
+            workspace: rejectedFormWorkspace(submitted, submittedConcurrency(form)),
+            validation: buildStudioValidationProjection(compileIssues, submitted),
+          }),
+        }),
   };
+}
+
+/**
+ * Workspace projection for a rejected form (#110). Unlike the accepted-save
+ * projection, the article identity is bounded to what the client-side
+ * envelope decoder accepts (the raw submission failed decoding, so its
+ * values may exceed every bound). Concurrency stays truthful: garbage
+ * hidden fields yield an undecodable envelope, which keeps the enhanced
+ * client's existing no-op behavior while full navigation still presents
+ * every anchored issue.
+ */
+function rejectedFormWorkspace(
+  submitted: StudioPreviewInput,
+  concurrency: StudioConcurrencyEvidence,
+): StudioWorkspaceProjection {
+  return buildStudioWorkspaceProjection(
+    {
+      kind: 'unknown',
+      article: {
+        slug: submitted.metadata.slug,
+        title: submitted.metadata.title.slice(0, 200),
+        status: submitted.metadata.status,
+        updatedAt: submitted.metadata.updatedAt,
+      },
+    },
+    concurrency,
+  );
+}
+
+/**
+ * Bounded concurrency evidence for an envelope on a rejected form. Only
+ * well-formed SHA evidence passes through; a garbage hidden field stays
+ * absent rather than echoing unbounded input. When even `baseMainSha` is
+ * not a SHA the workspace cannot round-trip the client-side envelope
+ * decoder — the enhanced client then keeps its existing no-op behavior
+ * while full-navigation rendering still presents every anchored issue.
+ */
+function submittedConcurrency(form: FormData): StudioConcurrencyEvidence {
+  const sha = (name: string): string | undefined => {
+    const value = form.get(name);
+    return typeof value === 'string' && SHA_PATTERN.test(value) ? value.toLowerCase() : undefined;
+  };
+  const baseMainSha = sha('baseMainSha');
+  const draftHeadSha = sha('draftHeadSha');
+  const expectedBlobSha = sha('expectedBlobSha');
+  return {
+    baseMainSha: baseMainSha ?? '',
+    ...(draftHeadSha === undefined ? {} : { draftHeadSha }),
+    ...(expectedBlobSha === undefined ? {} : { expectedBlobSha }),
+  };
+}
+
+function invalidEditorInputIssues(decodeIssues: string[], slug: string): StudioCompileIssue[] {
+  const anchored = buildEditorInputIssues(decodeIssues, slug);
+  return anchored.length > 0 ? anchored : [invalidEditorInputIssue(slug)];
 }
 
 function invalidFormSlug(form: FormData, expectedSlug?: string): string {
@@ -492,6 +592,10 @@ function invalidFormSlug(form: FormData, expectedSlug?: string): string {
   );
 }
 
+/**
+ * Last-resort only (#110): shown when a decode failure names no field the
+ * editor can anchor (hidden concurrency evidence, tampered envelopes).
+ */
 function invalidEditorInputIssue(slug: string): {
   code: string;
   message: string;
