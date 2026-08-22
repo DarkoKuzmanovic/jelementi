@@ -871,8 +871,16 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
   stringIssue(input.title, `${path}.title`, issues, { max: EDITOR_INPUT_LIMITS.titleMax });
   const slug = slugValue(input.slug, `${path}.slug`, issues);
   stringIssue(input.excerpt, `${path}.excerpt`, issues, { max: EDITOR_INPUT_LIMITS.excerptMax });
-  const status = input.status;
-  if (
+  // #111: lifecycle status is presentation-only in the editor form, so the
+  // form channel may omit it entirely. Absent input decodes as the
+  // new-article default; the server save/replace/publish boundaries then
+  // override it with the GitHub-derived stored status
+  // (`resolveStoredArticleStatus`). A present but malformed status is still
+  // rejected — only absence is neutral, never tampered values.
+  let status: unknown = input.status;
+  if (status === undefined) {
+    status = 'draft';
+  } else if (
     typeof status !== 'string' ||
     !(STUDIO_ARTICLE_STATUSES as readonly string[]).includes(status)
   ) {

@@ -57,6 +57,18 @@ describe('studioEditorCandidateEquals', () => {
     expect(studioEditorCandidateEquals(first, sameValuesDifferentPropertyOrder)).toBe(true);
   });
 
+  it('ignores lifecycle status differences (#111): status is server-derived, never an unsaved operator change', () => {
+    expect(
+      studioEditorCandidateEquals(first, {
+        ...sameValuesDifferentPropertyOrder,
+        metadata: {
+          ...sameValuesDifferentPropertyOrder.metadata,
+          status: 'archived',
+        },
+      }),
+    ).toBe(true);
+  });
+
   it('detects changes across optional audio and reference fields', () => {
     const reference = sameValuesDifferentPropertyOrder.metadata.references[0];
     if (reference === undefined) throw new Error('reference fixture missing');

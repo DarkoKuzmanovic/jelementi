@@ -117,14 +117,22 @@
             Lowercase letters, numbers, and hyphens.
           </span>
         </div>
-        <label>
-          Status
-          <select id="studio-field-status" name="status" value={metadata.status}>
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-            <option value="archived">Archived</option>
-          </select>
-        </label>
+        <div>
+          <label>
+            Status
+            <output id="studio-field-status" data-studio-status={metadata.status}>
+              {metadata.status === 'published'
+                ? 'Published'
+                : metadata.status === 'archived'
+                  ? 'Archived'
+                  : 'Draft'}
+            </output>
+          </label>
+          <!-- Outside the label so the control's accessible name stays "Status". -->
+          <span id="studio-field-status-help" class="studio-editor__field-hint">
+            Change publishing state via Publish / Unpublish in the publication panel.
+          </span>
+        </div>
         <label class="studio-editor__field-wide">
           Excerpt
           <textarea
@@ -534,7 +542,7 @@
   }
 
   .studio-editor input,
-  .studio-editor select,
+  .studio-editor output,
   .studio-editor textarea {
     box-sizing: border-box;
     width: 100%;
@@ -545,6 +553,12 @@
     border-radius: var(--studio-radius-control);
     padding: var(--studio-space-2);
     font: inherit;
+  }
+
+  /* Lifecycle status is presented, never edited here (#111): the muted
+     value styling signals read-only alongside the publication-panel hint. */
+  .studio-editor output {
+    color: var(--studio-text-muted);
   }
 
   .studio-editor textarea[name='body'] {

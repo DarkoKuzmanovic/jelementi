@@ -3,6 +3,7 @@ import {
   STUDIO_ACCEPTANCE_IDENTITY_HEADER,
   STUDIO_ACCEPTANCE_IDENTITY_TOKEN,
 } from '../../src/lib/server/studio/request-guard.server';
+import { STUDIO_ACCEPTANCE_UNDATED_SLUG } from '../../src/lib/server/studio/acceptance-bootstrap.server';
 import { expectFirstSaveLanded, waitForStudioHydration } from './helpers';
 
 /**
@@ -39,12 +40,7 @@ function slugSuffix(testInfo: TestInfo): string {
 }
 
 /** Creates and saves a fresh, valid article through the real new-article form. */
-async function createSavedArticle(
-  page: Page,
-  slug: string,
-  testInfo: TestInfo,
-  options: { publishable: boolean },
-): Promise<void> {
+async function createSavedArticle(page: Page, slug: string, testInfo: TestInfo): Promise<void> {
   await page.goto('/studio/articles/new');
   await waitForStudioHydration(page, testInfo);
   await page.getByRole('textbox', { name: 'Title', exact: true }).fill(`Recovery ${slug}`);
@@ -57,10 +53,8 @@ async function createSavedArticle(
     .fill('A deterministic recovery-journey body paragraph.');
   await page.getByText('More metadata', { exact: false }).click();
   await page.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Recovery cover.');
-  if (options.publishable) {
-    await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('published');
-    await page.getByRole('textbox', { name: 'Published date', exact: true }).fill('2026-08-18');
-  }
+  // #111: lifecycle status is read-only in the form (new articles are Draft),
+  // so nothing here selects a publishing state.
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expectFirstSaveLanded(page, slug, testInfo);
 }
@@ -108,41 +102,19 @@ test.describe('Validation summary', () => {
   test('a metadata issue link reveals and focuses its control inside the closed disclosure', async ({
     page,
   }, testInfo) => {
-    const slug = `recovery-nested-${slugSuffix(testInfo)}`;
-    // A published article saved without a published date: Save never blocks
-    // on validity, and the resulting issue targets the Published date
-    // control, which lives inside the initially closed "More metadata"
-    // disclosure.
-    await page.goto('/studio/articles/new');
-    await waitForStudioHydration(page, testInfo);
-    await page.getByRole('textbox', { name: 'Title', exact: true }).fill(`Recovery ${slug}`);
-    await page.getByRole('textbox', { name: 'Slug', exact: true }).fill(slug);
-    await page
-      .getByRole('textbox', { name: 'Excerpt', exact: true })
-      .fill('A nested-control validation-targeting article.');
-    await page.getByRole('textbox', { name: 'Body', exact: true }).fill('A fine body paragraph.');
-    await page.getByText('More metadata', { exact: false }).click();
-    await page.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Recovery cover.');
-    await page.getByRole('combobox', { name: 'Status', exact: true }).selectOption('published');
-    await page.getByRole('button', { name: 'Save draft' }).click();
+    // #111: lifecycle Status is read-only in the form, so this journey can no
+    // longer create a published-without-date draft through it. The committed
+    // invalid draft is a deterministic acceptance fixture instead; the
+    // verified behavior is unchanged — a plain load of that draft targets the
+    // Published date control, which lives inside the closed disclosure.
+    await page.goto(`/studio/articles/${STUDIO_ACCEPTANCE_UNDATED_SLUG}`);
 
-    if (testInfo.project.name === 'studio-no-js') {
-      await expect(page.getByRole('heading', { name: 'Saved — needs fixes' })).toBeVisible();
-    } else {
-      await expect(page).toHaveURL(new RegExp(`/studio/articles/${slug}$`));
-      await expect(page.getByText('Saved — needs fixes', { exact: true }).first()).toBeVisible();
-    }
-
-    // The publication center's validation summary lives on the article
-    // route; the committed draft is invalid, so a plain load targets the
-    // Published date control.
-    await page.goto(`/studio/articles/${slug}`);
     await expect(page.getByRole('heading', { name: 'Validation issues' })).toBeVisible();
     const link = page.getByRole('link', { name: 'Go to Published date' }).first();
     await expect(link).toHaveAttribute('href', '#studio-field-publishedAt');
 
     // The focus enhancement must work from the closed state — close the
-    // disclosure again if the creation flow left it open after hydration.
+    // disclosure if this plain load left it open after hydration.
     const disclosure = page.locator('details.studio-editor__metadata');
     if (await disclosure.evaluate((node) => (node as HTMLDetailsElement).open)) {
       await page.getByText('More metadata', { exact: false }).click();
@@ -180,7 +152,7 @@ test.describe('Recovery presentation', () => {
     page,
   }, testInfo) => {
     const slug = `recovery-journey-${slugSuffix(testInfo)}`;
-    await createSavedArticle(page, slug, testInfo, { publishable: false });
+    await createSavedArticle(page, slug, testInfo);
     await page.goto(`/studio/articles/${slug}`);
 
     // Another session moves `main` before this Save lands.
@@ -234,7 +206,7 @@ test.describe('Recovery presentation', () => {
     page,
   }, testInfo) => {
     const slug = `recovery-offline-${slugSuffix(testInfo)}`;
-    await createSavedArticle(page, slug, testInfo, { publishable: false });
+    await createSavedArticle(page, slug, testInfo);
     await page.goto(`/studio/articles/${slug}`);
 
     // GitHub is unreachable for exactly the next save attempt.
@@ -260,7 +232,7 @@ test.describe('Recovery presentation', () => {
     page,
   }, testInfo) => {
     const slug = `recovery-partial-${slugSuffix(testInfo)}`;
-    await createSavedArticle(page, slug, testInfo, { publishable: false });
+    await createSavedArticle(page, slug, testInfo);
     await page.goto(`/studio/articles/${slug}`);
 
     // Another session moves `main`, so this Save conflicts with an offer.
@@ -319,7 +291,7 @@ test.describe('Recovery presentation', () => {
     page,
   }, testInfo) => {
     const slug = `recovery-publish-${slugSuffix(testInfo)}`;
-    await createSavedArticle(page, slug, testInfo, { publishable: true });
+    await createSavedArticle(page, slug, testInfo);
     await page.goto(`/studio/articles/${slug}`);
     await expect(page.getByText('Ready to publish', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Publish saved version' })).toBeEnabled();

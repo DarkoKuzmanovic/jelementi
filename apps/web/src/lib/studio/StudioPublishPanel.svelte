@@ -193,7 +193,13 @@
   {:else if publish?.kind === 'publish_failed'}
     <section aria-labelledby="publish-failed-heading">
       <h4 id="publish-failed-heading">Publish failed</h4>
-      {#if publish.reason === 'topology'}
+      {#if publish.reason === 'transform'}
+        <p>
+          Publish could not derive the published form of this draft: its frontmatter status line
+          could not be rewritten unambiguously. GitHub was not contacted and nothing was written.
+          Inspect the committed draft, then save a corrected version before publishing again.
+        </p>
+      {:else if publish.reason === 'topology'}
         <p>
           This article's Draft PR is not in the state Studio expects. Check
           <code>studio/article/{status.article.slug}</code> on GitHub directly before retrying.

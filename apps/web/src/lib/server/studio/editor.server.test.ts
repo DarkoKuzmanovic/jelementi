@@ -9,6 +9,7 @@ import {
   loadNewStudioEditor,
   loadStudioEditor,
   previewStudioArticle,
+  resolveStoredArticleStatus,
   saveStudioDraft,
   verifyStudioPublishCandidate,
 } from './editor.server';
@@ -353,6 +354,81 @@ describe('isStudioSlugEditable', () => {
     expect(
       isStudioSlugEditable({ baseMainSha: 'a'.repeat(40), expectedBlobSha: 'c'.repeat(64) }),
     ).toBe(false);
+  });
+});
+
+describe('resolveStoredArticleStatus (#111)', () => {
+  const publishedMetadata: StudioMetadata = {
+    ...metadata,
+    status: 'published',
+    publishedAt: '2026-08-01',
+  };
+  const canonicalSource = serializeArticleSource({
+    frontmatter: publishedMetadata,
+    body: 'Canonical body.',
+  });
+
+  it('prefers the committed draft branch status over the canonical main status', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    adapter.seedFile(
+      'main',
+      `content/articles/${metadata.slug}.md`,
+      canonicalSource,
+      '1'.repeat(64),
+    );
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    const saved = await saveStudioDraft(
+      adapter,
+      metadata.slug,
+      {
+        metadata: { ...metadata, references: metadata.references },
+        body: 'Draft body.',
+        concurrency: { baseMainSha: main.value.sha },
+      },
+      { mediaBaseUrl: 'https://media.jelementi.quz.ma/' },
+    );
+    if (saved.kind !== 'saved' || saved.concurrency.draftHeadSha === undefined) {
+      throw new Error(`save failed: ${saved.kind}`);
+    }
+
+    // Canonical main says `published`; the committed draft says `draft`.
+    // The editor loads (and therefore saves from) the draft state.
+    await expect(resolveStoredArticleStatus(adapter, metadata.slug)).resolves.toBe('draft');
+  });
+
+  it('falls back to the canonical main status when the branch predates its file', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    adapter.seedFile(
+      'main',
+      `content/articles/${metadata.slug}.md`,
+      canonicalSource,
+      '2'.repeat(64),
+    );
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    // The recoverable "branch created, file commit never landed" topology.
+    adapter.seedBranch(`studio/article/${metadata.slug}`, main.value.sha);
+
+    await expect(resolveStoredArticleStatus(adapter, metadata.slug)).resolves.toBe('published');
+  });
+
+  it('reads the raw frontmatter status of an intentionally invalid committed source', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    adapter.seedFile(
+      'main',
+      `content/articles/${metadata.slug}.md`,
+      `---\ntitle: Published too soon\nslug: ${metadata.slug}\nstatus: archived\n---\n# Unsupported body`,
+      '3'.repeat(64),
+    );
+
+    await expect(resolveStoredArticleStatus(adapter, metadata.slug)).resolves.toBe('archived');
+  });
+
+  it('defaults to draft when neither a draft branch nor a canonical file exists', async () => {
+    const adapter = new FakeGithubAdapter(config);
+
+    await expect(resolveStoredArticleStatus(adapter, 'brand-new-article')).resolves.toBe('draft');
   });
 });
 

@@ -12,7 +12,9 @@ export function studioEditorCandidateEquals(
     leftMetadata.title === rightMetadata.title &&
     leftMetadata.slug === rightMetadata.slug &&
     leftMetadata.excerpt === rightMetadata.excerpt &&
-    leftMetadata.status === rightMetadata.status &&
+    // Lifecycle status is deliberately excluded (#111): it is
+    // presentation-only in the editor and server-derived on every write,
+    // so it can never constitute an unsaved operator change.
     leftMetadata.publishedAt === rightMetadata.publishedAt &&
     leftMetadata.updatedAt === rightMetadata.updatedAt &&
     leftMetadata.category === rightMetadata.category &&

@@ -17,6 +17,7 @@ import type {
 import { verifyStudioDraftReplacementEligibility } from './draft-replacement.server';
 import type { StudioDraftReplacementOffer } from './draft-replacement.server';
 import type { GithubReadAdapter, GithubSaveAdapter } from './github-adapter';
+import type { StudioArticleStatus } from '../../studio/contracts';
 
 const MAX_EDITOR_BODY_DISPLAY = 2_000_000;
 const MAX_EDITOR_REFERENCES_DISPLAY = 100;
@@ -173,6 +174,7 @@ function rawStudioForm(form: FormData): {
 } {
   const audioSrc = formText(form, 'audioSrc').trim();
   const duration = formText(form, 'audioDurationSeconds').trim();
+  const rawStatus = formText(form, 'status');
   const referenceTitles = formValues(form, 'referenceTitle');
   const referenceUrls = formValues(form, 'referenceUrl');
   const referencePublishers = formValues(form, 'referencePublisher');
@@ -206,7 +208,12 @@ function rawStudioForm(form: FormData): {
         ? {}
         : { publishedAt: formText(form, 'publishedAt') }),
       updatedAt: formText(form, 'updatedAt'),
-      status: formText(form, 'status'),
+      // #111: the editor form no longer carries a lifecycle status control.
+      // An absent field stays absent (the decoder applies its default and
+      // the save path derives the stored status from GitHub); a non-empty
+      // submitted value is still decoded — and then overridden — so tampered
+      // values are visible to the same bounded pipeline as any other field.
+      ...(rawStatus === '' ? {} : { status: rawStatus }),
       category: formText(form, 'category'),
       tags: formText(form, 'tags')
         .split(',')
@@ -315,6 +322,53 @@ export async function verifyStudioPublishCandidate(
 /** A saved branch head or blob is the immutable-slug boundary. */
 export function isStudioSlugEditable(evidence: StudioConcurrencyEvidence): boolean {
   return evidence.draftHeadSha === undefined && evidence.expectedBlobSha === undefined;
+}
+
+/**
+ * #111: stored frontmatter status is lifecycle state, never form input.
+ * Derives it with the same precedence the editor loads with — the committed
+ * draft branch file first, then the canonical file on `main`, then the
+ * new-article default — so Save, draft replacement, and Publish candidate
+ * verification can normalize away any client-submitted `status` value.
+ */
+export async function resolveStoredArticleStatus(
+  adapter: GithubReadAdapter,
+  slug: string,
+): Promise<StudioArticleStatus> {
+  const path = `content/articles/${slug}.md`;
+  const branch = await adapter.getBranch(`studio/article/${slug}`);
+  if (branch.ok) {
+    const draftFile = await adapter.getFileContent(branch.value.sha, path);
+    if (draftFile.ok) return committedStatus(draftFile.value.content, path);
+  }
+  const main = await adapter.getMainRef();
+  if (main.ok) {
+    const canonicalFile = await adapter.getFileContent(main.value.sha, path);
+    if (canonicalFile.ok) return committedStatus(canonicalFile.value.content, path);
+  }
+  return 'draft';
+}
+
+/**
+ * Tolerant status read for committed sources: an intentionally invalid draft
+ * (Save never blocks on validity) still carries a trustworthy raw frontmatter
+ * status, mirroring how `loadStudioEditor` recovers it for display.
+ */
+function committedStatus(source: string, sourcePath: string): StudioArticleStatus {
+  try {
+    return parseArticleSource(source, sourcePath).frontmatter.status;
+  } catch {
+    // Fall through to the tolerant draft parse below.
+  }
+  try {
+    const status = (
+      parseArticleSourceDraft(source, sourcePath).frontmatter as unknown as Record<string, unknown>
+    ).status;
+    if (status === 'draft' || status === 'published' || status === 'archived') return status;
+  } catch {
+    // An unparsable source has no trustworthy status at all.
+  }
+  return 'draft';
 }
 
 /**

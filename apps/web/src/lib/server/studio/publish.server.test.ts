@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { serializeArticleSource } from '@jelementi/content-compiler';
 import type { StudioMetadata } from '../../studio/contracts';
 import { FakeGithubAdapter } from './github-adapter.fake';
@@ -244,14 +244,131 @@ describe('publishStudioDraft', () => {
     });
   });
 
-  it('rejects a non-published article status: nothing unpublishable proceeds past Publish (spec §Publish step 4)', async () => {
+  it('flips a committed draft to published with one byte-minimal commit bound to the post-flip head (#111 Design A)', async () => {
     const adapter = new FakeGithubAdapter(config);
-    // Valid, compilable draft — but its frontmatter status is still 'draft',
-    // so it can never appear in the published index or be proven Live.
+    // Valid, compilable draft whose frontmatter status is still 'draft' —
+    // the ordinary first-publication state now that the editor form cannot
+    // mark a new draft `published`.
     const saved = await seedSavedDraft(adapter, 'A perfectly valid body.', {
       ...metadata,
       status: 'draft',
     });
+    const approvedHeadSha = saved.concurrency.draftHeadSha as string;
+    const commitFileSpy = vi.spyOn(adapter, 'commitFile');
+    const autoMergeSpy = vi.spyOn(adapter, 'enableAutoMerge');
+
+    const result = await publishStudioDraft(adapter, slug, approvedHeadSha, previewOptions);
+
+    expect(result.kind).toBe('published');
+    if (result.kind !== 'published') return;
+    // The approval chain advanced exactly once: the status-flip commit.
+    expect(result.headSha).not.toBe(approvedHeadSha);
+    expect(commitFileSpy).toHaveBeenCalledTimes(1); // the flip (spy post-seed)
+    const flipCall = commitFileSpy.mock.calls[0]?.[0];
+    expect(flipCall).toMatchObject({
+      branch: branchName,
+      path,
+      expectedHeadSha: approvedHeadSha,
+      message: expect.stringContaining('publish'),
+    });
+    expect(flipCall?.content).toContain('status: published');
+    expect(flipCall?.content).not.toContain('status: draft');
+    // Byte-minimal: everything except the status value is untouched.
+    expect(flipCall?.content).toContain('A perfectly valid body.');
+    // Ready + auto-merge are bound to the POST-flip head (stories 23/27).
+    expect(autoMergeSpy).toHaveBeenCalledWith(saved.pullRequest.number, result.headSha);
+    const committed = await adapter.getFileContent(result.headSha, path);
+    if (!committed.ok) throw new Error('committed flipped blob missing');
+    expect(committed.value.content).toContain('status: published');
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ number: saved.pullRequest.number, draft: false, state: 'open' }),
+    ]);
+  });
+
+  it('rejects failing media BEFORE the flip commit: every rejection leaves the branch untouched (#111 Design A)', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter, 'A perfectly valid body.', {
+      ...metadata,
+      status: 'draft',
+    });
+    const approvedHeadSha = saved.concurrency.draftHeadSha as string;
+    const missingMedia: typeof globalThis.fetch = async () => new Response(null, { status: 404 });
+    const commitFileSpy = vi.spyOn(adapter, 'commitFile');
+    const autoMergeSpy = vi.spyOn(adapter, 'enableAutoMerge');
+
+    const result = await publishStudioDraft(adapter, slug, approvedHeadSha, {
+      ...previewOptions,
+      fetch: missingMedia,
+    });
+
+    expect(result).toEqual({
+      kind: 'publish_rejected',
+      compileIssues: [expect.objectContaining({ code: 'MEDIA_UNAVAILABLE', sourcePath: path })],
+    });
+    // Zero writes: the media preflight ran against the flipped candidate
+    // before any commit could land.
+    expect(commitFileSpy).not.toHaveBeenCalled();
+    expect(autoMergeSpy).not.toHaveBeenCalled();
+    const committed = await adapter.getFileContent(approvedHeadSha, path);
+    if (!committed.ok) throw new Error('committed draft missing');
+    expect(committed.value.content).toContain('status: draft');
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ number: saved.pullRequest.number, draft: true, state: 'open' }),
+    ]);
+  });
+
+  it('fails closed without writing when the published form cannot be derived unambiguously', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const headSha = 'e'.repeat(40);
+    adapter.seedBranch(branchName, headSha);
+    // No frontmatter block at all: the tolerant status read falls back to
+    // `draft`, but the byte-minimal flip has nothing unambiguous to rewrite.
+    adapter.seedFile(branchName, path, 'Just prose, no frontmatter block.', 'c'.repeat(40));
+    adapter.seedPullRequest(branchName, { draft: true, headSha });
+    const commitFileSpy = vi.spyOn(adapter, 'commitFile');
+
+    const result = await publishStudioDraft(adapter, slug, headSha, previewOptions);
+
+    expect(result).toEqual({
+      kind: 'publish_failed',
+      phase: 'status-flip',
+      reason: 'transform',
+    });
+    expect(commitFileSpy).not.toHaveBeenCalled();
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ draft: true, state: 'open' }),
+    ]);
+  });
+
+  it('skips the flip when the committed draft already says published', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter);
+    const approvedHeadSha = saved.concurrency.draftHeadSha as string;
+    const commitFileSpy = vi.spyOn(adapter, 'commitFile');
+    const autoMergeSpy = vi.spyOn(adapter, 'enableAutoMerge');
+
+    const result = await publishStudioDraft(adapter, slug, approvedHeadSha, previewOptions);
+
+    expect(result).toEqual({
+      kind: 'published',
+      pullRequest: { number: saved.pullRequest.number, url: saved.pullRequest.url },
+      headSha: approvedHeadSha,
+    });
+    expect(commitFileSpy).not.toHaveBeenCalled();
+    expect(autoMergeSpy).toHaveBeenCalledWith(saved.pullRequest.number, approvedHeadSha);
+  });
+
+  it('keeps archived drafts blocked from Publish with no mutation (#111)', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter, 'An archived body.', {
+      ...metadata,
+      status: 'archived',
+    });
+    const commitFileSpy = vi.spyOn(adapter, 'commitFile');
+    const autoMergeSpy = vi.spyOn(adapter, 'enableAutoMerge');
 
     const result = await publishStudioDraft(
       adapter,
@@ -264,10 +381,39 @@ describe('publishStudioDraft', () => {
       kind: 'publish_rejected',
       compileIssues: [expect.objectContaining({ code: 'UNPUBLISHABLE_STATUS', sourcePath: path })],
     });
-    // The PR must remain an untouched open Draft.
+    // Archived stays blocked and byte-for-byte untouched.
+    expect(commitFileSpy).not.toHaveBeenCalled();
+    expect(autoMergeSpy).not.toHaveBeenCalled();
     const pulls = await adapter.listPullRequests(branchName);
     expect(pulls.ok && pulls.value).toEqual([
       expect.objectContaining({ draft: true, state: 'open' }),
+    ]);
+  });
+
+  it('fails closed when the branch moves between validation and the status flip', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const saved = await seedSavedDraft(adapter, 'A perfectly valid body.', {
+      ...metadata,
+      status: 'draft',
+    });
+    const approvedHeadSha = saved.concurrency.draftHeadSha as string;
+    // The flip's own expected-head precondition detects the race.
+    vi.spyOn(adapter, 'commitFile').mockImplementationOnce(async () => ({
+      ok: false as const,
+      failure: { operation: 'commit-file', reason: 'conflict' } as const,
+    }));
+    const autoMergeSpy = vi.spyOn(adapter, 'enableAutoMerge');
+
+    const result = await publishStudioDraft(adapter, slug, approvedHeadSha, previewOptions);
+
+    expect(result.kind).toBe('publish_conflict');
+    if (result.kind !== 'publish_conflict') return;
+    expect(result.expectedHeadSha).toBe(approvedHeadSha);
+    // No readiness flip or merge approval ever happened.
+    expect(autoMergeSpy).not.toHaveBeenCalled();
+    const pulls = await adapter.listPullRequests(branchName);
+    expect(pulls.ok && pulls.value).toEqual([
+      expect.objectContaining({ number: saved.pullRequest.number, draft: true, state: 'open' }),
     ]);
   });
 
