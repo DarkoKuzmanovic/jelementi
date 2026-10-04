@@ -279,8 +279,11 @@ export async function verifyMediaUrl(url: string, { fetch }: VerifyMediaOptions)
   if (headLength !== undefined && headLength !== rangeTotal) {
     throw mediaError(url, 'byte-range response has an inconsistent Content-Range');
   }
-  if (isAudio && header(range.headers, 'accept-ranges')?.toLowerCase() !== 'bytes') {
-    throw mediaError(url, 'audio byte-range response requires Accept-Ranges: bytes');
+  // Cloudflare advertises ranges on HEAD but may omit the header from a valid 206.
+  const acceptRanges =
+    header(range.headers, 'accept-ranges') ?? header(head.headers, 'accept-ranges');
+  if (isAudio && acceptRanges?.toLowerCase() !== 'bytes') {
+    throw mediaError(url, 'audio requires Accept-Ranges: bytes on HEAD or the byte-range response');
   }
   await assertSingleByteRangeBody(url, range);
 }

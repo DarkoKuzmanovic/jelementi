@@ -25,6 +25,8 @@ test('smokes the complete canonical generated Reader inventory independently of 
 }) => {
   const expectedLead = expectedHome[0];
   if (expectedLead === undefined) throw new Error('Canonical generated index is empty.');
+  const richArticle = expectedHome.find((entry) => entry.slug === 'tristan-da-cunha');
+  if (richArticle === undefined) throw new Error('Canonical rich article is missing.');
 
   await page.goto('/');
   const homeLinks = page.locator('.home-catalog a[href^="/articles/"]');
@@ -58,13 +60,17 @@ test('smokes the complete canonical generated Reader inventory independently of 
 
   await page.goto('/categories/history');
   await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeVisible();
-  await expect(page.getByRole('link', { name: expectedLead.title })).not.toHaveCount(0);
+  await expect(page.getByRole('link', { name: richArticle.title })).not.toHaveCount(0);
 
   await page.goto(`/categories/${expectedLead.categorySlug}`);
   await expect(page.getByRole('link', { name: expectedLead.title })).toBeVisible();
 
   await page.goto(`/articles/${expectedLead.slug}`);
   await expect(page.getByRole('heading', { level: 1, name: expectedLead.title })).toBeVisible();
+
+  // The known rich article owns these content-specific assertions, not the newest article.
+  await page.goto(`/articles/${richArticle.slug}`);
+  await expect(page.getByRole('heading', { level: 1, name: richArticle.title })).toBeVisible();
   const opening = page.locator('.article-opening');
   await expect(opening.getByText('By Jelementi')).toBeVisible();
   await expect(opening.getByText('26 July 2026')).toBeVisible();
