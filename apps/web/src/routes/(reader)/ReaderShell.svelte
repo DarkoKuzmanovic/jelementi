@@ -35,6 +35,7 @@
       <a href="/categories">Categories</a>
       <a href="/search">Search</a>
       <a href="/about">About</a>
+      <a href="/podcast.xml">Podcast</a>
     </nav>
   </div>
 </footer>

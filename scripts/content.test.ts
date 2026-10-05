@@ -60,6 +60,31 @@ async function writeArticle(root: string, filename: string, markdown: string): P
   await writeFile(join(root, 'content/articles', filename), markdown);
 }
 
+function articleWithAudio({ slug }: { slug: string }): string {
+  return `---
+title: ${slug}
+slug: ${slug}
+excerpt: ${slug} excerpt.
+publishedAt: '2026-07-26'
+updatedAt: '2026-07-26'
+status: published
+category: History
+tags: [islands]
+author: Jelementi
+cover:
+  src: media/articles/${slug}/cover.webp
+  alt: ${slug} cover
+audio:
+  src: media/articles/${slug}/audio.mp3
+references:
+  - title: Source
+    url: https://example.org/source
+---
+
+A valid article body.
+`;
+}
+
 afterEach(async () => {
   await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -184,6 +209,157 @@ describe('content batch validation', () => {
       expect(await readFile(join(root, 'generated/articles/one.json'), 'utf8')).toContain(
         '"slug": "one"',
       );
+    });
+  });
+});
+
+describe('podcast enclosure lengths', () => {
+  interface StubHead {
+    status: number;
+    headers: Headers;
+    url?: string;
+  }
+
+  function headResponse(
+    contentLength: string | null,
+    options: { status?: number; contentType?: string; url?: string } = {},
+  ): StubHead {
+    const headers = new Headers();
+    if (contentLength !== null) headers.set('content-length', contentLength);
+    headers.set('content-type', options.contentType ?? 'audio/mpeg');
+    return { status: options.status ?? 200, headers, url: options.url };
+  }
+
+  function stubFetchAudioHead(
+    response: StubHead | Error,
+    seen: string[] = [],
+  ): (url: string, options: { method: 'HEAD'; redirect: 'manual' }) => Promise<StubHead> {
+    return async (url) => {
+      seen.push(url);
+      if (response instanceof Error) throw response;
+      return response;
+    };
+  }
+
+  it('keeps validateContent offline: published audio validates without a manifest or network', async () => {
+    const root = await makeRoot();
+    await writeArticle(root, 'heard.md', articleWithAudio({ slug: 'heard' }));
+
+    await expect(validateContent({ rootDir: root, mediaBaseUrl })).resolves.toMatchObject({
+      published: [{ compiled: { document: { slug: 'heard' } } }],
+    });
+    await expect(readFile(join(root, 'generated/index.json'), 'utf8')).rejects.toThrow();
+  });
+
+  it('bounds real audio HEAD requests with a timeout signal', async () => {
+    const root = await makeRoot();
+    await writeArticle(root, 'heard.md', articleWithAudio({ slug: 'heard' }));
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(null, {
+        status: 200,
+        headers: { 'content-type': 'audio/mpeg', 'content-length': '12345' },
+      }),
+    );
+    try {
+      await buildContent({ rootDir: root, mediaBaseUrl });
+      expect(fetchSpy.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('resolves lengths over injected HEAD keyed by the exact compiled audio URL', async () => {
+    const root = await makeRoot();
+    const nonrootBase = 'https://media.example.org/subpath/';
+    await writeArticle(root, 'heard.md', articleWithAudio({ slug: 'heard' }));
+    const seen: string[] = [];
+    const audioUrl = 'https://media.example.org/subpath/media/articles/heard/audio.mp3';
+
+    await buildContent({
+      rootDir: root,
+      mediaBaseUrl: nonrootBase,
+      fetchAudioHead: stubFetchAudioHead(headResponse('12345'), seen),
+    });
+
+    expect(seen).toEqual([audioUrl]);
+    expect(await readFile(join(root, 'generated/audio-byte-lengths.json'), 'utf8')).toBe(
+      `${JSON.stringify({ [audioUrl]: 12345 }, null, 2)}\n`,
+    );
+  });
+
+  it.each([
+    ['HTTP error', headResponse('12345', { status: 404 })],
+    ['redirect', headResponse('12345', { status: 301 })],
+    [
+      'cross-host response origin',
+      headResponse('12345', { url: 'https://elsewhere.example.org/audio.mp3' }),
+    ],
+    ['missing Content-Length', headResponse(null)],
+    ['zero Content-Length', headResponse('0')],
+    ['non-numeric Content-Length', headResponse('lots')],
+    ['unsafe Content-Length', headResponse('9007199254740993')],
+    ['unexpected Content-Type', headResponse('12345', { contentType: 'text/html' })],
+    ['missing Content-Type', { status: 200, headers: new Headers({ 'content-length': '12345' }) }],
+    ['failed request', new Error('socket hangup')],
+  ])('rejects published audio with %s and preserves previous output', async (_label, response) => {
+    const root = await makeRoot();
+    await writeArticle(root, 'heard.md', articleWithAudio({ slug: 'heard' }));
+    await mkdir(join(root, 'generated'), { recursive: true });
+    await writeFile(join(root, 'generated/index.json'), '[sentinel]\n');
+
+    await expect(
+      buildContent({
+        rootDir: root,
+        mediaBaseUrl,
+        fetchAudioHead: stubFetchAudioHead(response as StubHead | Error),
+      }),
+    ).rejects.toThrow(/audio/i);
+    expect(await readFile(join(root, 'generated/index.json'), 'utf8')).toBe('[sentinel]\n');
+    expect(
+      (await readdir(root)).some(
+        (name) => name.includes('generated.tmp-') || name.includes('generated.backup-'),
+      ),
+    ).toBe(false);
+  });
+
+  it('performs no HEAD lookup for drafts or articles without audio', async () => {
+    const root = await makeRoot();
+    await writeArticle(root, 'published.md', article({ slug: 'published' }));
+    await writeArticle(
+      root,
+      'draft.md',
+      articleWithAudio({ slug: 'draft' }).replace('status: published', 'status: draft'),
+    );
+    const seen: string[] = [];
+
+    await buildContent({
+      rootDir: root,
+      mediaBaseUrl,
+      fetchAudioHead: stubFetchAudioHead(headResponse('1'), seen),
+    });
+
+    expect(seen).toEqual([]);
+    expect(await readFile(join(root, 'generated/audio-byte-lengths.json'), 'utf8')).toBe('{}\n');
+  });
+
+  it('sorts the generated manifest by audio URL deterministically', async () => {
+    const root = await makeRoot();
+    await writeArticle(root, 'b-side.md', articleWithAudio({ slug: 'b-side' }));
+    await writeArticle(root, 'a-side.md', articleWithAudio({ slug: 'a-side' }));
+
+    await buildContent({
+      rootDir: root,
+      mediaBaseUrl,
+      fetchAudioHead: async (url: string) => headResponse(url.includes('a-side') ? '2' : '1'),
+    });
+
+    const manifest = JSON.parse(
+      await readFile(join(root, 'generated/audio-byte-lengths.json'), 'utf8'),
+    ) as Record<string, number>;
+    expect(Object.keys(manifest)).toEqual([...Object.keys(manifest)].sort());
+    expect(manifest).toEqual({
+      'http://localhost:5173/media/articles/a-side/audio.mp3': 2,
+      'http://localhost:5173/media/articles/b-side/audio.mp3': 1,
     });
   });
 });

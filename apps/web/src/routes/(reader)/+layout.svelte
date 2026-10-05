@@ -4,6 +4,10 @@
   let { children } = $props();
 </script>
 
+<svelte:head>
+  <link rel="alternate" type="application/rss+xml" title="Jelementi podcast" href="/podcast.xml" />
+</svelte:head>
+
 <!--
   Reader shell — persistent low-chrome chrome (#98). Every public route
   renders inside this shell: working bypass link, one main landmark,
