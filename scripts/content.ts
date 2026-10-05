@@ -141,11 +141,109 @@ export function validateCompiledBatch(compiledSources: CompiledSource[]): Conten
 }
 
 export async function validateContent(paths: ContentPaths): Promise<ContentBatch> {
+  // ponytail: read-only and offline — no output, no network. Published audio
+  // sizes resolve in buildContent only, so Studio publishing is unchanged.
   return validateCompiledBatch(await compileSources(paths));
 }
 
 function stableJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+// ponytail: generated enclosure manifest, keyed by exact compiled absolute
+// audio URL (never a relative key — a nonroot media base would mismatch).
+// content:build does one bounded HEAD per published audio URL; unit tests
+// inject fetchAudioHead so suites never touch the network.
+const audioByteLengthsFilename = 'audio-byte-lengths.json';
+
+/** Enclosure byte lengths by exact compiled audio URL; never faked, never zero. */
+export type AudioByteLengths = Record<string, number>;
+
+export interface AudioHeadResponse {
+  status: number;
+  headers: Pick<Headers, 'get'>;
+  url?: string;
+}
+
+export type AudioHeadFetch = (
+  url: string,
+  options: { method: 'HEAD'; redirect: 'manual' },
+) => Promise<AudioHeadResponse>;
+
+const audioMimeByExtension: Record<string, string> = { mp3: 'audio/mpeg', m4a: 'audio/mp4' };
+
+function defaultFetchAudioHead(
+  url: string,
+  options: { method: 'HEAD'; redirect: 'manual' },
+): Promise<AudioHeadResponse> {
+  return fetch(url, { ...options, signal: AbortSignal.timeout(15_000) });
+}
+
+function publishedAudioEntries(batch: ContentBatch): Array<{ slug: string; url: string }> {
+  const seen = new Map<string, string>();
+  for (const { compiled } of batch.published) {
+    const src = compiled.document.audio?.src;
+    if (src !== undefined && !seen.has(src)) seen.set(src, compiled.document.slug);
+  }
+  return [...seen.entries()]
+    .map(([url, slug]) => ({ slug, url }))
+    .sort((left, right) => comparePaths(left.url, right.url));
+}
+
+async function fetchAudioByteLengths(
+  entries: Array<{ slug: string; url: string }>,
+  fetchHead: AudioHeadFetch,
+): Promise<AudioByteLengths> {
+  // ponytail: HEAD status/content checks only. Immutable Cache-Control and
+  // byte-range semantics stay in media:verify (live); add here when a lookup
+  // passes but playback fails.
+  const lengths: AudioByteLengths = {};
+  for (const { slug, url } of entries) {
+    const fail = (reason: string): never => {
+      throw issue(`Published article "${slug}" audio HEAD lookup failed for ${url}: ${reason}.`);
+    };
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      fail('audio src is not a valid absolute URL');
+    }
+    const extension = parsed!.pathname.split('.').at(-1)?.toLowerCase() ?? '';
+    const expectedMime = audioMimeByExtension[extension];
+    if (expectedMime === undefined) fail(`unsupported audio extension ".${extension}"`);
+    let head: AudioHeadResponse;
+    try {
+      head = await fetchHead(url, { method: 'HEAD', redirect: 'manual' });
+    } catch (error: unknown) {
+      fail(error instanceof Error ? error.message : String(error));
+    }
+    if (head!.url !== undefined && head!.url !== '') {
+      let responseUrl: URL;
+      try {
+        responseUrl = new URL(head!.url);
+      } catch {
+        fail('response URL is invalid');
+      }
+      if (responseUrl!.origin !== parsed!.origin) {
+        fail(`cross-host redirect to ${responseUrl!.origin} is rejected`);
+      }
+    }
+    if (head!.status < 200 || head!.status >= 300) {
+      fail(`expected a 2xx status, received ${head!.status}`);
+    }
+    const receivedMime = head!.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
+    if (receivedMime !== expectedMime) {
+      fail(`expected Content-Type ${expectedMime}, received ${receivedMime ?? 'missing'}`);
+    }
+    // Strict digits: Number() would accept hex/exponent forms no edge sends.
+    const rawLength = head!.headers.get('content-length')?.trim() ?? '';
+    const length = /^\d+$/.test(rawLength) ? Number(rawLength) : NaN;
+    if (!Number.isSafeInteger(length) || length <= 0) {
+      fail(`expected a positive integer Content-Length, received ${rawLength || 'missing'}`);
+    }
+    lengths[url] = length;
+  }
+  return lengths;
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -160,6 +258,7 @@ async function pathExists(path: string): Promise<boolean> {
 
 export interface BuildContentOptions extends ContentPaths {
   renameDirectory?: (from: string, to: string) => Promise<void>;
+  fetchAudioHead?: AudioHeadFetch;
 }
 
 async function replaceGeneratedDirectory(
@@ -198,6 +297,12 @@ async function replaceGeneratedDirectory(
 
 export async function buildContent(options: BuildContentOptions): Promise<ContentBatch> {
   const batch = await validateContent(options);
+  // Bounded network before touching generated/: one HEAD per published audio
+  // URL. Failure throws here, so the last successful output is preserved.
+  const audioByteLengths = await fetchAudioByteLengths(
+    publishedAudioEntries(batch),
+    options.fetchAudioHead ?? defaultFetchAudioHead,
+  );
   const generatedDir = join(options.rootDir, 'generated');
   const temporaryDir = `${generatedDir}.tmp-${randomUUID()}`;
   try {
@@ -211,6 +316,7 @@ export async function buildContent(options: BuildContentOptions): Promise<Conten
       ),
     );
     await writeFile(join(temporaryDir, 'index.json'), stableJson(batch.index));
+    await writeFile(join(temporaryDir, audioByteLengthsFilename), stableJson(audioByteLengths));
     await replaceGeneratedDirectory(temporaryDir, generatedDir, options.renameDirectory ?? rename);
   } catch (error) {
     await rm(temporaryDir, { recursive: true, force: true });

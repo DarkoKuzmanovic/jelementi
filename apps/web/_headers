@@ -1,2 +1,5 @@
 /index.json
   X-Robots-Tag: noindex
+/podcast.xml
+  Content-Type: application/rss+xml; charset=utf-8
+  X-Robots-Tag: noindex
