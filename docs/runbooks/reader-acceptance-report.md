@@ -288,13 +288,15 @@ The following are **not silently accepted design changes**. They are documented 
 
 Authority: clean production build at this worktree with `PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/` (same origin as baseline `main@261cb6a`). Sizes are raw uncompressed UTF-8/file bytes, measured by `scripts/reader-assets.ts` via `pnpm verify:reader:assets`.
 
-**Counting rules enforced:**
+**Historical counting rules for the measurements below:**
 
 1. HTML counts each representative prerendered document once: Home, About, first generated category, first generated article, Search, static 404, and Categories.
 2. CSS counts each unique stylesheet referenced by those Reader documents once.
 3. Search JavaScript counts each unique script/module-preload asset referenced by prerendered Search once.
 4. Missing required documents/assets fail closed. Categories route is now present (8,192 ceiling locked).
 5. Generated JSON delta (`contentOnlyGrowthBytes`) is reported separately and never raises HTML/CSS/JS ceilings.
+
+**Current measurement contract:** the frozen ceilings are now evaluated against a fixed source catalog in a disposable production build, not whichever editorial article sorts first. Real catalog HTML/content sizes are reported separately, and its CSS/JavaScript ceilings remain enforced. See [Reader acceptance foundation](reader-acceptance-foundation.md#frozen-raw-asset-baselines-and-ceilings). The historical values below remain unchanged.
 
 **Measured at `0fadb3a98b87f3cf8a710bbdf2a5236a32d905d8` (current Chrome-only/callout state, via `pnpm verify:reader:assets`; baseline `54e2e8f`):**
 

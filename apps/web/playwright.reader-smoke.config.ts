@@ -21,6 +21,7 @@ export default defineConfig({
     command: `pnpm exec vite dev --config vite.reader-smoke.config.ts --host 127.0.0.1 --port ${PORT}`,
     port: PORT,
     reuseExistingServer: false,
+    stdout: 'pipe',
     timeout: 60_000,
   },
 });

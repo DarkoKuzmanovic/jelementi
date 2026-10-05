@@ -109,11 +109,11 @@ Authority: clean production build at `main@261cb6a` with `PUBLIC_MEDIA_BASE_URL=
 
 Counting rules enforced by `pnpm verify:reader:assets`:
 
-1. HTML counts each representative prerendered document once: Home, About, first generated category, first generated article, Search, static 404, and Categories when that route exists.
-2. CSS counts each unique stylesheet referenced by those Reader documents once.
-3. Search JavaScript counts each unique script or module-preload asset referenced by the prerendered Search document once.
-4. Missing required documents or linked assets fail closed. The future Categories route may be absent only until its implementation slice; its 8,192-byte ceiling is already locked.
-5. Current generated JSON totals 6,131 raw bytes. Its delta is reported as `contentOnlyGrowthBytes` separately and never increases an HTML, CSS, or JavaScript ceiling.
+1. Build the fixed catalog in `scripts/fixtures/reader-budget/` with the current compiler and normal production web build in a disposable, dependency-isolated workspace. Never replace the real catalog or deployment output. The fixture preserves the original baseline sample independently of future editorial changes.
+2. Within that fixed build, HTML counts each representative prerendered document once: Home, About, first generated category, first generated article, Search, static 404, and Categories. CSS counts each unique stylesheet referenced by those documents once; Search JavaScript counts each unique script or module-preload asset referenced by Search once. Every frozen ceiling above applies without an increase.
+3. Report the real production catalog's HTML and generated JSON sizes separately so editorial growth is visible rather than mistaken for implementation growth. Continue enforcing the frozen CSS and Search JavaScript ceilings on the real production build too.
+4. Missing required documents or linked assets fail closed. Dependency-install, compile, build, or budget failures fail the command; the disposable workspace is removed on success and failure. All normal production rendering, browser, Worker, and media gates still run against the real catalog.
+5. The frozen generated JSON baseline is 6,131 raw bytes. The real catalog's delta is reported as `contentOnlyGrowthBytes`; it never raises the fixed-catalog HTML ceilings or production CSS/JavaScript ceilings.
 
 ## Commands
 

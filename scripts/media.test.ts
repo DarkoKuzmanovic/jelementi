@@ -260,6 +260,42 @@ describe('media lifecycle guards', () => {
     );
   });
 
+  it.each([
+    ['bytes', undefined, true],
+    [undefined, 'bytes', true],
+    ['none', 'bytes', true],
+    [undefined, undefined, false],
+    ['bytes', 'none', false],
+  ] as const)(
+    'checks audio ranges with HEAD Accept-Ranges %s and range Accept-Ranges %s',
+    async (headAcceptRanges, rangeAcceptRanges, valid) => {
+      const audioUrl = `${mediaBaseUrl}articles/tristan-da-cunha/audio-v1.mp3`;
+      const fetch: MediaFetch = async (_url, init) =>
+        init.method === 'HEAD'
+          ? response(200, {
+              'cache-control': 'public, max-age=31536000, immutable',
+              'content-type': 'audio/mpeg',
+              'content-length': '100',
+              ...(headAcceptRanges === undefined ? {} : { 'accept-ranges': headAcceptRanges }),
+            })
+          : response(
+              206,
+              {
+                'content-range': 'bytes 0-0/100',
+                ...(rangeAcceptRanges === undefined ? {} : { 'accept-ranges': rangeAcceptRanges }),
+              },
+              undefined,
+              new Response(Uint8Array.of(0)).body,
+            );
+      const verification = verifyMediaUrl(audioUrl, { fetch });
+      if (valid) {
+        await expect(verification).resolves.toBeUndefined();
+      } else {
+        await expect(verification).rejects.toThrow('Accept-Ranges: bytes');
+      }
+    },
+  );
+
   it('rejects Cache-Control lookalikes and conflicting directives', async () => {
     const invalidPolicies = [
       'notpublic, max-age=31536000, immutable',

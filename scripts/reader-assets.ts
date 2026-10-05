@@ -204,7 +204,7 @@ function outputPathToRoute(path: string): string {
     : `/${outputPath.replace(/\/index\.html$/, '').replace(/\.html$/, '')}`;
 }
 
-async function loadProductionInput(root: string): Promise<ReaderAssetInput> {
+export async function loadProductionInput(root: string): Promise<ReaderAssetInput> {
   const outputRoot = join(root, '.svelte-kit/cloudflare');
   const rawOutput = await readTree(outputRoot, () => true);
   const pages: Record<string, string> = {};
@@ -224,6 +224,9 @@ async function loadProductionInput(root: string): Promise<ReaderAssetInput> {
     slug?: unknown;
     categorySlug?: unknown;
   }>;
+  // ponytail: first index entry owns the representative sample; the fixed
+  // benchmark catalog deterministically owns that order, so live reporting
+  // exposes catalog growth instead of hiding behind a pinned slug.
   const first = index[0];
   if (typeof first?.slug !== 'string' || typeof first.categorySlug !== 'string') {
     throw new Error('Generated index has no representative published article.');

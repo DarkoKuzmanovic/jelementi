@@ -71,7 +71,30 @@ describe('media CLI routing', () => {
 
   it('routes read-only verification through the injected HTTP boundary and rejects malformed arguments', async () => {
     const messages: string[] = [];
-    const fetch: MediaFetch = async () => response(200, imageHeaders());
+    const fetch: MediaFetch = async (url, options) => {
+      const contentTypes: Record<string, string> = {
+        svg: 'image/svg+xml',
+        webp: 'image/webp',
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        mp3: 'audio/mpeg',
+        m4a: 'audio/mp4',
+      };
+      const contentType = contentTypes[new URL(url).pathname.split('.').at(-1) ?? ''];
+      if (contentType === undefined) throw new Error(`Unsupported fixture media URL: ${url}`);
+      if (options.method === 'HEAD') {
+        return response(200, {
+          ...imageHeaders(),
+          'content-type': contentType,
+          'accept-ranges': 'bytes',
+        });
+      }
+      return new Response(Uint8Array.of(0), {
+        status: 206,
+        headers: { 'content-range': 'bytes 0-0/128', 'content-type': contentType },
+      });
+    };
 
     await expect(
       runMediaCli(['verify'], {
