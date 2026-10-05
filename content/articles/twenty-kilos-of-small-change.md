@@ -16,8 +16,8 @@ cover:
   src: articles/twenty-kilos-of-small-change/cover-v1.png
   alt: Lenka holds up a small paper note beside a huge stamped copper plate coin on the counter of a seventeenth-century bank.
 audio:
-  src: articles/twenty-kilos-of-small-change/narration-heart-v1.mp3
-  durationSeconds: 1083
+  src: articles/twenty-kilos-of-small-change/narration-midnight-storyteller-2-v1.mp3
+  durationSeconds: 1136
 references:
   - title: "[1] Economy Museum (Ekonomiska museet), MONEY!, display 7A: The world's largest coin"
     url: https://pengar.ekonomiskamuseet.se/objects.php?e=no&l=en&showcase=d1cb7528-6fbb-4558-9599-1670cafabadc
