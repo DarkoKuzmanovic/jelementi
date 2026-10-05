@@ -69,6 +69,26 @@ function assertHtml(response: WorkerHttpResponse, path: string): void {
   assert(noindexPattern.test(response.body), `Missing global noindex meta tag on ${path}.`);
 }
 
+export function assertIndexJson(response: WorkerHttpResponse): void {
+  assert(
+    response.status === 200,
+    `Expected HTTP 200 for /index.json, received ${response.status}.`,
+  );
+  assert(
+    response.headers.get('content-type')?.includes('application/json') === true,
+    'Expected a JSON content type for /index.json.',
+  );
+  assert(
+    response.headers.get('x-robots-tag') === 'noindex',
+    'Missing X-Robots-Tag: noindex on /index.json edge response.',
+  );
+  try {
+    JSON.parse(response.body);
+  } catch {
+    throw new Error('Invalid JSON body for /index.json.');
+  }
+}
+
 function assertNoHydration(response: WorkerHttpResponse, path: string): void {
   assert(!clientEntryPattern.test(response.body), `Unexpected hydration client entry on ${path}.`);
 }
@@ -80,12 +100,16 @@ function assertHydration(response: WorkerHttpResponse, path: string): void {
   );
 }
 
-async function verifyFallbackInBrowser(baseUrl: string): Promise<void> {
+export async function verifyFallbackInBrowser(baseUrl: string): Promise<void> {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
     const response = await page.goto(`${baseUrl}/not-found`);
     assert(response?.status() === 404, 'Browser fallback navigation must retain HTTP 404.');
+    assert(
+      page.url() === new URL('/not-found', baseUrl).href,
+      'Browser fallback must not redirect away from /not-found.',
+    );
     await page
       .getByRole('heading', { level: 1, name: 'This page is not available.' })
       .waitFor({ state: 'visible' });
@@ -332,6 +356,8 @@ export async function verifyWorker({
     const about = await request(`${baseUrl}/about`);
     assertHtml(about, '/about');
     assertNoHydration(about, '/about');
+
+    assertIndexJson(await request(`${baseUrl}/index.json`));
 
     const asset = await request(`${baseUrl}${staticAssetPath}`);
     assert(asset.status >= 200 && asset.status < 300, `Static asset failed: ${staticAssetPath}.`);

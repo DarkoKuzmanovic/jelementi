@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { type WorkerChild, type WorkerHttpResponse, verifyWorker } from './verify-worker';
+import { describe, expect, it, vi } from 'vitest';
+import { chromium } from '@playwright/test';
+import {
+  type WorkerChild,
+  type WorkerHttpResponse,
+  verifyFallbackInBrowser,
+  verifyWorker,
+} from './verify-worker';
+
+vi.mock('@playwright/test', () => ({ chromium: { launch: vi.fn() } }));
 
 const noindex = '<meta name="robots" content="noindex">';
 const bootstrap = '<script>kit.start()</script>';
@@ -80,6 +88,12 @@ function readerFetch(): {
       if (path === '/search' || path === '/search?query=tristan')
         return html(`${noindex}${bootstrap}<h1>Search</h1>`);
       if (path === '/about') return html(`${noindex}<h1>About</h1>`);
+      if (path === '/index.json')
+        return {
+          status: 200,
+          body: '[{"slug":"tristan-da-cunha"}]',
+          headers: new Headers({ 'content-type': 'application/json', 'x-robots-tag': 'noindex' }),
+        };
       if (path === '/_app/immutable/entry/start.js')
         return {
           status: 200,
@@ -123,9 +137,39 @@ describe('local Worker smoke verifier', () => {
     expect(requested).toContain('/categories');
     expect(requested).toContain('/categories/missing-worker-category');
     expect(requested).toContain('/search?query=tristan');
+    expect(requested).toContain('/index.json');
     expect(requested).toContain('/not-found');
     expect(browserBaseUrl).toBe('http://127.0.0.1:8787');
     expect(child.signals).toEqual(['SIGTERM']);
+  });
+
+  it('fails closed when the prerendered /index.json edge response loses noindex', async () => {
+    const child = createFakeChild({ exitOnTerm: true });
+    const { fetch } = readerFetch();
+    const withoutEdgeNoindex = async (url: string) => {
+      if (new URL(url).pathname === '/index.json') {
+        return {
+          status: 200,
+          body: '[]',
+          headers: new Headers({ 'content-type': 'application/json' }),
+        };
+      }
+      return fetch(url);
+    };
+
+    await expect(
+      verifyWorker({
+        rootDir: '/repo',
+        routes,
+        port: 8787,
+        timeoutMs: 100,
+        fetch: withoutEdgeNoindex,
+        spawn: () => child,
+        now: counter(10),
+        sleep: async () => undefined,
+        staticAssetPath: '/_app/immutable/entry/start.js',
+      }),
+    ).rejects.toThrow(/noindex/i);
   });
 
   it('does not demand Sources/Footnotes when the newest article is minimal (#47)', async () => {
@@ -275,6 +319,27 @@ describe('local Worker smoke verifier', () => {
 
     expect(child.signals).toEqual(['SIGTERM', 'SIGKILL']);
   });
+
+  it.each(['http://127.0.0.1:8787/', 'https://other.example/not-found'])(
+    'rejects a rendered fallback redirected to %s',
+    async (destination) => {
+      const page = {
+        goto: async () => ({ status: () => 404 }),
+        url: () => destination,
+        getByRole: () => {
+          throw new Error('Unexpected destination reached DOM checks.');
+        },
+      };
+      const browser = { newPage: async () => page, close: async () => undefined };
+      vi.mocked(chromium.launch).mockResolvedValue(
+        browser as unknown as Awaited<ReturnType<typeof chromium.launch>>,
+      );
+
+      await expect(verifyFallbackInBrowser('http://127.0.0.1:8787')).rejects.toThrow(
+        /must not redirect/,
+      );
+    },
+  );
 
   it('rejects application source that accesses the reserved R2 binding', async () => {
     const { assertNoR2MediaBinding } = await import('./verify-worker');

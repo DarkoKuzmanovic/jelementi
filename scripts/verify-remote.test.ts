@@ -90,6 +90,17 @@ function readerFetch(baseHost = 'jelementi.quz.ma'): {
           headers: new Headers({ 'content-type': 'text/html' }),
         };
       }
+      if (path === '/index.json') {
+        return {
+          status: 200,
+          body: '[{"slug":"tristan-da-cunha"}]',
+          finalUrl: url,
+          headers: new Headers({
+            'content-type': 'application/json',
+            'x-robots-tag': 'noindex',
+          }),
+        };
+      }
       if (path === assetPath) {
         return {
           status: 200,
@@ -101,7 +112,7 @@ function readerFetch(baseHost = 'jelementi.quz.ma'): {
       if (path === '/not-found') {
         return {
           status: 404,
-          body: `${noindex}${bootstrap}<h1>Page not found</h1>The page you requested is not available.`,
+          body: `${noindex}${bootstrap}`,
           finalUrl: url,
           headers: new Headers({ 'content-type': 'text/html' }),
         };
@@ -127,6 +138,7 @@ describe('remote production probe', () => {
   it('polls readiness and validates reader, hydration, media, and 404 boundaries', async () => {
     const { fetch, requested } = readerFetch();
     let mediaChecked = false;
+    let browserBaseUrl: string | undefined;
 
     await expect(
       verifyRemote({
@@ -139,6 +151,9 @@ describe('remote production probe', () => {
         verifyMedia: async () => {
           mediaChecked = true;
         },
+        browserVerify: async (baseUrl) => {
+          browserBaseUrl = baseUrl;
+        },
       }),
     ).resolves.toBeUndefined();
 
@@ -146,9 +161,54 @@ describe('remote production probe', () => {
     expect(requested).toContain('/articles/tristan-da-cunha');
     expect(requested).toContain('/categories/history');
     expect(requested).toContain('/search?query=tristan');
+    expect(requested).toContain('/index.json');
     expect(requested).toContain('/not-found');
     expect(requested).toContain(assetPath);
     expect(mediaChecked).toBe(true);
+    expect(browserBaseUrl).toBe('https://jelementi.quz.ma');
+  });
+
+  it('fails closed when rendered fallback verification fails', async () => {
+    const { fetch } = readerFetch();
+    await expect(
+      verifyRemote({
+        baseUrl: 'https://jelementi.quz.ma',
+        routes,
+        fetch,
+        sleep: async () => undefined,
+        now: counter(10),
+        timeoutMs: 100,
+        verifyMedia: async () => undefined,
+        browserVerify: async () => {
+          throw new Error('rendered Reader recovery missing');
+        },
+      }),
+    ).rejects.toThrow(/rendered Reader recovery missing/);
+  });
+
+  it('fails closed when /index.json loses its edge noindex header', async () => {
+    const { fetch } = readerFetch();
+    await expect(
+      verifyRemote({
+        baseUrl: 'https://jelementi.quz.ma',
+        routes,
+        fetch: async (url) => {
+          const response = await fetch(url);
+          if (new URL(url).pathname === '/index.json') {
+            return {
+              ...response,
+              headers: new Headers({ 'content-type': 'application/json' }),
+            };
+          }
+          return response;
+        },
+        sleep: async () => undefined,
+        now: counter(10),
+        timeoutMs: 100,
+        verifyMedia: async () => undefined,
+        browserVerify: async () => undefined,
+      }),
+    ).rejects.toThrow(/noindex/i);
   });
 
   it('does not demand Sources/Footnotes from a non-rich article page (#47)', async () => {
@@ -180,6 +240,7 @@ describe('remote production probe', () => {
         now: counter(10),
         timeoutMs: 100,
         verifyMedia: async () => undefined,
+        browserVerify: async () => undefined,
       }),
     ).resolves.toBeUndefined();
   });
@@ -207,6 +268,7 @@ describe('remote production probe', () => {
         now: counter(10),
         timeoutMs: 100,
         verifyMedia: async () => undefined,
+        browserVerify: async () => undefined,
       }),
     ).rejects.toThrow('Sources');
   });
@@ -226,6 +288,7 @@ describe('remote production probe', () => {
         now: counter(50),
         timeoutMs: 100,
         verifyMedia: async () => undefined,
+        browserVerify: async () => undefined,
       }),
     ).rejects.toThrow(/did not become ready/i);
   });
@@ -247,6 +310,7 @@ describe('remote production probe', () => {
         now: counter(50),
         timeoutMs: 100,
         verifyMedia: async () => undefined,
+        browserVerify: async () => undefined,
       }),
     ).rejects.toThrow(/unexpected origin|redirect/i);
   });
@@ -268,6 +332,7 @@ describe('remote production probe', () => {
         now: counter(10),
         timeoutMs: 100,
         verifyMedia: async () => undefined,
+        browserVerify: async () => undefined,
       }),
     ).rejects.toThrow(/noindex/i);
   });
@@ -301,6 +366,7 @@ describe('remote production probe', () => {
         now: counter(50),
         timeoutMs: 100,
         verifyMedia: async () => undefined,
+        browserVerify: async () => undefined,
       }),
     ).rejects.toThrow(/ENOTFOUND|did not become ready/i);
   });
