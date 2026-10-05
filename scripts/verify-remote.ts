@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadMediaBaseUrl, validateContent } from './content';
 import { richContentSlug } from './verify-web';
+import { assertIndexJson, verifyFallbackInBrowser } from './verify-worker';
 import { verifyPublishedMedia, type MediaFetch } from './media';
 
 const clientEntryPattern = /(?:\/_app\/immutable\/entry\/start|\bkit\.start\(\))/i;
@@ -47,6 +48,7 @@ export interface VerifyRemoteOptions {
   sleep?: (milliseconds: number) => Promise<void>;
   timeoutMs?: number;
   verifyMedia?: () => Promise<void>;
+  browserVerify?: (baseUrl: string) => Promise<void>;
 }
 
 interface GeneratedIndexEntry {
@@ -215,6 +217,7 @@ export async function verifyRemote({
   sleep = defaultSleep,
   timeoutMs = 30_000,
   verifyMedia,
+  browserVerify = verifyFallbackInBrowser,
 }: VerifyRemoteOptions): Promise<void> {
   const origin = new URL(baseUrl).origin;
   await pollForReady(request, origin, timeoutMs, now, sleep);
@@ -266,6 +269,10 @@ export async function verifyRemote({
   assertHtml(about, '/about');
   assertNoHydration(about, '/about');
 
+  const indexJson = await request(`${origin}/index.json`);
+  assertSameOrigin(origin, indexJson, '/index.json');
+  assertIndexJson(indexJson);
+
   const staticAssetPath = extractStaticAssetPath(home.body);
   const asset = await request(`${origin}${staticAssetPath}`);
   assertSameOrigin(origin, asset, staticAssetPath);
@@ -282,8 +289,8 @@ export async function verifyRemote({
     clientEntryPattern.test(missing.body),
     'Missing fallback client bootstrap on 404 fallback.',
   );
-  assert(missing.body.includes('Page not found'), 'Missing English Jelementi 404 copy.');
   assert(!missing.body.includes('http-equiv="refresh"'), '404 fallback must not redirect to /.');
+  await browserVerify(origin);
 
   if (verifyMedia !== undefined) {
     await verifyMedia();

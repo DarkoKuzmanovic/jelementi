@@ -49,7 +49,7 @@ Originally: stop until Darko explicitly approves C after accepting the protected
 
 1. Reconfirm the `main` branch setting, route target, last known-good Worker version ID, and every recorded reversal.
 2. Enable the `jelementi.quz.ma` production custom-domain route through the approved Workers Builds flow.
-3. Run the production probe against `/`, every generated article/category route, `/search`, `/about`, a static asset, and an unknown path. Require global `noindex`, normal-route no hydration, `/search` hydration, Sources and Footnotes, and an HTTP 404 with English Jelementi copy plus fallback bootstrap and no redirect.
+3. Run the production probe against `/`, `/index.json`, every generated article/category route, `/search`, `/about`, a static asset, and an unknown path. Require global `noindex`, normal-route no hydration, `/search` hydration, Sources and Footnotes, and an HTTP 404 with fallback bootstrap and no redirect. Verify English Jelementi recovery copy in the rendered browser, not the raw SPA fallback shell.
 4. Record the Worker version, commit, timestamp, probe output, and route state. Do not alter unrelated DNS, Access, tokens, or R2 settings.
 
 ## Routine deployment
@@ -67,6 +67,13 @@ Originally: stop until Darko explicitly approves C after accepting the protected
 
    Both `verify` and `Workers Builds: jelementi-web` must reach `success`.
 4. Probe production for the change actually reaching the edge. Reader surfaces are anonymous (`/`, `/index.json`, an article route); Studio is behind Access, so a Studio-only change needs an authenticated check rather than a `curl` byte-proof.
+
+   ```bash
+   PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:remote -- --base-url https://jelementi.quz.ma
+   ```
+
+   The remote probe requires Chromium from the existing Playwright dependency (`pnpm exec playwright install chromium` if absent). It checks the 404 HTTP shell and then uses the same rendered recovery check as local Worker smoke; browser failure is fatal, with no `WORKERS_CI` skip. Both probes require `/index.json` to return JSON with `X-Robots-Tag: noindex`. Preserve that static-response header in `apps/web/_headers`, which the Cloudflare adapter copies into its asset output; the prerendered route handler's header alone is insufficient.
+
 5. If `Workers Builds` fails, production is still serving the previous version. Do not retry blindly and do not reach for `deploy:web` — go to Incident rollback and establish which version is live first.
 
 This covers ordinary application changes only. Media, bindings, routes, Access, DNS, tokens, and R2 are never deployed by merging; they remain separately approved operator actions.
