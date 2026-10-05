@@ -350,6 +350,7 @@ describe('remote production probe', () => {
         verifyMedia: async () => {
           throw new Error('media contract failed');
         },
+        browserVerify: async () => undefined,
       }),
     ).rejects.toThrow(/media contract failed/);
   });
