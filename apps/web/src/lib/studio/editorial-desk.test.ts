@@ -112,7 +112,7 @@ describe('StudioEditor', () => {
     expect(body).toContain('Essentials');
     expect(body).toContain('<details');
     expect(body).toContain('More metadata');
-    expect(body).toContain('Dates, category, tags, author, media, audio, and references');
+    expect(body).toContain('Dates, category, tags, author, media, references');
     expect(body).toContain('name="body"');
     expect(body).toContain('No autosave');
     expect(body).toContain('Save draft is the only commit action');

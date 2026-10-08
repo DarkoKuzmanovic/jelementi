@@ -6,7 +6,7 @@
 
 <aside
   id="publication-center"
-  class="studio-new-publication"
+  class="studio-new-publication studio-column-panel"
   aria-labelledby="studio-publication-center-heading"
 >
   <h2 id="studio-publication-center-heading" class="studio-column-caption">Publication center</h2>
@@ -49,11 +49,9 @@
     gap: var(--studio-space-3);
   }
 
+  /* The column is the card; sections inside it are plain. */
   .studio-new-publication > section {
-    background: var(--studio-panel);
-    border: 1px solid var(--studio-border);
-    border-radius: var(--studio-radius-panel);
-    padding: var(--studio-space-4);
+    margin: 0;
   }
 
   .studio-new-publication__axes {
@@ -71,7 +69,10 @@
     font-size: var(--studio-text-compact);
   }
 
+  /* Informational callout: keeps its tinted surface, which carries meaning. */
   .studio-new-publication > .studio-new-publication__eligibility {
+    border-radius: var(--studio-radius-control);
+    padding: var(--studio-space-3);
     background: var(--studio-info-surface);
     color: var(--studio-info-text);
   }

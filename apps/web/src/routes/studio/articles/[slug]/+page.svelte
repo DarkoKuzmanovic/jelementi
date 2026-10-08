@@ -388,7 +388,11 @@
   {/snippet}
 
   {#snippet publication()}
-    <aside id="publication-center" aria-labelledby="studio-publication-center-heading">
+    <aside
+      id="publication-center"
+      class="studio-column-panel"
+      aria-labelledby="studio-publication-center-heading"
+    >
       <h2 id="studio-publication-center-heading" class="studio-column-caption">
         Publication center
       </h2>

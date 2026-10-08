@@ -140,7 +140,7 @@
   }
 </script>
 
-<section class="studio-editor" aria-labelledby="studio-editor-heading">
+<section class="studio-editor studio-column-panel" aria-labelledby="studio-editor-heading">
   <p class="studio-editor__eyebrow">
     {metadata.status === 'draft' ? 'Draft article' : 'Canonical article'}
   </p>
@@ -155,7 +155,6 @@
   >
     <section class="studio-editor__section" aria-labelledby="studio-essentials-heading">
       <h3 id="studio-essentials-heading">Essentials</h3>
-      <p>Required to understand the article.</p>
       <div class="studio-editor__field-grid">
         <label class="studio-editor__field-wide">
           Title
@@ -183,7 +182,7 @@
           </label>
           <!-- Outside the label so the control's accessible name stays "Slug". -->
           <span id="studio-field-slug-help" class="studio-editor__field-hint">
-            Lowercase letters, numbers, and hyphens.
+            Lowercase, numbers, hyphens.
           </span>
         </div>
         <div>
@@ -199,7 +198,7 @@
           </label>
           <!-- Outside the label so the control's accessible name stays "Status". -->
           <span id="studio-field-status-help" class="studio-editor__field-hint">
-            Change publishing state via Publish / Unpublish in the publication panel.
+            Set via Publish / Unpublish in the publication panel.
           </span>
         </div>
         <label class="studio-editor__field-wide">
@@ -217,7 +216,7 @@
     <details class="studio-editor__metadata">
       <summary>
         More metadata
-        <span>Dates, category, tags, author, media, audio, and references</span>
+        <span>Dates, category, tags, author, media, references</span>
       </summary>
       <div class="studio-editor__field-grid">
         <label>
@@ -624,14 +623,6 @@
 </section>
 
 <style>
-  .studio-editor {
-    min-width: 0;
-    background: var(--studio-panel);
-    border: 1px solid var(--studio-border);
-    border-radius: var(--studio-radius-panel);
-    padding: var(--studio-space-4);
-  }
-
   .studio-editor__eyebrow,
   .studio-editor p,
   .studio-editor summary span,
@@ -693,10 +684,28 @@
     line-height: var(--studio-line-height-body);
   }
 
+  /* Disclosure bands sit flush with the fields around them: a horizontal
+     inset here would indent every field inside the band away from the
+     Title/Excerpt/Body column. Asserted as geometry in
+     studio-editorial-desk.spec.ts. */
   .studio-editor__metadata {
     background: var(--studio-surface-subtle);
     border-radius: var(--studio-radius-control);
-    padding: var(--studio-space-3);
+    padding: var(--studio-space-3) 0;
+  }
+
+  /* Fieldsets group semantically only; their UA border, padding, and legend
+     inset would step every nested field further right again. */
+  .studio-editor fieldset {
+    margin: 0;
+    border: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .studio-editor legend {
+    padding: 0;
+    font-weight: 700;
   }
 
   .studio-editor__metadata summary {
@@ -713,7 +722,7 @@
   .studio-editor__dialect {
     background: var(--studio-surface-subtle);
     border-radius: var(--studio-radius-control);
-    padding: var(--studio-space-3);
+    padding: var(--studio-space-3) 0;
   }
 
   .studio-editor__dialect summary {

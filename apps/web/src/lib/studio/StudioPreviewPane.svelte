@@ -16,7 +16,7 @@
   let selectedWidth: 'wide' | 'narrow' = $state('wide');
 </script>
 
-<section class="studio-preview-pane" aria-labelledby="studio-preview-heading">
+<section class="studio-preview-pane studio-column-panel" aria-labelledby="studio-preview-heading">
   <p class="studio-preview-pane__eyebrow">Reader view</p>
   <!-- tabindex="-1": the enhanced-path completion moves focus here (#114) so
        keyboard/screen-reader users land on the result without a tab stop
@@ -88,14 +88,6 @@
 </section>
 
 <style>
-  .studio-preview-pane {
-    min-width: 0;
-    background: var(--studio-panel);
-    border: 1px solid var(--studio-border);
-    border-radius: var(--studio-radius-panel);
-    padding: var(--studio-space-4);
-  }
-
   .studio-preview-pane__eyebrow,
   .studio-preview-pane__snapshot {
     color: var(--studio-text-muted);
