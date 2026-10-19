@@ -331,7 +331,7 @@
   font-size: 0.9375rem;
 }
 
-.search__intro {
+.search .search__intro {
   margin-bottom: 2rem;
   border: 0;
   padding: 0;

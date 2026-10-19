@@ -141,6 +141,7 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('<hr');
     expect(body).toContain('Sources');
     expect(body).toContain('Quiet source');
+    expect(body).toContain('<ul role="list">');
     expect(body).toContain('Footnotes');
     expect(body).toContain('The backlink target.');
     expect(body).toContain('aria-label="Back to footnote reference 1"');

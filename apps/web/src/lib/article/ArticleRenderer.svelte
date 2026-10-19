@@ -58,7 +58,7 @@
       {#if document.references.length > 0}
         <section class="article-endmatter" aria-labelledby="sources-heading">
           <h2 class="endmatter-heading" id="sources-heading">Sources</h2>
-          <ul>
+          <ul role="list">
             {#each document.references as reference, index (index)}
               <li>
                 <a href={reference.url}>{reference.title}</a>

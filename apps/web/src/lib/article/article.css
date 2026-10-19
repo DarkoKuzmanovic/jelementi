@@ -56,6 +56,10 @@
   padding-top: 1.5rem;
   border-top: 1px solid var(--foundation-rule);
 }
+.article-endmatter ul {
+  padding: 0;
+  list-style: none;
+}
 .article-endmatter li {
   padding-block: 0.75rem;
   border-bottom: 1px solid var(--foundation-rule);
