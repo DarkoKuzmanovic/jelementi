@@ -15,6 +15,25 @@ const { mockedPage } = vi.hoisted(() => ({
 
 vi.mock('$app/state', () => ({ page: mockedPage }));
 
+import ReaderShell from '../../routes/(reader)/ReaderShell.svelte';
+import { generatedContent } from '../generated-content.server';
+import { projectCategoryDirectory } from '../category-projection';
+
+it('renders available real published topic shortcuts on desktop home before the utility links', () => {
+  mockedPage.url = new URL('https://jelementi.quz.ma/');
+  const topics = projectCategoryDirectory(generatedContent.index).map(({ name, slug }) => ({
+    name,
+    slug,
+  }));
+  const body = render(ReaderShell, { props: { children: childSnippet, topics } }).body;
+  const header = body.slice(body.indexOf('<header'), body.indexOf('</header>'));
+  for (const topic of topics) expect(header).toContain(`href="/categories/${topic.slug}"`);
+  const podcast = header.indexOf('href="/podcast.xml"');
+  expect(header.indexOf('href="/categories/science"')).toBeLessThan(podcast);
+  expect(header.indexOf('href="/about"')).toBeGreaterThan(podcast);
+  expect(header.indexOf('href="/search"')).toBeGreaterThan(podcast);
+});
+
 import ReaderLayout from '../../routes/(reader)/+layout.svelte';
 import RootError from '../../routes/+error.svelte';
 import StudioError from '../../routes/studio/+error.svelte';

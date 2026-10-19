@@ -2,7 +2,8 @@
   import { page } from '$app/state';
   import type { Snippet } from 'svelte';
 
-  let { children }: { children: Snippet } = $props();
+  let { children, topics = [] }: { children: Snippet; topics?: { name: string; slug: string }[] } =
+    $props();
 
   function isCurrent(href: string): boolean {
     if (href === '/') return page.url.pathname === '/';
@@ -10,7 +11,11 @@
   }
 </script>
 
-<div class="reader-surface" class:reader-home={page.url.pathname === '/'}>
+<div
+  class="reader-surface"
+  class:reader-home={page.url.pathname === '/'}
+  class:reader-topics={page.url.pathname === '/' && topics.length > 0}
+>
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <header class="site-header">
     <div class="site-header__inner">
@@ -18,10 +23,17 @@
       <p class="site-tagline">Curious, careful stories<br />from nearby and far away.</p>
       <nav aria-label="Primary navigation">
         <a href="/" aria-current={isCurrent('/') ? 'page' : undefined}>Home</a>
-        <a href="/categories" aria-current={isCurrent('/categories') ? 'page' : undefined}
-          >Categories</a
+        {#if page.url.pathname === '/'}
+          {#each topics as topic (topic.slug)}
+            <a class="topic-shortcut" href={`/categories/${topic.slug}`}>{topic.name}</a>
+          {/each}
+        {/if}
+        <a
+          class="topic-directory"
+          href="/categories"
+          aria-current={isCurrent('/categories') ? 'page' : undefined}>Categories</a
         >
-        <a href="/podcast.xml">Podcast</a>
+        <a class="nav-utility" href="/podcast.xml">Podcast</a>
         <a href="/about" aria-current={isCurrent('/about') ? 'page' : undefined}>About</a>
         <a href="/search" aria-current={isCurrent('/search') ? 'page' : undefined}>Search</a>
       </nav>

@@ -3,6 +3,60 @@ import { describe, expect, it } from 'vitest';
 import type { ArticleDocument } from '@jelementi/article-model';
 import ArticleAudio from './ArticleAudio.svelte';
 import ArticleRenderer from './ArticleRenderer.svelte';
+import ArticleSummary from './ArticleSummary.svelte';
+import { compileArticle } from '@jelementi/content-compiler';
+
+it('keeps Listen on audio while authored matching and suffixed headings keep distinct targets', () => {
+  const { document: compiled } = compileArticle({
+    sourcePath: 'review.md',
+    mediaBaseUrl: 'https://example.org/',
+    markdown: `---
+title: Review
+slug: review
+excerpt: Audio example.
+status: published
+publishedAt: 2026-10-19
+updatedAt: 2026-10-19
+category: Science
+tags: []
+author: Review
+cover:
+  src: cover.webp
+  alt: Cover
+audio:
+  src: audio.mp3
+references: []
+---
+## Article audio
+## Reader : audio
+## Reader : audio
+## Reader : audio-1
+## Reader : audio-3
+## Reader : audio-99
+`,
+  });
+  const body = render(ArticleRenderer, { props: { document: compiled } }).body;
+  const summary = render(ArticleSummary, {
+    props: {
+      article: {
+        ...compiled,
+        publishedAt: compiled.publishedAt!,
+        categorySlug: 'science',
+        searchText: '',
+      },
+      lead: true,
+      audioAvailable: true,
+    },
+  }).body;
+  const audioId = body.match(/<section id="([^"]+)" class="article-audio"/)?.[1];
+  expect(audioId).toBeTruthy();
+  expect(summary).toContain(`href="/articles/review#${audioId}"`);
+  for (const block of compiled.blocks) {
+    if (block.type !== 'heading') continue;
+    expect(block.id).not.toBe(audioId);
+    expect(body.match(new RegExp(`id="${block.id}"`, 'g'))).toHaveLength(1);
+  }
+});
 
 const document: ArticleDocument = {
   schemaVersion: 1,

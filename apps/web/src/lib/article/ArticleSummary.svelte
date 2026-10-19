@@ -1,16 +1,15 @@
 <script lang="ts">
+  import { articleAudioAnchor } from './audio-anchor';
   import type { ArticleIndexEntry } from '@jelementi/article-model';
   import { formatPublishedDate } from './format-date';
   let {
     article,
     lead = false,
     audioAvailable = false,
-    citationIds = [],
   }: {
     article: ArticleIndexEntry;
     lead?: boolean;
     audioAvailable?: boolean;
-    citationIds?: string[];
   } = $props();
 </script>
 
@@ -39,17 +38,14 @@
       <a href={`/articles/${article.slug}`}>{article.title}</a>
     </h2>
     <p class="article-summary__excerpt">
-      {lead
-        ? article.excerpt.replace(/\[(\d+)\]/g, (marker, id: string) =>
-            citationIds.includes(id) ? '' : marker,
-          )
-        : article.excerpt}
+      {article.excerpt}
     </p>
     {#if lead}{@render metadata()}{/if}
     {#if lead}
       <p class="article-summary__actions">
         <a href={`/articles/${article.slug}`}>Read article <span aria-hidden="true">→</span></a
-        >{#if audioAvailable}<a href={`/articles/${article.slug}#article-audio`}>Listen</a>{/if}
+        >{#if audioAvailable}<a href={`/articles/${article.slug}#${articleAudioAnchor}`}>Listen</a
+          >{/if}
       </p>
     {/if}
     <time class="article-summary__date" class:visually-hidden={!lead} datetime={article.publishedAt}

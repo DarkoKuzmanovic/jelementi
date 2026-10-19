@@ -81,7 +81,9 @@ describe('generated reader routes', () => {
       footnotes: [{ id: 'one', children: [{ type: 'text' as const, value: 'Note' }] }],
     };
     const { body } = render(ArticlePage, {
-      props: { data: { article, contentVersion: 'version', continuation: { nextOlder: null } } },
+      props: {
+        data: { topics: [], article, contentVersion: 'version', continuation: { nextOlder: null } },
+      },
     });
     expect(body).toContain('Section 1');
     expect(body).toContain('href="#note-only"');
@@ -89,11 +91,12 @@ describe('generated reader routes', () => {
   it('renders reader contents targeting authored heading IDs without nested links or repeated footnote IDs', () => {
     const article = {
       ...resolveArticle(content, 'known'),
+      audio: { src: 'https://example.org/audio.mp3' },
       blocks: [
         {
           type: 'heading' as const,
           level: 2 as const,
-          id: 'same-heading',
+          id: 'article-audio',
           children: [{ type: 'text' as const, value: 'Same heading' }],
         },
         {
@@ -119,10 +122,12 @@ describe('generated reader routes', () => {
       footnotes: [{ id: 'one', children: [{ type: 'text' as const, value: 'Note' }] }],
     };
     const { body } = render(ArticlePage, {
-      props: { data: { article, contentVersion: 'version', continuation: { nextOlder: null } } },
+      props: {
+        data: { topics: [], article, contentVersion: 'version', continuation: { nextOlder: null } },
+      },
     });
     expect(body).toContain('aria-label="In this article"');
-    for (const id of ['same-heading', 'same-heading-2', 'long-unusual-č-heading']) {
+    for (const id of ['article-audio', 'same-heading-2', 'long-unusual-č-heading']) {
       expect(body).toContain(`href="#${id}"`);
       expect(body.match(new RegExp(`id="${id}"`, 'g'))).toHaveLength(1);
     }
@@ -168,7 +173,7 @@ describe('generated reader routes', () => {
     expect(contentVersion).toMatch(/^[0-9a-f]{64}$/);
 
     const { head } = render(ArticlePage, {
-      props: { data: { article, contentVersion, continuation: { nextOlder: null } } },
+      props: { data: { topics: [], article, contentVersion, continuation: { nextOlder: null } } },
     });
     const metas = head.match(/<meta\b[^>]*\bname="jelementi-content-version"[^>]*>/g) ?? [];
     expect(metas).toHaveLength(1);
@@ -177,7 +182,7 @@ describe('generated reader routes', () => {
     expect(meta).toContain(`content="${contentVersion}"`);
     expect(meta).not.toContain('content="' + '0'.repeat(64) + '"');
     const { body } = render(ArticlePage, {
-      props: { data: { article, contentVersion, continuation: { nextOlder: null } } },
+      props: { data: { topics: [], article, contentVersion, continuation: { nextOlder: null } } },
     });
     expect(body).not.toContain('aria-label="In this article"');
   });

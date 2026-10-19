@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { articleAudioAnchor } from './audio-anchor';
   import type { ArticleDocument } from '@jelementi/article-model';
 
   let { article }: { article: ArticleDocument } = $props();
 </script>
 
 {#if article.audio}
-  <section id="article-audio" class="article-audio" aria-label={`Audio for ${article.title}`}>
+  <section id={articleAudioAnchor} class="article-audio" aria-label={`Audio for ${article.title}`}>
     <audio
       controls
       preload="metadata"

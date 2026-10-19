@@ -10,10 +10,6 @@ export const load: PageServerLoad = () => {
   const lead = catalog.lead ? generatedContent.articles[catalog.lead.slug] : undefined;
   return {
     catalog,
-    leadCitationIds: [
-      ...(lead?.footnotes.map(({ id }) => id) ?? []),
-      ...(lead?.references.flatMap(({ title }) => title.match(/^\[(\d+)\]/)?.[1] ?? []) ?? []),
-    ],
     hasLeadAudio: !!lead?.audio,
   };
 };

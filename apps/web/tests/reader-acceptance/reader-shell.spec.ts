@@ -35,9 +35,11 @@ test('shell landmarks and navigation persist across every public route', async (
     await expect(page.getByRole('main')).toHaveCount(1);
     // Visible nav links in both header and footer
     for (const name of ['Home', 'Categories', 'Search', 'About']) {
-      await expect(
-        page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name }),
-      ).toBeVisible();
+      const primaryLink = page
+        .getByRole('navigation', { name: 'Primary navigation' })
+        .getByRole('link', { name });
+      if (route === '/' && name === 'Categories') await expect(primaryLink).toBeHidden();
+      else await expect(primaryLink).toBeVisible();
       await expect(
         page.getByRole('navigation', { name: 'Footer navigation' }).getByRole('link', { name }),
       ).toBeVisible();
@@ -47,6 +49,45 @@ test('shell landmarks and navigation persist across every public route', async (
     // Studio shell must not leak into reader routes
     await expect(page.locator('.studio-shell')).toHaveCount(0);
     await expect(page.locator('.skip-link')).toHaveCount(1);
+  }
+});
+
+test('podcast invitation keyboard focus contrasts with its panel in both themes', async ({
+  page,
+}) => {
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto('/');
+    const invitation = page.locator('.podcast-invitation a');
+    for (let tab = 0; tab < 100; tab++) {
+      await page.keyboard.press('Tab');
+      if (await invitation.evaluate((el) => el === document.activeElement)) break;
+    }
+    await expect(invitation).toBeFocused();
+    const focus = await invitation.evaluate((el) => {
+      const style = getComputedStyle(el);
+      const luminance = (color: string) => {
+        const channels = color
+          .match(/[\d.]+/g)!
+          .slice(0, 3)
+          .map(Number)
+          .map((v) => {
+            v /= 255;
+            return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+          });
+        return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+      };
+      const outline = luminance(style.outlineColor);
+      const panel = luminance(getComputedStyle(el.parentElement!).backgroundColor);
+      return {
+        visible: el.matches(':focus-visible'),
+        width: parseFloat(style.outlineWidth),
+        contrast: (Math.max(outline, panel) + 0.05) / (Math.min(outline, panel) + 0.05),
+      };
+    });
+    expect(focus.visible).toBe(true);
+    expect(focus.width).toBeGreaterThanOrEqual(2);
+    expect(focus.contrast).toBeGreaterThanOrEqual(3);
   }
 });
 

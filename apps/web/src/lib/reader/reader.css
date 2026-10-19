@@ -65,8 +65,19 @@
   border-top: 1px solid var(--rule);
   padding-block: 0.25rem;
 }
-.reader-home .site-header nav a:last-child {
+.nav-utility {
   margin-left: auto;
+}
+nav a.topic-shortcut {
+  display: none;
+}
+@media (min-width: 900px) {
+  .reader-home .topic-shortcut {
+    display: inline-flex;
+  }
+  .reader-topics .topic-directory {
+    display: none;
+  }
 }
 .site-footer {
   margin-top: 2rem;
@@ -144,6 +155,7 @@
   display: none;
 }
 .podcast-invitation {
+  --foundation-focus: #f8f6f0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -155,9 +167,7 @@
 }
 .podcast-invitation h2 {
   margin: 0 0 0.75rem;
-  font-size: 2.5rem;
-  font-weight: 500;
-  line-height: 1.15;
+  font: 500 2.5rem/1.15 var(--font-sans);
   letter-spacing: -0.04em;
 }
 .podcast-invitation p {
@@ -307,15 +317,9 @@
   color: var(--link);
   font-size: 0.875rem;
 }
-.article-continuation__meta {
-  color: var(--muted);
-  font-size: 0.8125rem;
-}
 .article-continuation h2 {
   margin: 0;
-  font-weight: 500;
-  font-size: clamp(1.375rem, 2vw, 1.75rem);
-  line-height: 1.2;
+  font: 500 clamp(1.375rem, 2vw, 1.75rem)/1.2 var(--font-sans);
 }
 .article-continuation__next {
   color: var(--ink);
@@ -451,9 +455,7 @@
 .about h1,
 .recovery h1 {
   margin: 0 0 2rem;
-  font-weight: 500;
-  font-size: clamp(2.5rem, 5vw, 4rem);
-  line-height: 1.1;
+  font: 500 clamp(2.5rem, 5vw, 4rem)/1.1 var(--font-sans);
   letter-spacing: -0.045em;
 }
 .about__statement {
@@ -554,7 +556,7 @@
     border: 0;
     justify-content: space-between;
   }
-  .reader-home .site-header nav a:last-child {
+  .nav-utility {
     margin-left: 0;
   }
   .site-footer__inner {
