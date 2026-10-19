@@ -49,13 +49,12 @@
   data-search-enhanced={enhanced ? 'true' : undefined}
 >
   <header class="page-intro search__intro">
-    <p class="kicker">Find a story</p>
-    <h1 id="search-heading">Search</h1>
-    <p>Browse every published article, or filter the catalog.</p>
+    <h1 id="search-heading">Find a story.</h1>
+    <p>Find a story by subject, place, or a half-remembered detail.</p>
   </header>
 
   <form class="search-form" role="search" action="/search" method="get" onsubmit={submitSearch}>
-    <label for="article-search">Search published articles</label>
+    <label class="visually-hidden" for="article-search">Search published articles</label>
     <div class="search-form__row">
       <input
         id="article-search"
@@ -115,130 +114,87 @@
 </section>
 
 <style>
+  .search__intro {
+    margin-bottom: 2rem;
+    border: 0;
+    padding: 0;
+  }
   .search-form {
-    max-width: 47rem;
-    margin-bottom: var(--space-8);
+    margin-bottom: 2rem;
   }
-
-  .search-form label {
-    display: block;
-    margin-bottom: var(--space-1);
-    font-weight: 700;
-  }
-
   .search-form__row {
     display: flex;
-    gap: var(--space-2);
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid var(--foundation-control-border);
+    border-radius: 3px;
   }
-
+  .search-form__row:focus-within {
+    border-color: var(--foundation-focus);
+  }
   .search-form input,
   button {
     min-height: 44px;
-    border: 1px solid var(--foundation-control-border);
-    border-radius: var(--radius-control);
-    background: var(--foundation-control-surface);
-    color: var(--foundation-control-text);
     font: inherit;
   }
-
   .search-form input {
-    min-width: 0;
     flex: 1;
-    padding: var(--space-2) var(--space-3);
+    min-width: 0;
+    padding: 0.25rem 0.75rem;
+    border: 0;
+    background: var(--foundation-control-surface);
+    color: var(--foundation-control-text);
+    font-size: 1.25rem;
   }
-
   button {
-    padding: var(--space-2) var(--space-4);
+    padding: 0.5rem 1rem;
     cursor: pointer;
-    font-weight: 700;
+    border: 1px solid var(--foundation-control-border);
+    border-radius: 3px;
+    background: var(--foundation-control-surface);
+    color: var(--foundation-control-text);
   }
-
-  button:hover {
-    border-color: var(--foundation-accent);
-  }
-
   .search-form button,
   .empty-state button {
     border-color: var(--foundation-accent);
     background: var(--foundation-accent);
     color: var(--foundation-paper);
   }
-
-  .search__notice {
-    color: var(--foundation-muted);
-  }
-
-  .search-results__heading {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-2) var(--space-4);
-    flex-wrap: wrap;
-  }
-
-  .search-results__heading p {
-    margin: 0;
-    font-family: var(--font-serif);
-    font-size: var(--text-h3);
-    font-weight: 700;
-  }
-
-  .search-results__heading button {
-    min-height: 36px;
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--text-compact);
-  }
-
-  .article-list {
-    margin-top: var(--space-3);
-  }
-
-  .article-list li {
-    padding: var(--space-3) 0;
-  }
-
-  .empty-state {
-    display: grid;
-    gap: var(--space-4);
-    padding: var(--space-6) 0;
-    border-block: 1px solid var(--foundation-rule);
-  }
-
-  .empty-state h2 {
-    margin: 0;
-    font-family: var(--font-serif);
-    font-size: var(--text-h2);
-    line-height: var(--leading-heading);
-  }
-
+  .search-results__heading,
   .recovery-links {
     display: flex;
     align-items: center;
-    gap: var(--space-3) var(--space-4);
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
     flex-wrap: wrap;
   }
-
-  @media (max-width: 430px) {
-    .search-form__row {
-      align-items: stretch;
-      flex-direction: column;
-    }
-
-    .search-form__row button {
-      width: 100%;
-    }
+  .search-results__heading p {
+    margin: 0;
+    font-size: 0.9375rem;
   }
-  .search__intro {
-    max-width: 47rem;
-    margin-bottom: var(--space-8);
+  .search-results__heading button {
+    color: var(--foundation-link);
+    border: 0;
+    background: none;
+    font-size: 0.875rem;
   }
-
-  .search__intro h1 {
-    font-size: var(--text-h1);
+  .article-list {
+    margin-top: 1rem;
   }
-
-  .search__intro > p:last-child {
-    max-width: 42rem;
-    font-size: 1.125rem;
+  .search__notice,
+  .empty-state p {
+    color: var(--foundation-muted);
+  }
+  .empty-state {
+    padding-block: 1.5rem;
+    border-block: 1px solid var(--foundation-rule);
+  }
+  .empty-state h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 500;
+  }
+  .recovery-links {
+    justify-content: flex-start;
   }
 </style>

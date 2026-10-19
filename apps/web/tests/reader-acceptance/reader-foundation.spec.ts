@@ -40,7 +40,7 @@ test('keeps Search browseable and missing content fail-closed at wide and 320 CS
 }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto('/search');
-  await expect(page.getByRole('heading', { level: 1, name: 'Search' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Find a story.' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Every Reader Structure/ })).toBeVisible();
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
 

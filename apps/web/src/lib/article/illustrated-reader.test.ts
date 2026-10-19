@@ -2,6 +2,7 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
 import ArticleSummary from './ArticleSummary.svelte';
+import ArticleContinuation from './ArticleContinuation.svelte';
 
 const article: ArticleIndexEntry = {
   slug: 'illustrated-story',
@@ -19,6 +20,32 @@ const article: ArticleIndexEntry = {
 };
 
 describe('illustrated discovery', () => {
+  it('continues to the existing next older illustration, date and category without inventing a recommendation', () => {
+    const document = {
+      ...article,
+      schemaVersion: 1 as const,
+      status: 'published' as const,
+      blocks: [],
+      references: [],
+      footnotes: [],
+    };
+    const { body } = render(ArticleContinuation, {
+      props: { article: document, nextOlder: article },
+    });
+    expect(body).toContain('src="https://example.org/cover.webp"');
+    expect(body).toContain('loading="lazy"');
+    expect(body).toContain('datetime="2026-10-15"');
+    expect(body).toContain('9 min read');
+    expect(body).toContain('href="/categories/science"');
+    expect(body).toContain('href="/articles/illustrated-story"');
+    const oldest = render(ArticleContinuation, {
+      props: { article: document, nextOlder: null },
+    }).body;
+    expect(oldest).not.toContain('<img');
+    expect(oldest).not.toContain('/articles/illustrated-story');
+    expect(oldest).toContain('href="/categories/science"');
+  });
+
   it('prioritizes the lead illustration and suppresses only preview citation markers', () => {
     const { body } = render(ArticleSummary, { props: { article, lead: true } });
     expect(body).toContain('loading="eager"');

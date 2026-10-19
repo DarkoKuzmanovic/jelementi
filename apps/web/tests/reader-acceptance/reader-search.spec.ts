@@ -38,7 +38,7 @@ test('Search is a complete browseable catalog before interaction and without Jav
 }, testInfo) => {
   await page.goto('/search');
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Search' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Find a story.' })).toBeVisible();
   await expect(page.locator('.article-list > li')).toHaveCount(representativeCatalogSize);
   await expect(page.getByRole('article')).toHaveCount(representativeCatalogSize);
 

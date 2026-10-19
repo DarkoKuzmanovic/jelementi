@@ -102,7 +102,7 @@ test('smokes the complete canonical generated Reader inventory independently of 
   expect(remoteIndex.length).toBeGreaterThan(0);
 
   await page.goto('/search');
-  await expect(page.getByRole('heading', { level: 1, name: 'Search' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Find a story.' })).toBeVisible();
   await expect(page.getByRole('article')).toHaveCount(remoteIndex.length);
   await expect(page.getByRole('link', { name: expectedLead.title })).toBeVisible();
   expect(
