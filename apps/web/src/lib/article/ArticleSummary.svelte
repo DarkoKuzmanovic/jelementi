@@ -13,19 +13,29 @@
   semantic order below.
 -->
 <article class="article-summary">
-  <h2 class="article-summary__title">
-    <a href={`/articles/${article.slug}`}>{article.title}</a>
-  </h2>
-  <p class="article-summary__excerpt">{article.excerpt}</p>
-  <p class="article-summary__meta">
-    <a class="article-summary__category" href={`/categories/${article.categorySlug}`}>
-      {article.category}
-    </a>
-    <span aria-hidden="true"> · </span>
-    <time datetime={article.publishedAt}>{formatPublishedDate(article.publishedAt)}</time>
-    <span aria-hidden="true"> · </span>
-    {article.readingTimeMinutes} min read
-  </p>
+  <img
+    class="article-summary__cover"
+    src={article.cover.src}
+    alt={article.cover.alt}
+    width="1600"
+    height="900"
+    loading="lazy"
+  />
+  <div class="article-summary__text">
+    <h2 class="article-summary__title">
+      <a href={`/articles/${article.slug}`}>{article.title}</a>
+    </h2>
+    <p class="article-summary__excerpt">{article.excerpt}</p>
+    <p class="article-summary__meta">
+      <a class="article-summary__category" href={`/categories/${article.categorySlug}`}>
+        {article.category}
+      </a>
+      <span aria-hidden="true"> · </span>
+      <time datetime={article.publishedAt}>{formatPublishedDate(article.publishedAt)}</time>
+      <span aria-hidden="true"> · </span>
+      {article.readingTimeMinutes} min read
+    </p>
+  </div>
 </article>
 
 <style>
