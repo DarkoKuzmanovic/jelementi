@@ -141,8 +141,8 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   await expect(page.getByRole('link', { name: '[locked-seam]' })).toHaveCount(2);
 
   // Endmatter: sources, numbered footnotes, and every backlink.
-  await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sources', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Footnotes', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to footnote reference 1' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to footnote reference 2' })).toBeVisible();
   await expect(page.locator('section.article-endmatter ol > li')).toHaveCount(1);
@@ -248,7 +248,7 @@ test('text resize, 400% zoom equivalent, and WCAG text spacing preserve one cont
   await page.setViewportSize({ width: 320, height: 900 });
   await page.goto('/articles/acceptance-rich-column');
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
-  await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Footnotes', exact: true })).toBeVisible();
 });
 
 test('article links retain visible keyboard focus treatment', async ({ page }) => {
@@ -326,7 +326,7 @@ test('article semantics name figures, audio, landmarks, footnotes, and backlinks
     'aria-label',
     'Audio for Čačak Field Notes: Every Reader Structure',
   );
-  await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Footnotes', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Back to footnote reference/ })).toHaveCount(2);
 });
 

@@ -23,8 +23,8 @@ test('renders every rich-content fixture capability without relying on JavaScrip
   await expect(
     page.locator('.article-opening').getByRole('link', { name: 'Field Notes' }),
   ).toHaveAttribute('href', '/categories/field-notes');
-  await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sources', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Footnotes', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Back to footnote reference/ })).toHaveCount(2);
   await expect(page.getByRole('link', { name: 'Back to footnote reference 1' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to footnote reference 2' })).toBeVisible();
