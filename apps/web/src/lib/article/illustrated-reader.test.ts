@@ -19,6 +19,16 @@ const article: ArticleIndexEntry = {
 };
 
 describe('illustrated discovery', () => {
+  it('prioritizes the lead illustration and suppresses only preview citation markers', () => {
+    const { body } = render(ArticleSummary, { props: { article, lead: true } });
+    expect(body).toContain('loading="eager"');
+    expect(body).toContain('fetchpriority="high"');
+    expect(body).toContain('Evidence matters. Still true.');
+    expect(body).not.toContain('[22]');
+    expect(article.excerpt).toBe('Evidence matters.[1][22] Still true.');
+    expect(body).toContain('Read article');
+    expect(body).toContain(`href="/articles/${article.slug}"`);
+  });
   it('renders the real cover with stable dimensions and lazy offscreen loading', () => {
     const { body } = render(ArticleSummary, { props: { article } });
     expect(body).toMatch(/<img[^>]*src="https:\/\/example.org\/cover.webp"/);

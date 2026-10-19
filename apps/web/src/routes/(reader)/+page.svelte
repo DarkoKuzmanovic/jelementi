@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import ArticleSummary from '$lib/article/ArticleSummary.svelte';
-
   let { data }: { data: PageData } = $props();
 </script>
 
@@ -12,181 +11,185 @@
   /></svelte:head
 >
 <section class="home-catalog" aria-labelledby="home-heading">
-  <header class="home-introduction">
-    <p class="home-kicker">Independent stories · Complete published catalog</p>
-    <h1 id="home-heading">Jelementi</h1>
-    <p class="home-lede">Curious, careful stories from nearby and far away.</p>
-  </header>
-
+  <h1 id="home-heading" class="visually-hidden">Jelementi</h1>
   {#if data.catalog.lead}
     <div class="home-lead" data-home-tier="lead">
-      <ArticleSummary article={data.catalog.lead} />
+      <ArticleSummary article={data.catalog.lead} lead />
     </div>
   {/if}
-
   {#if data.catalog.recent.length > 0}
     <section class="home-recent" aria-labelledby="recent-heading" data-home-tier="recent">
-      <!-- ArticleSummary's locked h2 remains the discovery heading; this label names the region. -->
-      <p class="kicker" id="recent-heading">Recently published</p>
+      <div class="home-section-heading">
+        <p id="recent-heading">Recently published</p>
+        <a href="/search">All articles →</a>
+      </div>
       <ol class="home-recent__list">
-        {#each data.catalog.recent as article (article.slug)}
-          <li>
+        {#each data.catalog.recent as article (article.slug)}<li>
             <ArticleSummary {article} />
-          </li>
-        {/each}
+          </li>{/each}
       </ol>
     </section>
   {/if}
-
+  <aside class="podcast-invitation" aria-labelledby="podcast-heading">
+    <div>
+      <h2 id="podcast-heading">Prefer to listen?</h2>
+      <p>The same stories, told aloud.<br />Add Jelementi to your podcast app.</p>
+    </div>
+    <a href="/podcast.xml">Get the podcast <span aria-hidden="true">↗</span></a>
+  </aside>
   {#if data.catalog.more.length > 0}
     <section class="home-more" aria-labelledby="more-heading" data-home-tier="more">
-      <p class="kicker" id="more-heading">More articles</p>
+      <p class="home-section-heading" id="more-heading">More articles</p>
       <ol class="home-more__list divided-list">
-        {#each data.catalog.more as article (article.slug)}
-          <li>
+        {#each data.catalog.more as article (article.slug)}<li>
             <ArticleSummary {article} />
-          </li>
-        {/each}
+          </li>{/each}
       </ol>
     </section>
   {/if}
+  <a class="archive-link" href="/search">Search the archive →</a>
 </section>
 
 <style>
-  :global(main.layout) {
-    width: min(74rem, calc(100% - 2rem));
+  :global(.reader-home main.layout) {
+    width: min(81rem, calc(100% - 2.75rem));
+    padding-top: 2.5rem;
   }
-
   .home-catalog,
   .home-catalog * {
     min-width: 0;
   }
-
-  .home-introduction {
-    display: grid;
-    grid-template-columns: minmax(14rem, 0.8fr) minmax(0, 2fr);
-    gap: var(--space-2) var(--space-12);
-    align-items: end;
-    margin-bottom: var(--space-6);
-    padding-bottom: var(--space-4);
-    border-bottom: 1px solid var(--foundation-rule);
-  }
-
-  .home-introduction h1 {
-    margin: 0;
-    font-family: var(--font-serif);
-    font-size: clamp(2rem, 4vw, 3.25rem);
-    line-height: var(--leading-heading);
-  }
-
-  .home-kicker,
-  .home-lede {
-    margin: 0;
-    color: var(--foundation-muted);
-  }
-
-  .home-kicker {
-    font-family: var(--font-mono);
-    font-size: var(--text-compact);
-    letter-spacing: 0.04em;
-  }
-
-  .home-lede {
-    grid-column: 2;
-    max-width: 55ch;
-  }
-
-  .home-lead {
-    display: flex;
-    align-items: end;
-  }
-
   .home-recent,
   .home-more {
-    margin-top: var(--space-12);
+    margin-top: 3.75rem;
   }
-
+  .home-section-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0 0 1.5rem;
+    font-size: 1.75rem;
+    letter-spacing: -0.035em;
+  }
+  .home-section-heading p {
+    margin: 0;
+  }
+  .home-section-heading a,
+  .archive-link {
+    font-size: 0.875rem;
+    text-decoration: none;
+    letter-spacing: 0;
+  }
   .home-recent__list {
     display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2.25rem;
     margin: 0;
-    padding: 0;
+    padding: 1.5rem 0 0;
+    border-top: 1px solid var(--foundation-rule);
     list-style: none;
   }
-
+  .home-recent :global(.article-summary) {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .home-recent :global(.article-summary__cover) {
+    width: 100%;
+  }
+  .home-recent :global(.article-summary__title) {
+    font-size: 1.75rem;
+  }
   .home-more__list {
     display: grid;
-  }
-
-  .home-recent__list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    border-block: 1px solid var(--foundation-rule);
-  }
-
-  .home-recent__list li {
-    padding: var(--space-6);
-    border-inline-start: 1px solid var(--foundation-rule);
-  }
-
-  .home-recent__list li:first-child {
-    padding-inline-start: 0;
-    border-inline-start: 0;
-  }
-
-  .home-more__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 3.375rem;
   }
-
-  .home-more__list li {
-    padding: var(--space-6) var(--space-6) var(--space-6) 0;
+  .home-more :global(.article-summary) {
+    gap: 1.25rem;
   }
-
-  .home-more__list li:nth-child(even) {
-    padding-inline: var(--space-6) 0;
+  .home-more :global(.article-summary__cover) {
+    width: 9.375rem;
   }
-
-  .home-recent :global(.article-summary__title),
   .home-more :global(.article-summary__title) {
-    font-size: var(--text-h3);
+    font-size: 1.375rem;
   }
-
   .home-more :global(.article-summary__excerpt) {
-    font-size: var(--text-small);
+    font-size: 0.875rem;
   }
-
+  .podcast-invitation {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-top: 3.75rem;
+    padding: 2.5rem;
+    background: #284c99;
+    color: #f8f6f0;
+  }
+  .podcast-invitation h2 {
+    margin: 0 0 0.75rem;
+    font-weight: 500;
+    font-size: 2.5rem;
+    letter-spacing: -0.04em;
+    line-height: 1.15;
+  }
+  .podcast-invitation p {
+    margin: 0;
+  }
+  .podcast-invitation a {
+    padding: 0.75rem 1.125rem;
+    background: #f8f6f0;
+    color: #284c99;
+    text-decoration: none;
+    border-radius: 3px;
+    font-size: 0.875rem;
+  }
+  .archive-link {
+    display: inline-block;
+    padding-block: 1.5rem;
+  }
   @media (max-width: 760px) {
-    .home-introduction,
+    :global(.reader-home main.layout) {
+      padding-top: 1.75rem;
+    }
     .home-recent__list,
     .home-more__list {
       grid-template-columns: minmax(0, 1fr);
+      gap: 0;
     }
-
-    .home-lede {
-      grid-column: 1;
+    .home-recent__list > li {
+      padding-block: 1.5rem;
+      border-bottom: 1px solid var(--foundation-rule);
     }
-
-    .home-lead {
-      min-height: 18rem;
-      padding: var(--space-8) var(--space-6);
+    .home-recent__list > li:first-child {
+      padding-top: 0;
     }
-
-    .home-recent__list li,
-    .home-recent__list li:first-child,
-    .home-more__list li,
-    .home-more__list li:nth-child(even) {
-      padding: var(--space-6) 0;
-      border-inline-start: 0;
-      border-top: 1px solid var(--foundation-rule);
+    .home-recent__list > li:not(:first-child) :global(.article-summary) {
+      flex-direction: row-reverse;
     }
-
-    .home-recent__list li:first-child,
-    .home-more__list li:first-child {
-      border-top: 0;
+    .home-recent__list > li:not(:first-child) :global(.article-summary__cover),
+    .home-more :global(.article-summary__cover) {
+      width: 28%;
     }
-  }
-
-  @media (max-width: 360px) {
-    .home-lead {
-      padding-inline: var(--space-4);
+    .home-recent__list > li:not(:first-child) :global(.article-summary__title) {
+      font-size: 1.35rem;
+    }
+    .home-section-heading {
+      font-size: 1.5rem;
+    }
+    .home-recent,
+    .home-more,
+    .podcast-invitation {
+      margin-top: 2.5rem;
+    }
+    .podcast-invitation {
+      padding: 1.625rem;
+    }
+    .podcast-invitation h2 {
+      font-size: 2rem;
     }
   }
 </style>

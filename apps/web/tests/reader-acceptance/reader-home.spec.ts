@@ -36,7 +36,7 @@ function expectedCatalog() {
 
 async function tierTitles(page: import('@playwright/test').Page, tier: string): Promise<string[]> {
   return page
-    .locator(`[data-home-tier="${tier}"] a[href^="/articles/"]`)
+    .locator(`[data-home-tier="${tier}"] .article-summary__title a`)
     .allTextContents()
     .then((titles) => titles.map((title) => title.trim()));
 }
@@ -62,7 +62,7 @@ test('@home-catalog-scenario renders each published article once in the exact Ed
   );
 
   const allTitles = await page
-    .locator('.home-catalog a[href^="/articles/"]')
+    .locator('.home-catalog .article-summary__title a')
     .allTextContents()
     .then((titles) => titles.map((title) => title.trim()));
   expect(allTitles).toEqual(expectedTitles);
@@ -106,7 +106,7 @@ test('representative Home preserves the wide editorial scan and one 320px source
   ).toHaveLength(1);
 
   const sourceOrder = await page
-    .locator('.home-catalog a[href^="/articles/"]')
+    .locator('.home-catalog .article-summary__title a')
     .allTextContents()
     .then((titles) => titles.map((title) => title.trim()));
   expect(sourceOrder).toEqual([
@@ -140,7 +140,7 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
   expect(noHorizontalOverflow).toBe(true);
 
   const articleHrefs = await page
-    .locator('.home-catalog a[href^="/articles/"]')
+    .locator('.home-catalog .article-summary__title a')
     .evaluateAll((links) => links.map((link) => link.getAttribute('href')));
   expect(articleHrefs).toEqual([
     '/articles/acceptance-rich-column',
@@ -158,6 +158,8 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
   const expectedKeyboardHrefs = [
     '/articles/acceptance-rich-column',
     '/categories/field-notes',
+    '/articles/acceptance-rich-column',
+    '/articles/acceptance-rich-column#article-audio',
     '/articles/acceptance-field-middle',
     '/categories/field-notes',
     '/articles/acceptance-culture-new',
