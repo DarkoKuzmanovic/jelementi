@@ -1,6 +1,10 @@
 import { render } from 'svelte/server';
 import { expect, it, vi } from 'vitest';
-import ArticleSummary from '../lib/article/ArticleSummary.svelte';
+vi.mock(
+  '$lib/article/ArticleSummary.svelte',
+  async () => import('../lib/article/ArticleSummary.svelte'),
+);
+import HomePage from './(reader)/+page.svelte';
 
 vi.mock('../lib/generated-content.server', async () => {
   const { validateGeneratedContent } = await import('../lib/generated-content');
@@ -81,8 +85,10 @@ it('projects only available published topics and leaves an empty index empty', a
 it('keeps authored prose numbers even when a reference has the same number', async () => {
   const data = await load({} as never);
   if (!data?.catalog.lead) throw new Error('Missing lead fixture');
-  const { body } = render(ArticleSummary, {
-    props: { article: data.catalog.lead, lead: true },
+  const { body } = render(HomePage, {
+    props: {
+      data: { ...data, topics: [], catalog: data.catalog, hasLeadAudio: data.hasLeadAudio },
+    },
   });
   expect(body).toContain('Choose option [1] for the experiment.');
 });

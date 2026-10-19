@@ -181,7 +181,7 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     '/articles/acceptance-rich-column',
     '/categories/field-notes',
     '/articles/acceptance-rich-column',
-    '/articles/acceptance-rich-column#article-audio',
+    '/articles/acceptance-rich-column#reader:audio',
     '/categories/field-notes',
     '/articles/acceptance-field-middle',
     '/categories/culture',
