@@ -494,9 +494,16 @@ function headingId(nodes: InlineNode[], seen: Map<string, number>): string {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'section';
-  const count = (seen.get(base) ?? 0) + 1;
+  let count = (seen.get(base) ?? 0) + 1;
+  let id = count === 1 ? base : `${base}-${count}`;
+  while (seen.has(id)) {
+    count += 1;
+    id = `${base}-${count}`;
+  }
   seen.set(base, count);
-  return count === 1 ? base : `${base}-${count}`;
+  // Generated suffixes also reserve IDs against later literal headings.
+  seen.set(id, 1);
+  return id;
 }
 
 function quoteBlock(input: CompileArticleInput, node: AstNode): ArticleBlock {

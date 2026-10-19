@@ -74,6 +74,49 @@ describe('compileArticle', () => {
   });
 
   it.each([
+    {
+      name: 'a generated suffix before a literal suffix',
+      headings: ['Same heading', 'Same heading', 'Same heading-2', 'Same heading'],
+      ids: ['same-heading', 'same-heading-2', 'same-heading-2-2', 'same-heading-3'],
+    },
+    {
+      name: 'a literal suffix before a generated suffix',
+      headings: [
+        'Same heading-2',
+        'Same heading',
+        'Same heading',
+        'Same heading-3',
+        'Same heading',
+      ],
+      ids: [
+        'same-heading-2',
+        'same-heading',
+        'same-heading-3',
+        'same-heading-3-2',
+        'same-heading-4',
+      ],
+    },
+    {
+      name: 'normalized and fallback heading bases',
+      headings: ['Àrea', 'Area-2', 'Area', '!!!', '???', 'Section-2'],
+      ids: ['area', 'area-2', 'area-3', 'section', 'section-2', 'section-2-2'],
+    },
+  ])('keeps emitted heading IDs unique with $name', ({ headings, ids }) => {
+    const input = {
+      markdown: `${frontmatter}\n\n${headings.map((heading) => `## ${heading}`).join('\n\n')}`,
+      sourcePath: 'content/articles/remote-island.md',
+      mediaBaseUrl: 'https://media.example.org',
+    };
+    const result = compileArticle(input);
+    const actual = result.document.blocks
+      .filter((block) => block.type === 'heading')
+      .map((block) => block.id);
+    expect(actual).toEqual(ids);
+    expect(new Set(actual).size).toBe(actual.length);
+    expect(compileArticle(input)).toEqual(result);
+  });
+
+  it.each([
     ['unsupported node', `${frontmatter}\n\n# Not allowed`, 'UNSUPPORTED_NODE'],
     ['raw HTML', `${frontmatter}\n\n<div>Not allowed</div>`, 'UNSUPPORTED_NODE'],
     ['fenced code', `${frontmatter}\n\n\`\`\`ts\nconst x = 1;\n\`\`\``, 'UNSUPPORTED_NODE'],

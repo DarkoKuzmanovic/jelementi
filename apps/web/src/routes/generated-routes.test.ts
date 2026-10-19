@@ -105,7 +105,7 @@ function renderFragmentArticle(article: ArticleDocument): string {
 
 describe('generated reader routes', () => {
   it('keeps compiled article-top contents targets on authored headings', () => {
-    const article = compileFragmentArticle('## Article top\n## Article top\n## Article top-3');
+    const article = compileFragmentArticle('## Article top\n## Article top\n## Article top-2');
     const body = renderFragmentArticle(article);
     for (const heading of article.blocks) {
       if (heading.type !== 'heading') continue;
