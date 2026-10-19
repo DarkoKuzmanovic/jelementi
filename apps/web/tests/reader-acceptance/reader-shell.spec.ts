@@ -28,7 +28,7 @@ test('shell landmarks and navigation persist across every public route', async (
     await expect(page.getByRole('banner')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.locator('#main-content')).toBeVisible();
+    await expect(page.getByRole('main')).toBeVisible();
     await expect(page.getByRole('contentinfo')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Footer navigation' })).toBeVisible();
     // Exactly one main
@@ -100,8 +100,8 @@ test('skip link is keyboard-operable and focuses main', async ({ page }, testInf
   await expect(skip).toBeFocused();
   // Activate skip link — should move focus to main (tabindex=-1) and update hash
   await page.keyboard.press('Enter');
-  await expect(page.locator('#main-content')).toBeFocused();
-  await expect(page).toHaveURL(/#main-content/);
+  await expect(page.getByRole('main')).toBeFocused();
+  await expect(page).toHaveURL(/#reader:main/);
 });
 
 test('320px has no horizontal overflow and nav wraps conventionally', async ({ page }) => {

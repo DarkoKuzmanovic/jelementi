@@ -37,7 +37,7 @@
     >
   {:else if node.type === 'footnoteReference'}
     <sup id={footnoteReferenceId(node.id, scope, path)}
-      ><a href={`#footnote-${node.id}`}>[{node.id}]</a></sup
+      ><a href={`#reader:footnote:${node.id}`}>[{node.id}]</a></sup
     >
   {:else}
     {assertExhaustive(node)}

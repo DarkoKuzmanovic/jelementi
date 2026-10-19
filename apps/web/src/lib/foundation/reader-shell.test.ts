@@ -79,9 +79,9 @@ describe('reader shell public contract', () => {
       expect(body).toContain('aria-label="Primary navigation"');
       expect(body).toContain('aria-label="Footer navigation"');
       // Skip + main target pairing
-      expect(body).toContain('href="#main-content"');
+      expect(body).toContain('href="#reader:main"');
       expect(body).toContain('Skip to main content');
-      expect(body).toContain('id="main-content"');
+      expect(body).toContain('id="reader:main"');
       // Visible nav links exist in both header and footer
       for (const href of ['href="/"', 'href="/categories"', 'href="/search"', 'href="/about"']) {
         expect(body).toContain(href);
@@ -90,7 +90,7 @@ describe('reader shell public contract', () => {
       expect(body).toContain('Jelementi');
       // Child content is inside main
       expect(body).toContain('page-content');
-      expect(body.indexOf('id="main-content"')).toBeLessThan(body.indexOf('page-content'));
+      expect(body.indexOf('id="reader:main"')).toBeLessThan(body.indexOf('page-content'));
     });
   }
 
@@ -125,11 +125,11 @@ describe('reader shell public contract', () => {
     const { body } = renderReaderAt('/');
     const mainMatches = body.match(/<main\b/g) ?? [];
     expect(mainMatches).toHaveLength(1);
-    expect(body).toContain('<a class="skip-link" href="#main-content"');
+    expect(body).toContain('<a class="skip-link" href="#reader:main"');
     // The skip target must be focusable via tabindex="-1" so programmatic focus works
-    expect(body).toContain('id="main-content" tabindex="-1"');
+    expect(body).toContain('id="reader:main" tabindex="-1"');
     // Ensure the skip link appears before main for keyboard order
-    expect(body.indexOf('skip-link')).toBeLessThan(body.indexOf('id="main-content"'));
+    expect(body.indexOf('skip-link')).toBeLessThan(body.indexOf('id="reader:main"'));
   });
 
   it('marks the current route with aria-current="page" and only there', () => {
@@ -171,7 +171,7 @@ describe('reader shell public contract', () => {
     expect(studioBody).not.toContain('site-header');
     expect(studioBody).not.toContain('site-footer');
     expect(studioBody).not.toContain('skip-link');
-    expect(studioBody).not.toContain('id="main-content"');
+    expect(studioBody).not.toContain('id="reader:main"');
   });
 
   it('owns shells structurally: shared root contains no Reader-versus-Studio branching', () => {

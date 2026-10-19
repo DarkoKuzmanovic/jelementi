@@ -101,6 +101,17 @@ const richDocument = ArticleDocumentSchema.parse({
       children: [text('Deterministic note callout for light/dark contrast sampling.')],
     },
     { type: 'divider' },
+    ...[
+      'article-top',
+      'sources-heading',
+      'footnotes-heading',
+      'main-content',
+      'footnote-locked-seam',
+      'footnote-ref-locked-seam-block-0-1',
+      'reader-sources',
+      'reader-sources-2',
+      'reader-sources-3',
+    ].map((id) => ({ type: 'heading' as const, level: 2 as const, id, children: [text(id)] })),
   ],
   footnotes: [
     {

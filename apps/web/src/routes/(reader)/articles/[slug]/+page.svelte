@@ -31,7 +31,7 @@
           >
         </li>{/each}
     </ol>
-    {#if data.article.references.length > 0}<a href="#sources-heading">Sources →</a>{/if}
+    {#if data.article.references.length > 0}<a href="#reader:sources">Sources →</a>{/if}
   </nav>
 {/snippet}
 <div class="article-page">

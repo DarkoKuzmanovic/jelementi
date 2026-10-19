@@ -25,7 +25,7 @@
   and endmatter. The reader route supplies its optional margin snippet;
   Studio receives only content, without reader navigation.
 -->
-<article id="article-top">
+<article>
   <ArticleOpening article={document} />
   <figure class="article-cover" aria-label={document.cover.alt}>
     <img src={document.cover.src} alt={document.cover.alt} loading="eager" />
@@ -56,8 +56,8 @@
         {/each}
       </div>
       {#if document.references.length > 0}
-        <section class="article-endmatter" aria-labelledby="sources-heading">
-          <h2 class="endmatter-heading" id="sources-heading">Sources</h2>
+        <section class="article-endmatter" aria-labelledby="reader:sources">
+          <h2 class="endmatter-heading" id="reader:sources">Sources</h2>
           <ul role="list">
             {#each document.references as reference, index (index)}
               <li>
@@ -72,11 +72,11 @@
         </section>
       {/if}
       {#if document.footnotes.length > 0}
-        <section class="article-endmatter" aria-labelledby="footnotes-heading">
-          <h2 class="endmatter-heading" id="footnotes-heading">Footnotes</h2>
+        <section class="article-endmatter" aria-labelledby="reader:footnotes">
+          <h2 class="endmatter-heading" id="reader:footnotes">Footnotes</h2>
           <ol>
             {#each document.footnotes as footnote (footnote.id)}
-              <li id={`footnote-${footnote.id}`}>
+              <li id={`reader:footnote:${footnote.id}`}>
                 <InlineContent nodes={footnote.children} scope={`footnote-${footnote.id}`} />
                 {#each footnoteTargets[footnote.id] ?? [] as target, index (target)}
                   <a href={`#${target}`} aria-label={`Back to footnote reference ${index + 1}`}>↩</a

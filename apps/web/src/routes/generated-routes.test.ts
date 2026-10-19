@@ -1,6 +1,8 @@
 import { render } from 'svelte/server';
+import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { articleContentFingerprint } from '@jelementi/article-model';
+import { compileArticle } from '@jelementi/content-compiler';
 import type { ArticleDocument, ArticleIndexEntry } from '@jelementi/article-model';
 import { resolveArticle, resolveCategory } from '../lib/routes';
 import type { GeneratedContent } from '../lib/generated-content';
@@ -15,6 +17,8 @@ vi.mock(
   async () => import('../lib/article/ArticleContinuation.svelte'),
 );
 
+vi.mock('$app/state', () => ({ page: { url: new URL('https://example.org/articles/fragments') } }));
+import ReaderShell from './(reader)/ReaderShell.svelte';
 import ArticlePage from './(reader)/articles/[slug]/+page.svelte';
 
 const empty: GeneratedContent = { index: [], articles: {} };
@@ -66,7 +70,114 @@ function expectHttpError(fn: () => unknown, status: number, message: string): vo
   }
 }
 
+function compileFragmentArticle(markdown: string): ArticleDocument {
+  return compileArticle({
+    sourcePath: 'fragments.md',
+    mediaBaseUrl: 'https://example.org/',
+    markdown: `---
+title: Fragment targets
+slug: fragments
+excerpt: Authored headings keep their IDs.
+status: published
+publishedAt: 2026-10-19
+updatedAt: 2026-10-19
+category: Science
+tags: []
+author: Jelementi
+cover:
+  src: cover.webp
+  alt: Cover
+references:
+  - title: Research
+    url: https://example.org/research
+---
+${markdown}`,
+  }).document;
+}
+
+function renderFragmentArticle(article: ArticleDocument): string {
+  return render(ArticlePage, {
+    props: {
+      data: { topics: [], article, contentVersion: 'version', continuation: { nextOlder: null } },
+    },
+  }).body;
+}
+
 describe('generated reader routes', () => {
+  it('keeps compiled article-top contents targets on authored headings', () => {
+    const article = compileFragmentArticle('## Article top\n## Article top\n## Article top-3');
+    const body = renderFragmentArticle(article);
+    for (const heading of article.blocks) {
+      if (heading.type !== 'heading') continue;
+      expect(body).toContain(`href="#${heading.id}"`);
+      const targets = [...body.matchAll(/<([a-z0-9]+)\b[^>]*\bid="([^"]+)"[^>]*>/g)]
+        .filter((match) => match[2] === heading.id)
+        .map((match) => match[1]);
+      expect(targets).toEqual(['h2']);
+    }
+  });
+  it.each(['sources', 'footnotes'])(
+    'isolates the %s accessible endmatter label from headings',
+    (name) => {
+      const article = compileFragmentArticle(
+        `## ${name} heading\n\nText[^note].\n\n[^note]: Note.`,
+      );
+      const body = renderFragmentArticle(article);
+      const label = body.match(
+        new RegExp(
+          `<section class="article-endmatter" aria-labelledby="([^"]+)">\\s*<h2[^>]*>\\s*${name === 'sources' ? 'Sources' : 'Footnotes'}`,
+          'i',
+        ),
+      )?.[1];
+      expect(label).toBeTruthy();
+      expect(
+        article.blocks.filter((block) => block.type === 'heading').map((heading) => heading.id),
+      ).not.toContain(label);
+      expect(body.match(new RegExp(`id="${label}"`, 'g'))).toHaveLength(1);
+      expect(body).toContain(`id="${name}-heading"`);
+      if (name === 'sources') expect(body).toContain(`href="#${label}"`);
+    },
+  );
+  it('keeps the shell skip target distinct from compiled Main content headings', () => {
+    const articleBody = renderFragmentArticle(
+      compileFragmentArticle('## Main content\n## Reader main\n## Reader main'),
+    );
+    const body = render(ReaderShell, {
+      props: { children: createRawSnippet(() => ({ render: () => articleBody })) },
+    }).body;
+    const mainId = body.match(/<main id="([^"]+)" tabindex="-1"/)?.[1];
+    expect(mainId).toBeTruthy();
+    expect(body).toContain(`href="#${mainId}"`);
+    expect(body.match(new RegExp(`id="${mainId}"`, 'g'))).toHaveLength(1);
+    expect(body).toMatch(/<h2 id="main-content">(?:<!--[\s\S]*?-->)*Main content/);
+  });
+  it('separates compiled footnote definitions, references, and heading targets', () => {
+    const article =
+      compileFragmentArticle(`Text[^note] repeated[^note] and another[^ref-note-block-0-1].
+
+## Footnote note
+## Footnote ref note block 0 1
+## Footnote ref note block 0 1
+## Reader footnote note
+## Reader footnote ref note block 0 1
+
+- List[^note]
+
+[^note]: The original note.
+[^ref-note-block-0-1]: A definition whose old ID matches a reference.
+`);
+    const body = renderFragmentArticle(article);
+    const ids = [...body.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+    expect(ids).toHaveLength(new Set(ids).size);
+    const definitions = [...body.matchAll(/<li id="([^"]+)">/g)].map((match) => match[1]);
+    const references = [...body.matchAll(/<sup id="([^"]+)"><a href="#([^"]+)"/g)];
+    expect(definitions).toHaveLength(2);
+    expect(references).toHaveLength(4);
+    for (const reference of references) {
+      expect(definitions).toContain(reference[2]);
+      expect(body).toContain(`href="#${reference[1]}" aria-label="Back to footnote reference`);
+    }
+  });
   it('names contents entries whose heading contains only a footnote', () => {
     const article = {
       ...resolveArticle(content, 'known'),

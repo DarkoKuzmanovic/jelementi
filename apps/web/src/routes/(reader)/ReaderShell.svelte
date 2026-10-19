@@ -16,7 +16,7 @@
   class:reader-home={page.url.pathname === '/'}
   class:reader-topics={page.url.pathname === '/' && topics.length > 0}
 >
-  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <a class="skip-link" href="#reader:main">Skip to main content</a>
   <header class="site-header">
     <div class="site-header__inner">
       <a href="/" class="jelementi-wordmark">Jelementi</a>
@@ -39,7 +39,7 @@
       </nav>
     </div>
   </header>
-  <main id="main-content" tabindex="-1" class="layout">
+  <main id="reader:main" tabindex="-1" class="layout">
     {@render children()}
   </main>
   <footer class="site-footer">

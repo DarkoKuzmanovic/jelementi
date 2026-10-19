@@ -130,7 +130,7 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('<em>em</em>');
     expect(body).toContain('<code>code</code>');
     expect(body).toContain('<s>struck</s>');
-    expect(body).toContain('href="#footnote-quiet-note"');
+    expect(body).toContain('href="#reader:footnote:quiet-note"');
     expect(body).toContain('<h2 id="quiet-heading">A heading</h2>');
     expect(body).toContain('alt="A wide fixture landscape"');
     expect(body).toContain('A caption with');

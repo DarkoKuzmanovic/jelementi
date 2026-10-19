@@ -1,7 +1,7 @@
 import type { ArticleBlock, InlineNode } from '@jelementi/article-model';
 
 export function footnoteReferenceId(id: string, scope: string, path: string): string {
-  return `footnote-ref-${id}-${scope}-${path}`;
+  return `reader:footnote-ref:${id}:${scope}:${path}`;
 }
 
 function collectInlineTargets(

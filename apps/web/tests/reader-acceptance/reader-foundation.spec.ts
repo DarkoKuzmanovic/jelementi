@@ -30,7 +30,7 @@ test('renders every rich-content fixture capability without relying on JavaScrip
   await expect(page.getByRole('link', { name: 'Back to footnote reference 2' })).toBeVisible();
   await expect(page.locator('blockquote')).toContainText('hard invariant');
   // The cover figure carries no caption; the in-flow image figure has the caption.
-  await expect(page.locator('article#article-top figure figcaption')).toContainText(
+  await expect(page.locator('article:has(> .article-opening) figure figcaption')).toContainText(
     'conventional source link',
   );
 });

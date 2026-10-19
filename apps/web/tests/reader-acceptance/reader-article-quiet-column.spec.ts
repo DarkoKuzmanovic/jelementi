@@ -7,6 +7,71 @@ import { expectNoBlockingAccessibilityViolations } from './accessibility';
  * representative fixture catalog through the real static Reader routes.
  */
 
+test('reader-owned fragments resolve to exact targets beside colliding authored headings', async ({
+  page,
+}) => {
+  await page.goto('/articles/acceptance-rich-column');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('main')).toBeFocused();
+  expect(
+    await page.evaluate(
+      () =>
+        document.getElementById(decodeURIComponent(location.hash.slice(1))) ===
+        document.querySelector('main'),
+    ),
+  ).toBe(true);
+
+  const ids = await page.locator('[id]').evaluateAll((nodes) => nodes.map((node) => node.id));
+  expect(new Set(ids).size).toBe(ids.length);
+  for (const link of await page.locator('.article-contents a').all()) {
+    await link.click();
+    expect(
+      await link.evaluate((node) => {
+        const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        if (node.textContent === 'Sources →')
+          return target === document.querySelector('.article-endmatter > h2');
+        return [...document.querySelectorAll('.article-body h2')].some(
+          (heading) => heading === target && `#${heading.id}` === node.getAttribute('href'),
+        );
+      }),
+    ).toBe(true);
+  }
+  for (const name of ['Sources', 'Footnotes']) {
+    const section = page.getByRole('region', { name, exact: true });
+    await expect(section.getByRole('heading', { name, exact: true })).toHaveCount(1);
+  }
+  for (const forward of await page.locator('.article-body sup > a').all()) {
+    await forward.click();
+    expect(
+      await forward.evaluate((node) => {
+        const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        return (
+          target?.matches('.article-endmatter ol > li') &&
+          [...target.querySelectorAll('a[aria-label]')].some(
+            (back) =>
+              document.getElementById(back.getAttribute('href')!.slice(1)) === node.parentElement,
+          )
+        );
+      }),
+    ).toBe(true);
+  }
+  for (const back of await page.getByRole('link', { name: /^Back to footnote reference/ }).all()) {
+    await back.click();
+    expect(
+      await back.evaluate((node) => {
+        const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        const forward = target?.querySelector('a');
+        return (
+          target?.tagName === 'SUP' &&
+          forward &&
+          document.getElementById(forward.getAttribute('href')!.slice(1)) === node.parentElement
+        );
+      }),
+    ).toBe(true);
+  }
+});
+
 test('rich article opening presents the complete compact hierarchy', async ({ page }) => {
   await page.goto('/articles/acceptance-rich-column');
   const opening = page.locator('.article-opening');
@@ -36,7 +101,7 @@ test('illustration precedes native audio and all seven blocks in one complete fl
 
   // DOM order: opening → cover → audio → first block → endmatter.
   const order = await page.evaluate(() => {
-    const article = document.querySelector('article#article-top');
+    const article = document.querySelector('article:has(> .article-opening)');
     if (!article) throw new Error('Article root missing.');
     const nodes = Array.from(
       article.querySelectorAll(
@@ -59,9 +124,9 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   expect(order.endmatter).toBeGreaterThan(order.body);
 
   // All seven block discriminants in the flow.
-  const body = page.locator('article#article-top div.article-body');
+  const body = page.locator('article:has(> .article-opening) div.article-body');
   await expect(body.locator('p').first()).toBeVisible();
-  await expect(body.locator('h2')).toBeVisible();
+  await expect(body.locator('h2').first()).toBeVisible();
   await expect(body.locator('figure img')).toBeVisible();
   await expect(body.locator('ol')).toBeVisible();
   await expect(body.locator('blockquote')).toBeVisible();
@@ -144,7 +209,7 @@ test('text resize, 400% zoom equivalent, and WCAG text spacing preserve one cont
     document.head.appendChild(style);
   }, '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }');
   const appliedSpacing = await page
-    .locator('article#article-top p')
+    .locator('article:has(> .article-opening) p')
     .first()
     .evaluate((element) => {
       const style = getComputedStyle(element);
@@ -163,7 +228,9 @@ test('text resize, 400% zoom equivalent, and WCAG text spacing preserve one cont
     true,
   );
   const clipped = await page
-    .locator('article#article-top h1, article#article-top p, article#article-top a')
+    .locator(
+      'article:has(> .article-opening) h1, article:has(> .article-opening) p, article:has(> .article-opening) a',
+    )
     .evaluateAll((elements) =>
       elements
         .filter((element) => {
@@ -252,7 +319,7 @@ test('article semantics name figures, audio, landmarks, footnotes, and backlinks
   await expect(page.getByRole('contentinfo')).toHaveCount(1);
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
   await expect(page.getByRole('figure', { name: 'Abstract acceptance cover' })).toBeVisible();
-  await expect(page.locator('article#article-top figure figcaption')).toContainText(
+  await expect(page.locator('article:has(> .article-opening) figure figcaption')).toContainText(
     'conventional source link',
   );
   await expect(page.locator('audio')).toHaveAttribute(
