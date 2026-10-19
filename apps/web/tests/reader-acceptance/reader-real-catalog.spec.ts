@@ -29,7 +29,7 @@ test('smokes the complete canonical generated Reader inventory independently of 
   if (richArticle === undefined) throw new Error('Canonical rich article is missing.');
 
   await page.goto('/');
-  const homeLinks = page.locator('.home-catalog a[href^="/articles/"]');
+  const homeLinks = page.locator('.home-catalog .article-summary__title a');
   await expect(homeLinks).toHaveCount(expectedHome.length);
   expect(
     await homeLinks.evaluateAll((links) => links.map((link) => link.getAttribute('href'))),

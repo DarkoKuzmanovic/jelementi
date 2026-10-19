@@ -67,6 +67,25 @@ function expectHttpError(fn: () => unknown, status: number, message: string): vo
 }
 
 describe('generated reader routes', () => {
+  it('names contents entries whose heading contains only a footnote', () => {
+    const article = {
+      ...resolveArticle(content, 'known'),
+      blocks: [
+        {
+          type: 'heading' as const,
+          level: 2 as const,
+          id: 'note-only',
+          children: [{ type: 'footnoteReference' as const, id: 'one' }],
+        },
+      ],
+      footnotes: [{ id: 'one', children: [{ type: 'text' as const, value: 'Note' }] }],
+    };
+    const { body } = render(ArticlePage, {
+      props: { data: { article, contentVersion: 'version', continuation: { nextOlder: null } } },
+    });
+    expect(body).toContain('Section 1');
+    expect(body).toContain('href="#note-only"');
+  });
   it('renders reader contents targeting authored heading IDs without nested links or repeated footnote IDs', () => {
     const article = {
       ...resolveArticle(content, 'known'),

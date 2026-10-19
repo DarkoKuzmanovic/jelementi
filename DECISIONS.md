@@ -79,4 +79,3 @@ Not authorization to implement; pick up when related surface is next touched or 
 - Reader roles and fonts stay at the reader boundary; Studio keeps its foundation aliases and content-only preview. A route-owned contents snippet targets the existing heading IDs without cloning inline links or footnote IDs. The shared renderer is still the only block renderer.
 - Covers have meaningful alt text, not invented captions. Optional listening on the home lead is derived from the validated article, not added to the public index schema. Published content, fingerprints, URLs, `/index.json`, podcast contracts and asset ceilings are unchanged.
 - System dark mode and intermediate widths are implementation adaptations, not additional approved Pen boards. Font licenses, source URLs and measured asset sizes live beside the self-hosted font files.
-

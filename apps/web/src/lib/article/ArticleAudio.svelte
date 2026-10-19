@@ -16,20 +16,3 @@
     </audio>
   </section>
 {/if}
-
-<style>
-  .article-audio {
-    margin: 0 auto 2.5rem;
-    max-width: var(--article-prose-width, 39rem);
-    padding: 1rem;
-    background: var(--foundation-accent-soft);
-    color: var(--foundation-muted);
-    font-size: var(--text-small);
-  }
-
-  .article-audio audio {
-    width: 100%;
-    max-width: 100%;
-    display: block;
-  }
-</style>

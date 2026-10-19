@@ -1,5 +1,7 @@
 @import './lib/foundation/foundation.css';
 @import './lib/foundation/reader-fonts.css';
+@import './lib/reader/reader.css';
+@import './lib/article/article.css';
 
 /* Reader roles are local: Studio retains the surface-neutral foundation. */
 .reader-surface {

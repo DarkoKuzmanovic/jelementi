@@ -138,10 +138,7 @@ describe('reader shell public contract', () => {
     // Assert on rendered CSS presence via layout source is stable public seam:
     // the spec requires conventional wrapping, so we verify the layout's style
     // contains flex-wrap and the narrow reflow container pattern.
-    const shellSource = readFileSync(
-      new URL('../../routes/(reader)/ReaderShell.svelte', import.meta.url),
-      'utf8',
-    );
+    const shellSource = readFileSync(new URL('../reader/reader.css', import.meta.url), 'utf8');
     expect(shellSource).toContain('flex-wrap: wrap');
     expect(shellSource).toContain('min(81rem, calc(100% - 2.75rem))');
     // Ensure landmark links are not hidden via inline hidden/styles

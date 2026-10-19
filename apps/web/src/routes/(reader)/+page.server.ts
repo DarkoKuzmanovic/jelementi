@@ -7,8 +7,13 @@ export const csr = false;
 
 export const load: PageServerLoad = () => {
   const catalog = projectHomeCatalog(generatedContent.index);
+  const lead = catalog.lead ? generatedContent.articles[catalog.lead.slug] : undefined;
   return {
     catalog,
-    hasLeadAudio: !!(catalog.lead && generatedContent.articles[catalog.lead.slug]?.audio),
+    leadCitationIds: [
+      ...(lead?.footnotes.map(({ id }) => id) ?? []),
+      ...(lead?.references.flatMap(({ title }) => title.match(/^\[(\d+)\]/)?.[1] ?? []) ?? []),
+    ],
+    hasLeadAudio: !!lead?.audio,
   };
 };

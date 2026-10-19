@@ -31,14 +31,3 @@
   </ul>
   <p class="return-link"><a href="/categories">← All categories</a></p>
 </section>
-
-<style>
-  .category-listing {
-    display: grid;
-    gap: var(--space-8);
-  }
-
-  .return-link {
-    margin: 0;
-  }
-</style>

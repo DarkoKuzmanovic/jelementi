@@ -47,7 +47,9 @@ describe('illustrated discovery', () => {
   });
 
   it('prioritizes the lead illustration and suppresses only preview citation markers', () => {
-    const { body } = render(ArticleSummary, { props: { article, lead: true } });
+    const { body } = render(ArticleSummary, {
+      props: { article, lead: true, citationIds: ['1', '22'] },
+    });
     expect(body).toContain('loading="eager"');
     expect(body).toContain('fetchpriority="high"');
     expect(body).toContain('Evidence matters. Still true.');
@@ -55,6 +57,16 @@ describe('illustrated discovery', () => {
     expect(article.excerpt).toBe('Evidence matters.[1][22] Still true.');
     expect(body).toContain('Read article');
     expect(body).toContain(`href="/articles/${article.slug}"`);
+  });
+  it('retains bracketed prose numbers that are not authored citation markers', () => {
+    const { body } = render(ArticleSummary, {
+      props: {
+        article: { ...article, excerpt: 'Year [1940]. Evidence.[1]' },
+        lead: true,
+        citationIds: ['1'],
+      },
+    });
+    expect(body).toContain('Year [1940]. Evidence.');
   });
   it('offers listening only when the caller has validated audio for the lead', () => {
     const withAudio = render(ArticleSummary, {
