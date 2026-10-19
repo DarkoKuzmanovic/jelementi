@@ -43,7 +43,8 @@
 
 <style>
   .article-opening {
-    margin: 0 0 var(--space-6);
+    max-width: 62.5rem;
+    margin: 0 0 2.5rem;
   }
 
   .article-opening__category {
@@ -60,8 +61,10 @@
 
   .article-opening__title {
     margin: 0 0 var(--space-4);
-    font-family: var(--font-serif);
-    font-size: var(--text-h1);
+    font-family: var(--article-heading-font, var(--font-serif));
+    font-size: var(--article-title-size, var(--text-h1));
+    font-weight: 500;
+    letter-spacing: -0.045em;
     line-height: var(--leading-heading);
     overflow-wrap: anywhere;
   }
@@ -69,7 +72,7 @@
   .article-opening__excerpt {
     margin: 0 0 var(--space-3);
     color: var(--foundation-muted);
-    font-size: 1.1rem;
+    font-size: var(--article-dek-size, 1.1rem);
     line-height: 1.45;
   }
 

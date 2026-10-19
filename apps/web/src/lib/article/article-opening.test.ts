@@ -111,16 +111,16 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('aria-label="Tags"');
   });
 
-  it('places audio directly after the opening and the cover after audio, in one flow', () => {
+  it('places the illustration before optional native audio and the complete body', () => {
     const body = strip(render(ArticleRenderer, { props: { document } }).body);
     const opening = body.indexOf('<h1');
     const audio = body.indexOf('<audio');
     const cover = body.indexOf('article-cover');
     const firstBlock = body.indexOf('<p>Locked marks');
     expect(opening).toBeGreaterThanOrEqual(0);
-    expect(audio).toBeGreaterThan(opening);
-    expect(cover).toBeGreaterThan(audio);
-    expect(firstBlock).toBeGreaterThan(cover);
+    expect(cover).toBeGreaterThan(opening);
+    expect(audio).toBeGreaterThan(cover);
+    expect(firstBlock).toBeGreaterThan(audio);
   });
 
   it('renders all seven block discriminants, inline marks/nodes, wide image caption, sources, footnotes, and backlinks', () => {

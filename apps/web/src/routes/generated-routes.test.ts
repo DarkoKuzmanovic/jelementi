@@ -5,25 +5,15 @@ import type { ArticleDocument, ArticleIndexEntry } from '@jelementi/article-mode
 import { resolveArticle, resolveCategory } from '../lib/routes';
 import type { GeneratedContent } from '../lib/generated-content';
 
-// The article page imports its body renderer and continuation through the
-// `$lib` alias, which the vitest environment cannot resolve. The meta-element
-// contract under test lives in the real page component's svelte:head, so only
-// the body subcomponents are shimmed; the rendered head output is entirely
-// produced by the page itself.
-vi.mock('$lib/article/ArticleRenderer.svelte', () => ({
-  default: (): { body: string; head: string; css: { code: string } } => ({
-    body: '',
-    head: '',
-    css: { code: '' },
-  }),
-}));
-vi.mock('$lib/article/ArticleContinuation.svelte', () => ({
-  default: (): { body: string; head: string; css: { code: string } } => ({
-    body: '',
-    head: '',
-    css: { code: '' },
-  }),
-}));
+// Resolve the route aliases to the real components for complete SSR assertions.
+vi.mock(
+  '$lib/article/ArticleRenderer.svelte',
+  async () => import('../lib/article/ArticleRenderer.svelte'),
+);
+vi.mock(
+  '$lib/article/ArticleContinuation.svelte',
+  async () => import('../lib/article/ArticleContinuation.svelte'),
+);
 
 import ArticlePage from './(reader)/articles/[slug]/+page.svelte';
 
@@ -77,6 +67,52 @@ function expectHttpError(fn: () => unknown, status: number, message: string): vo
 }
 
 describe('generated reader routes', () => {
+  it('renders reader contents targeting authored heading IDs without nested links or repeated footnote IDs', () => {
+    const article = {
+      ...resolveArticle(content, 'known'),
+      blocks: [
+        {
+          type: 'heading' as const,
+          level: 2 as const,
+          id: 'same-heading',
+          children: [{ type: 'text' as const, value: 'Same heading' }],
+        },
+        {
+          type: 'heading' as const,
+          level: 2 as const,
+          id: 'same-heading-2',
+          children: [
+            {
+              type: 'link' as const,
+              href: 'https://example.org/source',
+              children: [{ type: 'text' as const, value: 'Same heading' }],
+            },
+            { type: 'footnoteReference' as const, id: 'one' },
+          ],
+        },
+        {
+          type: 'heading' as const,
+          level: 3 as const,
+          id: 'long-unusual-č-heading',
+          children: [{ type: 'text' as const, value: 'Č ' + 'long heading '.repeat(20) }],
+        },
+      ],
+      footnotes: [{ id: 'one', children: [{ type: 'text' as const, value: 'Note' }] }],
+    };
+    const { body } = render(ArticlePage, {
+      props: { data: { article, contentVersion: 'version', continuation: { nextOlder: null } } },
+    });
+    expect(body).toContain('aria-label="In this article"');
+    for (const id of ['same-heading', 'same-heading-2', 'long-unusual-č-heading']) {
+      expect(body).toContain(`href="#${id}"`);
+      expect(body.match(new RegExp(`id="${id}"`, 'g'))).toHaveLength(1);
+    }
+    const toc = body.match(/<nav[^>]*aria-label="In this article"[\s\S]*?<\/nav>/)?.[0] ?? '';
+    expect(toc).not.toContain('<sup');
+    expect(toc).not.toContain('https://example.org/source');
+    expect(toc).not.toMatch(/<a[^>]*>[^<]*<a/);
+  });
+
   it('returns the custom 404 contract for unknown article and category values', () => {
     expectHttpError(() => resolveArticle(empty, 'unknown'), 404, 'Article not found');
     expectHttpError(() => resolveCategory(empty, 'unknown'), 404, 'Category not found');
@@ -121,5 +157,9 @@ describe('generated reader routes', () => {
     if (meta === undefined) throw new Error('content-version meta missing from rendered head.');
     expect(meta).toContain(`content="${contentVersion}"`);
     expect(meta).not.toContain('content="' + '0'.repeat(64) + '"');
+    const { body } = render(ArticlePage, {
+      props: { data: { article, contentVersion, continuation: { nextOlder: null } } },
+    });
+    expect(body).not.toContain('aria-label="In this article"');
   });
 });

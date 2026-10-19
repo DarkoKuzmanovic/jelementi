@@ -24,7 +24,7 @@ test('rich article opening presents the complete compact hierarchy', async ({ pa
   await expect(opening.getByRole('list', { name: 'Tags' }).getByText('Čačak')).toBeVisible();
 });
 
-test('audio sits directly beneath the opening; cover and all seven blocks follow in one flow', async ({
+test('illustration precedes native audio and all seven blocks in one complete flow', async ({
   page,
 }) => {
   await page.goto('/articles/acceptance-rich-column');
@@ -34,11 +34,15 @@ test('audio sits directly beneath the opening; cover and all seven blocks follow
   await expect(page.locator('figure.article-cover img')).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-  // DOM order: opening → audio → cover → first block → endmatter.
+  // DOM order: opening → cover → audio → first block → endmatter.
   const order = await page.evaluate(() => {
     const article = document.querySelector('article#article-top');
     if (!article) throw new Error('Article root missing.');
-    const nodes = Array.from(article.children);
+    const nodes = Array.from(
+      article.querySelectorAll(
+        '.article-opening, .article-cover, .article-audio, .article-body, .article-endmatter',
+      ),
+    );
     const pos = (selector: string) =>
       nodes.findIndex((node) => node.querySelector(selector) !== null || node.matches(selector));
     return {
@@ -49,9 +53,9 @@ test('audio sits directly beneath the opening; cover and all seven blocks follow
       endmatter: pos('.article-endmatter'),
     };
   });
-  expect(order.audio).toBeGreaterThan(order.opening);
-  expect(order.cover).toBeGreaterThan(order.audio);
-  expect(order.body).toBeGreaterThan(order.cover);
+  expect(order.cover).toBeGreaterThan(order.opening);
+  expect(order.audio).toBeGreaterThan(order.cover);
+  expect(order.body).toBeGreaterThan(order.audio);
   expect(order.endmatter).toBeGreaterThan(order.body);
 
   // All seven block discriminants in the flow.

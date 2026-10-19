@@ -5,7 +5,7 @@
 </script>
 
 {#if article.audio}
-  <section class="article-audio" aria-label={`Audio for ${article.title}`}>
+  <section id="article-audio" class="article-audio" aria-label={`Audio for ${article.title}`}>
     <audio
       controls
       preload="metadata"
@@ -19,12 +19,17 @@
 
 <style>
   .article-audio {
-    margin: var(--space-4) 0;
+    margin: 0 auto 2.5rem;
+    max-width: var(--article-prose-width, 39rem);
+    padding: 1rem;
+    background: var(--foundation-accent-soft);
     color: var(--foundation-muted);
     font-size: var(--text-small);
   }
 
   .article-audio audio {
+    width: 100%;
     max-width: 100%;
+    display: block;
   }
 </style>
