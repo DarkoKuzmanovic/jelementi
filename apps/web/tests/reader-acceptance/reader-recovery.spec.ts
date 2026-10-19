@@ -31,6 +31,19 @@ async function expectAccessibleInLightAndDark(page: Page): Promise<void> {
   }
 }
 
+test('secondary reader pages share the publication heading scale', async ({ page }) => {
+  for (const path of ['/about', '/categories', '/articles/missing-reader-acceptance-article']) {
+    await page.goto(path);
+    const heading = page.getByRole('heading', { level: 1 });
+    const type = await heading.evaluate((element) => ({
+      size: parseFloat(getComputedStyle(element).fontSize),
+      family: getComputedStyle(element).fontFamily,
+    }));
+    expect(type.size).toBeGreaterThanOrEqual(40);
+    expect(type.family).toContain('Geist');
+  }
+});
+
 test('About is compact and factual without invented ownership or contact details', async ({
   page,
 }, testInfo) => {

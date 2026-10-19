@@ -15,6 +15,23 @@ const { mockedPage } = vi.hoisted(() => ({
 
 vi.mock('$app/state', () => ({ page: mockedPage }));
 
+import ReaderShell from '../../routes/(reader)/ReaderShell.svelte';
+
+it('renders supplied topic shortcuts before the utility links', () => {
+  mockedPage.url = new URL('https://jelementi.quz.ma/');
+  const topics = [
+    { name: 'Science', slug: 'science' },
+    { name: 'History', slug: 'history' },
+  ];
+  const body = render(ReaderShell, { props: { children: childSnippet, topics } }).body;
+  const header = body.slice(body.indexOf('<header'), body.indexOf('</header>'));
+  for (const topic of topics) expect(header).toContain(`href="/categories/${topic.slug}"`);
+  const podcast = header.indexOf('href="/podcast.xml"');
+  expect(header.indexOf('href="/categories/science"')).toBeLessThan(podcast);
+  expect(header.indexOf('href="/about"')).toBeGreaterThan(podcast);
+  expect(header.indexOf('href="/search"')).toBeGreaterThan(podcast);
+});
+
 import ReaderLayout from '../../routes/(reader)/+layout.svelte';
 import RootError from '../../routes/+error.svelte';
 import StudioError from '../../routes/studio/+error.svelte';
@@ -60,9 +77,9 @@ describe('reader shell public contract', () => {
       expect(body).toContain('aria-label="Primary navigation"');
       expect(body).toContain('aria-label="Footer navigation"');
       // Skip + main target pairing
-      expect(body).toContain('href="#main-content"');
+      expect(body).toContain('href="#reader:main"');
       expect(body).toContain('Skip to main content');
-      expect(body).toContain('id="main-content"');
+      expect(body).toContain('id="reader:main"');
       // Visible nav links exist in both header and footer
       for (const href of ['href="/"', 'href="/categories"', 'href="/search"', 'href="/about"']) {
         expect(body).toContain(href);
@@ -71,7 +88,7 @@ describe('reader shell public contract', () => {
       expect(body).toContain('Jelementi');
       // Child content is inside main
       expect(body).toContain('page-content');
-      expect(body.indexOf('id="main-content"')).toBeLessThan(body.indexOf('page-content'));
+      expect(body.indexOf('id="reader:main"')).toBeLessThan(body.indexOf('page-content'));
     });
   }
 
@@ -106,11 +123,11 @@ describe('reader shell public contract', () => {
     const { body } = renderReaderAt('/');
     const mainMatches = body.match(/<main\b/g) ?? [];
     expect(mainMatches).toHaveLength(1);
-    expect(body).toContain('<a class="skip-link" href="#main-content"');
+    expect(body).toContain('<a class="skip-link" href="#reader:main"');
     // The skip target must be focusable via tabindex="-1" so programmatic focus works
-    expect(body).toContain('id="main-content" tabindex="-1"');
+    expect(body).toContain('id="reader:main" tabindex="-1"');
     // Ensure the skip link appears before main for keyboard order
-    expect(body.indexOf('skip-link')).toBeLessThan(body.indexOf('id="main-content"'));
+    expect(body.indexOf('skip-link')).toBeLessThan(body.indexOf('id="reader:main"'));
   });
 
   it('marks the current route with aria-current="page" and only there', () => {
@@ -138,12 +155,9 @@ describe('reader shell public contract', () => {
     // Assert on rendered CSS presence via layout source is stable public seam:
     // the spec requires conventional wrapping, so we verify the layout's style
     // contains flex-wrap and the narrow reflow container pattern.
-    const shellSource = readFileSync(
-      new URL('../../routes/(reader)/ReaderShell.svelte', import.meta.url),
-      'utf8',
-    );
+    const shellSource = readFileSync(new URL('../reader/reader.css', import.meta.url), 'utf8');
     expect(shellSource).toContain('flex-wrap: wrap');
-    expect(shellSource).toContain('min(42rem, calc(100% - 2rem))');
+    expect(shellSource).toContain('min(81rem, calc(100% - 2.75rem))');
     // Ensure landmark links are not hidden via inline hidden/styles
     expect(body).not.toContain(' hidden');
   });
@@ -155,7 +169,7 @@ describe('reader shell public contract', () => {
     expect(studioBody).not.toContain('site-header');
     expect(studioBody).not.toContain('site-footer');
     expect(studioBody).not.toContain('skip-link');
-    expect(studioBody).not.toContain('id="main-content"');
+    expect(studioBody).not.toContain('id="reader:main"');
   });
 
   it('owns shells structurally: shared root contains no Reader-versus-Studio branching', () => {

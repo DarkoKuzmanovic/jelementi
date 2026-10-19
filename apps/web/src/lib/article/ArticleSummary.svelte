@@ -1,68 +1,55 @@
 <script lang="ts">
+  import { articleAudioAnchor } from './audio-anchor';
   import type { ArticleIndexEntry } from '@jelementi/article-model';
   import { formatPublishedDate } from './format-date';
-
-  let { article }: { article: ArticleIndexEntry } = $props();
+  let {
+    article,
+    lead = false,
+    audioAvailable = false,
+  }: {
+    article: ArticleIndexEntry;
+    lead?: boolean;
+    audioAvailable?: boolean;
+  } = $props();
 </script>
 
-<!--
-  ArticleSummary — the ONE shared semantic hierarchy for Reader discovery:
-  title link, excerpt, and a metadata line (category link, publication date,
-  reading time). Home, category, and Search compose this same hierarchy with
-  surface-specific layout classes; composition differences never change the
-  semantic order below.
--->
-<article class="article-summary">
-  <h2 class="article-summary__title">
-    <a href={`/articles/${article.slug}`}>{article.title}</a>
-  </h2>
-  <p class="article-summary__excerpt">{article.excerpt}</p>
+{#snippet metadata()}
   <p class="article-summary__meta">
-    <a class="article-summary__category" href={`/categories/${article.categorySlug}`}>
-      {article.category}
-    </a>
-    <span aria-hidden="true"> · </span>
-    <time datetime={article.publishedAt}>{formatPublishedDate(article.publishedAt)}</time>
-    <span aria-hidden="true"> · </span>
-    {article.readingTimeMinutes} min read
+    <a class="article-summary__category" href={`/categories/${article.categorySlug}`}
+      >{article.category}</a
+    >
+    <span aria-hidden="true"> · </span>{article.readingTimeMinutes} min read
   </p>
+{/snippet}
+
+<article class="article-summary" class:article-summary--lead={lead}>
+  <img
+    class="article-summary__cover"
+    src={article.cover.src}
+    alt={article.cover.alt}
+    width="1600"
+    height="900"
+    loading={lead ? 'eager' : 'lazy'}
+    fetchpriority={lead ? 'high' : undefined}
+  />
+  <div class="article-summary__text">
+    {#if lead}<p class="article-summary__eyebrow">Latest article</p>{:else}{@render metadata()}{/if}
+    <h2 class="article-summary__title">
+      <a href={`/articles/${article.slug}`}>{article.title}</a>
+    </h2>
+    <p class="article-summary__excerpt">
+      {article.excerpt}
+    </p>
+    {#if lead}{@render metadata()}{/if}
+    {#if lead}
+      <p class="article-summary__actions">
+        <a href={`/articles/${article.slug}`}>Read article <span aria-hidden="true">→</span></a
+        >{#if audioAvailable}<a href={`/articles/${article.slug}#${articleAudioAnchor}`}>Listen</a
+          >{/if}
+      </p>
+    {/if}
+    <time class="article-summary__date" class:visually-hidden={!lead} datetime={article.publishedAt}
+      >{formatPublishedDate(article.publishedAt)}</time
+    >
+  </div>
 </article>
-
-<style>
-  .article-summary__title {
-    margin: 0 0 var(--space-1);
-    font-family: var(--font-serif);
-    font-size: var(--text-h3);
-    line-height: var(--leading-heading);
-  }
-
-  .article-summary__title a {
-    color: var(--foundation-ink);
-    text-decoration: underline;
-    text-decoration-color: var(--foundation-rule);
-    text-underline-offset: 0.18em;
-    text-decoration-thickness: 1px;
-  }
-
-  .article-summary__title a:hover {
-    color: var(--foundation-link);
-    text-decoration-color: currentColor;
-    text-decoration-thickness: 0.14em;
-  }
-
-  .article-summary__excerpt {
-    margin: 0 0 var(--space-2);
-    color: var(--foundation-muted);
-  }
-
-  .article-summary__meta {
-    margin: 0;
-    color: var(--foundation-muted);
-    font-size: var(--text-small);
-  }
-
-  .article-summary__category {
-    color: var(--foundation-accent);
-    font-weight: 650;
-  }
-</style>

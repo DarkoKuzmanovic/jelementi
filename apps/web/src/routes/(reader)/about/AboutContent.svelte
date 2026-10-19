@@ -37,26 +37,3 @@
     </section>
   {/if}
 </article>
-
-<style>
-  .about {
-    max-width: 36rem;
-    overflow-wrap: anywhere;
-  }
-
-  .about__statement {
-    font-family: var(--font-serif);
-    font-size: var(--text-large);
-  }
-
-  .about section {
-    margin-top: var(--space-8);
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--foundation-rule);
-  }
-
-  .about span {
-    margin-right: var(--space-2);
-    font-weight: 700;
-  }
-</style>

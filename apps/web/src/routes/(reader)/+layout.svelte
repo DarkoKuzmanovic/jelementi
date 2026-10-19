@@ -1,7 +1,11 @@
 <script lang="ts">
   import ReaderShell from './ReaderShell.svelte';
 
-  let { children } = $props();
+  let {
+    children,
+    data,
+  }: { children: import('svelte').Snippet; data?: { topics: { name: string; slug: string }[] } } =
+    $props();
 </script>
 
 <svelte:head>
@@ -18,4 +22,4 @@
   The shared component also lets the root static fallback render this exact
   shell without introducing a shared runtime application shell (#103).
 -->
-<ReaderShell>{@render children()}</ReaderShell>
+<ReaderShell topics={data?.topics}>{@render children()}</ReaderShell>

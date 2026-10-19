@@ -23,28 +23,3 @@
     <a href="/categories">Categories</a>
   </nav>
 </section>
-
-<style>
-  .recovery {
-    max-width: 34rem;
-    overflow-wrap: anywhere;
-  }
-
-  .recovery__context {
-    margin: 0 0 var(--space-2);
-    color: var(--foundation-muted);
-    font-size: var(--text-small);
-    font-weight: 700;
-  }
-
-  .recovery h1 {
-    margin: 0;
-  }
-
-  .recovery nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-6);
-    margin-top: var(--space-6);
-  }
-</style>

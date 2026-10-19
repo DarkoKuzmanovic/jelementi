@@ -101,7 +101,7 @@ describe('shared foundation', () => {
 });
 
 describe('shared discovery summary', () => {
-  it('renders one semantic hierarchy: title link, excerpt, category, date, reading time', () => {
+  it('renders the illustrated discovery hierarchy: category and reading time, title, excerpt and date', () => {
     const { body } = render(ArticleSummary, { props: { article: entry } });
     expect(body).toContain('article-summary__title');
     expect(body).toContain(`href="/articles/${entry.slug}"`);
@@ -118,7 +118,7 @@ describe('shared discovery summary', () => {
     const metaIndex = body.indexOf('article-summary__meta');
     expect(headingIndex).toBeGreaterThanOrEqual(0);
     expect(headingIndex).toBeLessThan(excerptIndex);
-    expect(excerptIndex).toBeLessThan(metaIndex);
+    expect(metaIndex).toBeLessThan(headingIndex);
   });
 });
 

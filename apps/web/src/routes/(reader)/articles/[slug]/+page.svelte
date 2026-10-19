@@ -1,8 +1,19 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import type { InlineNode } from '@jelementi/article-model';
   import ArticleRenderer from '$lib/article/ArticleRenderer.svelte';
   import ArticleContinuation from '$lib/article/ArticleContinuation.svelte';
   let { data }: { data: PageData } = $props();
+  const headings = $derived(data.article.blocks.filter((block) => block.type === 'heading'));
+
+  // Contents labels are plain text: nested links and reference IDs belong only in the body.
+  function headingText(nodes: InlineNode[]): string {
+    return nodes
+      .map((node) =>
+        node.type === 'text' ? node.value : node.type === 'link' ? headingText(node.children) : '',
+      )
+      .join('');
+  }
 </script>
 
 <svelte:head>
@@ -10,23 +21,20 @@
   <meta name="description" content={data.article.excerpt} />
   <meta name="jelementi-content-version" content={data.contentVersion} />
 </svelte:head>
+{#snippet contents()}
+  <nav class="article-contents" aria-label="In this article">
+    <p>In this article</p>
+    <ol>
+      {#each headings as heading, index (heading.id)}<li>
+          <a href={`#${heading.id}`}
+            >{headingText(heading.children).trim() || `Section ${index + 1}`}</a
+          >
+        </li>{/each}
+    </ol>
+    {#if data.article.references.length > 0}<a href="#reader:sources">Sources →</a>{/if}
+  </nav>
+{/snippet}
 <div class="article-page">
-  <ArticleRenderer document={data.article} />
+  <ArticleRenderer document={data.article} contents={headings.length > 0 ? contents : undefined} />
   <ArticleContinuation article={data.article} nextOlder={data.continuation.nextOlder} />
 </div>
-
-<style>
-  /*
-    The Quiet Column (#101): the article route widens the shared 42rem
-    reading main to a bounded 52rem measure, preserving the existing gutters
-    and centering. This override ships only in this route's own stylesheet,
-    so Home, category, Search, and About keep the 42rem column.
-  */
-  :global(.layout) {
-    width: min(52rem, calc(100% - 2rem));
-  }
-
-  .article-page {
-    width: 100%;
-  }
-</style>

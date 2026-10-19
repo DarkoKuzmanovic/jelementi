@@ -48,6 +48,39 @@ test('preview renders the full authoritative content hierarchy with no Reader ch
   await expect(preview.getByText('Return to')).toHaveCount(0);
 });
 
+test('preview preserves fragment targets without reader contents', async ({ page }) => {
+  await page.goto(`/studio/articles/${ARTICLE_SLUG}`);
+  await page.getByRole('textbox', { name: 'Body', exact: true }).fill(`## Article top
+## Sources heading
+## Footnotes heading
+## Footnote note
+## Footnote ref note block 5 1
+
+Text[^note] repeated[^note].
+
+[^note]: Preview note.`);
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  const preview = page.getByRole('article', { name: 'Reader preview' });
+  await expect(preview.locator('.article-body h2')).toHaveCount(5);
+  await expect(preview.getByRole('navigation')).toHaveCount(0);
+  const ids = await page.locator('[id]').evaluateAll((nodes) => nodes.map((node) => node.id));
+  expect(new Set(ids).size).toBe(ids.length);
+  expect(
+    await preview.locator('a[aria-label^="Back to footnote reference"]').evaluateAll((links) =>
+      links.every((link) => {
+        const target = document.getElementById(link.getAttribute('href')!.slice(1));
+        const forward = target?.querySelector('a');
+        return (
+          target?.tagName === 'SUP' &&
+          forward &&
+          document.getElementById(forward.getAttribute('href')!.slice(1)) === link.parentElement
+        );
+      }),
+    ),
+  ).toBe(true);
+  await expect(preview.getByRole('link', { name: /^Back to footnote reference/ })).toHaveCount(2);
+});
+
 test('preview width selection is contained and the narrow canvas is 320px', async ({
   page,
 }, testInfo) => {
@@ -63,21 +96,23 @@ test('preview width selection is contained and the narrow canvas is 320px', asyn
   }));
   expect(wideDimensions.width).toBe(52 * wideDimensions.rootFontSize);
 
-  const typography = await preview.locator('article#article-top h1').evaluate((heading) => {
-    const probe = document.createElement('span');
-    probe.style.fontFamily = 'var(--font-serif)';
-    probe.style.fontSize = 'var(--text-h1)';
-    probe.style.lineHeight = 'var(--leading-heading)';
-    document.body.appendChild(probe);
-    const actual = getComputedStyle(heading);
-    const expected = getComputedStyle(probe);
-    const result = {
-      actual: [actual.fontFamily, actual.fontSize, actual.lineHeight],
-      expected: [expected.fontFamily, expected.fontSize, expected.lineHeight],
-    };
-    probe.remove();
-    return result;
-  });
+  const typography = await preview
+    .locator('article:has(> .article-opening) h1')
+    .evaluate((heading) => {
+      const probe = document.createElement('span');
+      probe.style.fontFamily = 'var(--font-serif)';
+      probe.style.fontSize = 'var(--text-h1)';
+      probe.style.lineHeight = 'var(--leading-heading)';
+      document.body.appendChild(probe);
+      const actual = getComputedStyle(heading);
+      const expected = getComputedStyle(probe);
+      const result = {
+        actual: [actual.fontFamily, actual.fontSize, actual.lineHeight],
+        expected: [expected.fontFamily, expected.fontSize, expected.lineHeight],
+      };
+      probe.remove();
+      return result;
+    });
   expect(typography.actual).toEqual(typography.expected);
 
   if (testInfo.project.name.includes('no-js')) {

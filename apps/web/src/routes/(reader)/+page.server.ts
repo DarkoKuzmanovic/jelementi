@@ -5,4 +5,11 @@ import { projectHomeCatalog } from '../../lib/home/home-catalog';
 export const prerender = true;
 export const csr = false;
 
-export const load: PageServerLoad = () => ({ catalog: projectHomeCatalog(generatedContent.index) });
+export const load: PageServerLoad = () => {
+  const catalog = projectHomeCatalog(generatedContent.index);
+  const lead = catalog.lead ? generatedContent.articles[catalog.lead.slug] : undefined;
+  return {
+    catalog,
+    hasLeadAudio: !!lead?.audio,
+  };
+};

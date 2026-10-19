@@ -111,16 +111,16 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('aria-label="Tags"');
   });
 
-  it('places audio directly after the opening and the cover after audio, in one flow', () => {
+  it('places the illustration before optional native audio and the complete body', () => {
     const body = strip(render(ArticleRenderer, { props: { document } }).body);
     const opening = body.indexOf('<h1');
     const audio = body.indexOf('<audio');
     const cover = body.indexOf('article-cover');
     const firstBlock = body.indexOf('<p>Locked marks');
     expect(opening).toBeGreaterThanOrEqual(0);
-    expect(audio).toBeGreaterThan(opening);
-    expect(cover).toBeGreaterThan(audio);
-    expect(firstBlock).toBeGreaterThan(cover);
+    expect(cover).toBeGreaterThan(opening);
+    expect(audio).toBeGreaterThan(cover);
+    expect(firstBlock).toBeGreaterThan(audio);
   });
 
   it('renders all seven block discriminants, inline marks/nodes, wide image caption, sources, footnotes, and backlinks', () => {
@@ -130,7 +130,7 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('<em>em</em>');
     expect(body).toContain('<code>code</code>');
     expect(body).toContain('<s>struck</s>');
-    expect(body).toContain('href="#footnote-quiet-note"');
+    expect(body).toContain('href="#reader:footnote:quiet-note"');
     expect(body).toContain('<h2 id="quiet-heading">A heading</h2>');
     expect(body).toContain('alt="A wide fixture landscape"');
     expect(body).toContain('A caption with');
@@ -141,6 +141,7 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('<hr');
     expect(body).toContain('Sources');
     expect(body).toContain('Quiet source');
+    expect(body).toContain('<ul role="list">');
     expect(body).toContain('Footnotes');
     expect(body).toContain('The backlink target.');
     expect(body).toContain('aria-label="Back to footnote reference 1"');

@@ -124,7 +124,7 @@ test('Categories reflows at 320px with text spacing, visible focus, themes, and 
       .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
   ).toBe(1);
 
-  for (let tab = 0; tab < 7; tab += 1) await page.keyboard.press('Tab');
+  for (let tab = 0; tab < 8; tab += 1) await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Field Notes', exact: true })).toBeFocused();
   const focusOutline = await page
     .getByRole('link', { name: 'Field Notes', exact: true })
@@ -164,7 +164,7 @@ test('one and many category listings pass the complete responsive and accessibil
   }
 
   await page.goto('/categories/field-notes');
-  for (let tab = 0; tab < 7; tab += 1) await page.keyboard.press('Tab');
+  for (let tab = 0; tab < 8; tab += 1) await page.keyboard.press('Tab');
   const returnLink = page
     .locator('.page-intro')
     .getByRole('link', { name: 'Categories', exact: true });
