@@ -71,3 +71,12 @@ Not authorization to implement; pick up when related surface is next touched or 
 - **Waivers / deviations:** correct-version rollback drill not run (Darko, 2026-08-11). Incident recovery remains Cloudflare version deploy to a recorded prior version, then a normal Git revert PR. M2 design outcome item 9 (send Jelena the production link) is a product action outside engineering close-out.
 - **Next milestone:** M3 — minimal Access-protected publishing Studio. No M3 design/PLAN yet; do not start implementation without an approved design and explicit scope.
 - Low-priority engineering follow-ups remain in “Known follow-ups” above; they are not M2 blockers.
+
+## 2026-10-19 — Illustrated journal reader (#146)
+
+- The approved illustrated-journal design replaces Quiet Column on the public reader: Geist headlines/navigation, Newsreader prose, warm paper/ink/lapis, existing cover illustrations, static contents and cover-before-native-audio order. Opening/ending studies do not shorten published articles.
+- Home keeps the validated lead/recent/archive projection and existing podcast feed; Search remains the complete SSR catalog and the only normal hydrated reader route. No subscription service, custom audio player or theme switch.
+- Reader roles and fonts stay at the reader boundary; Studio keeps its foundation aliases and content-only preview. A route-owned contents snippet targets the existing heading IDs without cloning inline links or footnote IDs. The shared renderer is still the only block renderer.
+- Covers have meaningful alt text, not invented captions. Optional listening on the home lead is derived from the validated article, not added to the public index schema. Published content, fingerprints, URLs, `/index.json`, podcast contracts and asset ceilings are unchanged.
+- System dark mode and intermediate widths are implementation adaptations, not additional approved Pen boards. Font licenses, source URLs and measured asset sizes live beside the self-hosted font files.
+

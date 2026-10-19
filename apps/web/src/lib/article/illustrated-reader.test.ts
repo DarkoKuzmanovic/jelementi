@@ -56,6 +56,14 @@ describe('illustrated discovery', () => {
     expect(body).toContain('Read article');
     expect(body).toContain(`href="/articles/${article.slug}"`);
   });
+  it('offers listening only when the caller has validated audio for the lead', () => {
+    const withAudio = render(ArticleSummary, {
+      props: { article, lead: true, audioAvailable: true },
+    }).body;
+    expect(withAudio).toContain('href="/articles/illustrated-story#article-audio"');
+    const withoutAudio = render(ArticleSummary, { props: { article, lead: true } }).body;
+    expect(withoutAudio).not.toContain('#article-audio');
+  });
   it('renders the real cover with stable dimensions and lazy offscreen loading', () => {
     const { body } = render(ArticleSummary, { props: { article } });
     expect(body).toMatch(/<img[^>]*src="https:\/\/example.org\/cover.webp"/);

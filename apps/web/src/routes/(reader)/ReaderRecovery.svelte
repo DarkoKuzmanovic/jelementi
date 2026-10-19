@@ -26,7 +26,7 @@
 
 <style>
   .recovery {
-    max-width: 34rem;
+    max-width: 42.5rem;
     overflow-wrap: anywhere;
   }
 
@@ -39,6 +39,10 @@
 
   .recovery h1 {
     margin: 0;
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.045em;
   }
 
   .recovery nav {

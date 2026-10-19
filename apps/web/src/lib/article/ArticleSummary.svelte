@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { ArticleIndexEntry } from '@jelementi/article-model';
   import { formatPublishedDate } from './format-date';
-  let { article, lead = false }: { article: ArticleIndexEntry; lead?: boolean } = $props();
+  let {
+    article,
+    lead = false,
+    audioAvailable = false,
+  }: { article: ArticleIndexEntry; lead?: boolean; audioAvailable?: boolean } = $props();
 </script>
 
 <article class="article-summary" class:article-summary--lead={lead}>
@@ -34,7 +38,7 @@
     {#if lead}
       <p class="article-summary__actions">
         <a href={`/articles/${article.slug}`}>Read article <span aria-hidden="true">→</span></a
-        >{#if article.audio}<a href={`/articles/${article.slug}#article-audio`}>Listen</a>{/if}
+        >{#if audioAvailable}<a href={`/articles/${article.slug}#article-audio`}>Listen</a>{/if}
       </p>
     {/if}
   </div>
@@ -88,7 +92,7 @@
   }
   .article-summary__category {
     color: var(--foundation-accent);
-    text-decoration: none;
+    text-decoration: underline;
   }
   .article-summary__eyebrow {
     color: var(--foundation-accent);

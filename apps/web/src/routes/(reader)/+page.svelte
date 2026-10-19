@@ -14,7 +14,7 @@
   <h1 id="home-heading" class="visually-hidden">Jelementi</h1>
   {#if data.catalog.lead}
     <div class="home-lead" data-home-tier="lead">
-      <ArticleSummary article={data.catalog.lead} lead />
+      <ArticleSummary article={data.catalog.lead} lead audioAvailable={data.hasLeadAudio} />
     </div>
   {/if}
   {#if data.catalog.recent.length > 0}

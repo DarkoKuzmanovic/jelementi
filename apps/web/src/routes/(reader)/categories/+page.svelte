@@ -80,7 +80,7 @@
 
   .category-entry h2 {
     margin: 0;
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-size: var(--text-h2);
     line-height: var(--leading-heading);
   }
@@ -117,7 +117,7 @@
 
   .category-newest > a {
     overflow-wrap: anywhere;
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-size: var(--text-h3);
   }
 
