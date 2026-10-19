@@ -38,7 +38,7 @@ test('smokes the complete canonical generated Reader inventory independently of 
     expectedHome.map((entry) => entry.title),
   );
 
-  const leadLink = page.locator('[data-home-tier="lead"] a[href^="/articles/"]');
+  const leadLink = page.locator('[data-home-tier="lead"] .article-summary__title a');
   await expect(leadLink).toHaveCount(1);
   await expect(leadLink).toHaveText(expectedLead.title);
   await expect(page.locator('.home-catalog .article-summary')).toHaveCount(expectedHome.length);
@@ -87,12 +87,22 @@ test('smokes the complete canonical generated Reader inventory independently of 
   const measures = await page.evaluate(() => {
     const page = document.querySelector('.article-page');
     const body = document.querySelector('.article-body');
-    if (!(page instanceof HTMLElement) || !(body instanceof HTMLElement)) {
+    const prose = document.querySelector('.article-body > p');
+    if (
+      !(page instanceof HTMLElement) ||
+      !(body instanceof HTMLElement) ||
+      !(prose instanceof HTMLElement)
+    ) {
       throw new Error('Canonical article measures are missing.');
     }
-    return { page: page.getBoundingClientRect().width, body: body.getBoundingClientRect().width };
+    return {
+      page: page.getBoundingClientRect().width,
+      body: body.getBoundingClientRect().width,
+      prose: prose.getBoundingClientRect().width,
+    };
   });
-  expect(measures.page).toBeLessThanOrEqual(52 * 16);
+  expect(measures.page).toBe(71.25 * 16);
+  expect(measures.prose).toBeLessThanOrEqual(42.5 * 16);
   expect(measures.body).toBeLessThanOrEqual(50 * 16);
   await expect(page.locator('meta[name="jelementi-content-version"]')).toHaveCount(1);
 
