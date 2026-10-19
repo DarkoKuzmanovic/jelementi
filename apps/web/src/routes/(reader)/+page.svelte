@@ -116,7 +116,7 @@
     font-size: 1.375rem;
   }
   .home-more :global(.article-summary__excerpt) {
-    font-size: 0.875rem;
+    display: none;
   }
   .podcast-invitation {
     display: flex;
@@ -173,6 +173,9 @@
     .home-recent__list > li:not(:first-child) :global(.article-summary__cover),
     .home-more :global(.article-summary__cover) {
       width: 28%;
+    }
+    .home-recent__list > li:not(:first-child) :global(.article-summary__excerpt) {
+      display: none;
     }
     .home-recent__list > li:not(:first-child) :global(.article-summary__title) {
       font-size: 1.35rem;

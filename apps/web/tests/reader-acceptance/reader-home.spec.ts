@@ -80,6 +80,22 @@ test('@home-catalog-scenario renders each published article once in the exact Ed
   }
 });
 
+test('compact illustrated archive rows retain stories without expanded preview prose', async ({
+  page,
+}) => {
+  test.skip(scenario !== 'representative', 'Representative archive composition.');
+  await page.goto('/');
+  await expect(page.locator('.home-more .article-summary__excerpt').first()).toBeHidden();
+  await expect(page.locator('.home-more .article-summary__title').first()).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.locator('.home-recent__list > li').nth(1).locator('.article-summary__excerpt'),
+  ).toBeHidden();
+  await expect(
+    page.locator('.home-recent__list > li').first().locator('.article-summary__excerpt'),
+  ).toBeVisible();
+});
+
 test('representative Home preserves the wide editorial scan and one 320px source sequence', async ({
   page,
 }) => {
@@ -133,6 +149,12 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
 
   await expect(
     page.getByText('unbroken-content-token-that-must-reflow-without-page-level-overflow'),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole('link', {
+      name: 'A Deliberately Long Category Name for Narrow Readers',
+      exact: true,
+    }),
   ).toBeVisible();
   const noHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -160,22 +182,22 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     '/categories/field-notes',
     '/articles/acceptance-rich-column',
     '/articles/acceptance-rich-column#article-audio',
+    '/categories/field-notes',
     '/articles/acceptance-field-middle',
-    '/categories/field-notes',
+    '/categories/culture',
     '/articles/acceptance-culture-new',
-    '/categories/culture',
+    '/categories/science',
     '/articles/acceptance-science-new',
-    '/categories/science',
-    '/articles/acceptance-field-oldest',
     '/categories/field-notes',
-    '/articles/acceptance-culture-old',
+    '/articles/acceptance-field-oldest',
     '/categories/culture',
-    '/articles/acceptance-science-old',
+    '/articles/acceptance-culture-old',
     '/categories/science',
-    '/articles/acceptance-long-category',
+    '/articles/acceptance-science-old',
     '/categories/a-deliberately-long-category-name-for-narrow-readers',
-    '/articles/acceptance-no-audio-long-column',
+    '/articles/acceptance-long-category',
     '/categories/solo',
+    '/articles/acceptance-no-audio-long-column',
   ];
   const keyboardHrefs: string[] = [];
   const focusOutlines: Array<{ style: string; width: string }> = [];

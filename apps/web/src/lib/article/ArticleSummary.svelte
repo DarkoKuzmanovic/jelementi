@@ -8,6 +8,15 @@
   }: { article: ArticleIndexEntry; lead?: boolean; audioAvailable?: boolean } = $props();
 </script>
 
+{#snippet metadata()}
+  <p class="article-summary__meta">
+    <a class="article-summary__category" href={`/categories/${article.categorySlug}`}
+      >{article.category}</a
+    >
+    <span aria-hidden="true"> · </span>{article.readingTimeMinutes} min read
+  </p>
+{/snippet}
+
 <article class="article-summary" class:article-summary--lead={lead}>
   <img
     class="article-summary__cover"
@@ -19,28 +28,23 @@
     fetchpriority={lead ? 'high' : undefined}
   />
   <div class="article-summary__text">
-    {#if lead}<p class="article-summary__eyebrow">Latest article</p>{/if}
+    {#if lead}<p class="article-summary__eyebrow">Latest article</p>{:else}{@render metadata()}{/if}
     <h2 class="article-summary__title">
       <a href={`/articles/${article.slug}`}>{article.title}</a>
     </h2>
     <p class="article-summary__excerpt">
       {lead ? article.excerpt.replace(/\[\d+\]/g, '') : article.excerpt}
     </p>
-    <p class="article-summary__meta">
-      <a class="article-summary__category" href={`/categories/${article.categorySlug}`}
-        >{article.category}</a
-      >
-      <span aria-hidden="true"> · </span>
-      <time datetime={article.publishedAt}>{formatPublishedDate(article.publishedAt)}</time>
-      <span aria-hidden="true"> · </span>
-      {article.readingTimeMinutes} min read
-    </p>
+    {#if lead}{@render metadata()}{/if}
     {#if lead}
       <p class="article-summary__actions">
         <a href={`/articles/${article.slug}`}>Read article <span aria-hidden="true">→</span></a
         >{#if audioAvailable}<a href={`/articles/${article.slug}#article-audio`}>Listen</a>{/if}
       </p>
     {/if}
+    <time class="article-summary__date" class:visually-hidden={!lead} datetime={article.publishedAt}
+      >{formatPublishedDate(article.publishedAt)}</time
+    >
   </div>
 </article>
 
@@ -90,6 +94,15 @@
     color: var(--foundation-muted);
     font-size: 0.8125rem;
   }
+  .article-summary__meta {
+    margin-bottom: 0.75rem;
+  }
+  .article-summary__date {
+    display: block;
+    margin-top: 1rem;
+    color: var(--foundation-muted);
+    font-size: 0.8125rem;
+  }
   .article-summary__category {
     color: var(--foundation-accent);
     text-decoration: underline;
@@ -100,7 +113,7 @@
   }
   .article-summary--lead {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start;
     gap: 3rem;
   }
   .article-summary--lead .article-summary__cover {
