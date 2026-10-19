@@ -1,49 +1,71 @@
 @import './lib/foundation/foundation.css';
+@import './lib/foundation/reader-fonts.css';
 
-/*
- * Reader global composition (surface-owned). Palette, typography, spacing,
- * radius, identity, focus, bypass, and visually hidden helpers come from the
- * shared foundation; this file only composes them for the Reader surface.
- * The layout container uses the min() width pattern so 320 CSS px reflow
- * never forces two-dimensional scrolling.
- */
-
-.layout {
-  width: min(42rem, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: var(--space-8) 0 var(--space-12);
+/* Reader roles are local: Studio retains the surface-neutral foundation. */
+.reader-surface {
+  --foundation-canvas: #f8f6f0;
+  --foundation-paper: #f8f6f0;
+  --foundation-ink: #202522;
+  --foundation-muted: #60645f;
+  --foundation-rule: #cfd0c8;
+  --foundation-link: #284c99;
+  --foundation-accent: #284c99;
+  --foundation-accent-soft: #e9edf4;
+  --foundation-focus: #284c99;
+  --foundation-control-surface: #f8f6f0;
+  --foundation-control-text: #202522;
+  --foundation-control-border: #60645f;
+  --font-sans: 'Geist', sans-serif;
+  --font-serif: 'Newsreader', Georgia, serif;
+  min-height: 100vh;
+  background: var(--foundation-canvas);
+  color: var(--foundation-ink);
+  font-family: var(--font-sans);
 }
-
-/* Shared reader primitives — single definition replaces duplicate scoped
-   page-intro/kicker/divided-list declarations across category routes and
-   search. Keeps overflow-wrap for 320px reflow and preserves theme tokens. */
+@media (prefers-color-scheme: dark) {
+  .reader-surface {
+    --foundation-canvas: #191d1b;
+    --foundation-paper: #191d1b;
+    --foundation-ink: #f1efe7;
+    --foundation-muted: #b7bdb6;
+    --foundation-rule: #484f49;
+    --foundation-link: #a8c2ff;
+    --foundation-accent: #a8c2ff;
+    --foundation-accent-soft: #28364e;
+    --foundation-focus: #a8c2ff;
+    --foundation-control-surface: #191d1b;
+    --foundation-control-text: #f1efe7;
+    --foundation-control-border: #b7bdb6;
+  }
+}
+.layout {
+  width: min(62.5rem, calc(100% - 2.75rem));
+  margin: 0 auto;
+  padding: 3.5rem 0;
+}
 .page-intro {
-  padding-bottom: var(--space-6);
+  padding-bottom: 2rem;
   border-bottom: 1px solid var(--foundation-rule);
 }
 .page-intro h1 {
   margin: 0;
   overflow-wrap: anywhere;
-  font-family: var(--font-serif);
-  font-size: clamp(2.5rem, 7vw, 5.4rem);
-  line-height: var(--leading-heading);
-  letter-spacing: -0.035em;
+  font-family: var(--font-sans);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 1.1;
+  letter-spacing: -0.045em;
 }
 .page-intro > p:last-child {
   max-width: 47rem;
-  margin: var(--space-3) 0 0;
+  margin: 1rem 0 0;
   color: var(--foundation-muted);
-  font-family: var(--font-serif);
-  font-size: clamp(1.08rem, 2.2vw, 1.35rem);
+  font-size: 1.25rem;
 }
 .kicker {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 1rem;
   color: var(--foundation-accent);
-  font-family: var(--font-mono);
-  font-size: var(--text-compact);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 .kicker a {
   color: var(--foundation-accent);
@@ -55,6 +77,11 @@
   list-style: none;
 }
 .divided-list > li {
-  padding: var(--space-6) 0;
+  padding: 1.5rem 0;
   border-bottom: 1px solid var(--foundation-rule);
+}
+@media (max-width: 600px) {
+  .layout {
+    padding-block: 1.75rem 2.75rem;
+  }
 }

@@ -143,7 +143,7 @@ describe('reader shell public contract', () => {
       'utf8',
     );
     expect(shellSource).toContain('flex-wrap: wrap');
-    expect(shellSource).toContain('min(42rem, calc(100% - 2rem))');
+    expect(shellSource).toContain('min(81rem, calc(100% - 2.75rem))');
     // Ensure landmark links are not hidden via inline hidden/styles
     expect(body).not.toContain(' hidden');
   });
