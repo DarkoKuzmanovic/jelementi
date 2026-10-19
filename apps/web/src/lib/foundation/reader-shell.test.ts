@@ -16,15 +16,13 @@ const { mockedPage } = vi.hoisted(() => ({
 vi.mock('$app/state', () => ({ page: mockedPage }));
 
 import ReaderShell from '../../routes/(reader)/ReaderShell.svelte';
-import { generatedContent } from '../generated-content.server';
-import { projectCategoryDirectory } from '../category-projection';
 
-it('renders available real published topic shortcuts on desktop home before the utility links', () => {
+it('renders supplied topic shortcuts before the utility links', () => {
   mockedPage.url = new URL('https://jelementi.quz.ma/');
-  const topics = projectCategoryDirectory(generatedContent.index).map(({ name, slug }) => ({
-    name,
-    slug,
-  }));
+  const topics = [
+    { name: 'Science', slug: 'science' },
+    { name: 'History', slug: 'history' },
+  ];
   const body = render(ReaderShell, { props: { children: childSnippet, topics } }).body;
   const header = body.slice(body.indexOf('<header'), body.indexOf('</header>'));
   for (const topic of topics) expect(header).toContain(`href="/categories/${topic.slug}"`);
