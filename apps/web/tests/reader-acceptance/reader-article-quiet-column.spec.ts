@@ -94,6 +94,18 @@ test('sources expose authored numbers and domains, then reveal later references 
   const details = sources.locator('details');
   const summary = details.getByText('Show all 11 sources', { exact: true });
   await expect(summary).toBeVisible();
+  expect(
+    await summary.evaluate((element) => ({
+      color: getComputedStyle(element).color,
+      fontWeight: getComputedStyle(element).fontWeight,
+    })),
+  ).toEqual({
+    color: await sources
+      .locator('.article-source__title')
+      .first()
+      .evaluate((element) => getComputedStyle(element).color),
+    fontWeight: '500',
+  });
   await summary.click();
   await expect(sources.locator('.article-source__number').last()).toHaveText('11');
   await expect(sources.getByRole('link', { name: 'Reader acceptance source 11' })).toBeVisible();

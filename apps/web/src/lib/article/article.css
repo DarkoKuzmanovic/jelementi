@@ -101,8 +101,10 @@
   border-bottom: 1px solid var(--foundation-rule);
 }
 .article-sources__details summary {
+  color: var(--foundation-link);
   cursor: pointer;
   font-size: 0.875rem;
+  font-weight: 500;
 }
 .article-sources__details .article-sources {
   margin-top: 0.5rem;

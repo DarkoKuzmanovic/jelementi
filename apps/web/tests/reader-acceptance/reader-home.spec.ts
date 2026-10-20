@@ -76,6 +76,7 @@ test('@home-catalog-scenario renders each published article once in the exact Ed
     await expect(summary.locator('a[href^="/categories/"]')).toHaveCount(1);
     await expect(summary.locator('time[datetime]')).toHaveCount(1);
     await expect(summary).toContainText(/\d+ min read/);
+    await expect(summary.locator('.article-summary__meta')).toContainText(/ · \d+ min read/);
     if (await summary.evaluate((element) => !!element.closest('[data-home-tier="shelves"]'))) {
       await expect(summary.locator('.article-summary__excerpt')).toBeHidden();
     } else {

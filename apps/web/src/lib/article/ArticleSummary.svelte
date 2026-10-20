@@ -21,7 +21,7 @@
     <a class="article-summary__category" href={`/categories/${article.categorySlug}`}
       >{article.category}</a
     >
-    <span aria-hidden="true"> · </span>{article.readingTimeMinutes} min read
+    &#32;<span aria-hidden="true">·</span>&#32;{article.readingTimeMinutes} min read
   </p>
 {/snippet}
 

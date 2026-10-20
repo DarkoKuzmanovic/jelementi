@@ -187,3 +187,74 @@ test('smokes the complete canonical generated Reader inventory independently of 
   await expect(page.getByRole('heading', { name: 'This page is not available.' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Page recovery' })).toBeVisible();
 });
+test('wide home shelves become full-width compact rows on narrow screens', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+
+  const shelves = page.locator('.home-shelf--wide');
+  await expect(shelves).not.toHaveCount(0);
+  const firstShelf = shelves.first();
+  const shelfTitle = firstShelf.locator('.article-summary__title').first();
+  const labelTitle = firstShelf.locator('.home-shelf__label h3');
+  const ink = await page
+    .locator('.reader-surface')
+    .evaluate((element) => getComputedStyle(element).color);
+  const desktopStyles = await Promise.all([
+    shelfTitle.evaluate((element) => ({
+      tag: element.tagName,
+      fontSize: getComputedStyle(element).fontSize,
+      fontWeight: getComputedStyle(element).fontWeight,
+      color: getComputedStyle(element.querySelector('a')!).color,
+      textDecoration: getComputedStyle(element.querySelector('a')!).textDecorationLine,
+    })),
+    labelTitle.evaluate((element) => ({
+      fontSize: getComputedStyle(element).fontSize,
+      fontWeight: getComputedStyle(element).fontWeight,
+      color: getComputedStyle(element.querySelector('a')!).color,
+    })),
+  ]);
+
+  expect(desktopStyles[0]).toEqual({
+    tag: 'H4',
+    fontSize: '20px',
+    fontWeight: '500',
+    color: ink,
+    textDecoration: 'none',
+  });
+  expect(desktopStyles[1]).toEqual({
+    fontSize: '28px',
+    fontWeight: '500',
+    color: ink,
+  });
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
+
+    for (const shelf of await shelves.all()) {
+      await expect(shelf.locator('.home-shelf__all-compact')).toBeVisible();
+      await expect(shelf.locator('.home-shelf__all-wide')).toBeHidden();
+      const layout = await shelf.locator('.home-shelf__entries').evaluate((list) => {
+        const items = Array.from(list.children) as HTMLElement[];
+        const summary = items[0]?.querySelector('.article-summary') as HTMLElement | null;
+        const title = summary?.querySelector('.article-summary__title') as HTMLElement | null;
+        const cover = summary?.querySelector('.article-summary__cover') as HTMLElement | null;
+        return {
+          columns: getComputedStyle(list).gridTemplateColumns.split(/\s+/).filter(Boolean).length,
+          itemWidths: items.map((item) => item.getBoundingClientRect().width),
+          itemTops: items.map((item) => item.getBoundingClientRect().top),
+          titleWidth: title?.getBoundingClientRect().width ?? 0,
+          coverWidth: cover?.getBoundingClientRect().width ?? 0,
+        };
+      });
+
+      expect(layout.columns).toBe(1);
+      expect(layout.itemWidths.length).toBe(3);
+      expect(layout.itemWidths.every((itemWidth) => itemWidth > width / 2)).toBe(true);
+      expect(layout.titleWidth).toBeGreaterThan(width / 2);
+      expect(layout.coverWidth).toBeCloseTo(96, 0);
+      expect(layout.itemTops[1]).toBeGreaterThan(layout.itemTops[0]!);
+      expect(layout.itemTops[2]).toBeGreaterThan(layout.itemTops[1]!);
+    }
+  }
+});

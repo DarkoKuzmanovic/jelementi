@@ -58,6 +58,32 @@ test('Categories is an illustrated static directory with newest stories and cano
     'href',
     '/categories/field-notes',
   );
+  const ink = await page
+    .locator('.reader-surface')
+    .evaluate((element) => getComputedStyle(element).color);
+  const heading = fieldNotes.locator('h2 a');
+  const title = fieldNotes.locator('.category-entry__articles a').first();
+  expect(
+    await heading.evaluate((element) => ({
+      color: getComputedStyle(element).color,
+      fontWeight: getComputedStyle(element).fontWeight,
+    })),
+  ).toEqual({ color: ink, fontWeight: '500' });
+  expect(
+    await title.evaluate((element) => ({
+      color: getComputedStyle(element).color,
+      fontSize: getComputedStyle(element).fontSize,
+      fontWeight: getComputedStyle(element).fontWeight,
+      textDecoration: getComputedStyle(element).textDecorationLine,
+    })),
+  ).toEqual({
+    color: ink,
+    fontSize: '17px',
+    fontWeight: '500',
+    textDecoration: 'none',
+  });
+  await title.hover();
+  await expect(title).toHaveCSS('text-decoration-line', 'underline');
 });
 
 test('category listings are one newest-first reading sequence with return navigation', async ({
