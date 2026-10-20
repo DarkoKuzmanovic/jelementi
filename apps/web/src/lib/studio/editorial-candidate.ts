@@ -20,6 +20,9 @@ export function studioEditorCandidateEquals(
     leftMetadata.category === rightMetadata.category &&
     stringListEquals(leftMetadata.tags, rightMetadata.tags) &&
     leftMetadata.author === rightMetadata.author &&
+    leftMetadata.series?.slug === rightMetadata.series?.slug &&
+    leftMetadata.series?.title === rightMetadata.series?.title &&
+    leftMetadata.series?.part === rightMetadata.series?.part &&
     leftMetadata.cover.src === rightMetadata.cover.src &&
     leftMetadata.cover.alt === rightMetadata.cover.alt &&
     leftMetadata.audio?.src === rightMetadata.audio?.src &&

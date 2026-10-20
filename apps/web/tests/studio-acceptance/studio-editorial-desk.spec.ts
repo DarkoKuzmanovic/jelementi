@@ -63,6 +63,9 @@ test.describe('Editorial desk server baseline', () => {
     await expect(page.getByRole('textbox', { name: 'Updated date', exact: true })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Category', exact: true })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Author', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Series title', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Series slug', exact: true })).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: 'Part number', exact: true })).toBeVisible();
 
     await expect(page.getByText('Published version')).toBeVisible();
     await expect(page.getByText('Working change')).toBeVisible();

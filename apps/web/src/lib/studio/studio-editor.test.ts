@@ -72,6 +72,36 @@ describe('StudioEditor constrained inputs (#110)', () => {
     expect(tagWithId(inputTags(html), 'studio-field-author')).toContain('maxlength="200"');
   });
 
+  it('renders optional series title, slug, and positive-integer part controls', () => {
+    const html = renderEditorHtml();
+    const tags = inputTags(html);
+    expect(html).toContain('<legend>Series (optional)</legend>');
+    expect(html).toContain('id="studio-field-series"');
+    expect(tagWithId(tags, 'studio-field-seriesTitle')).toContain('maxlength="500"');
+
+    const seriesSlug = tagWithId(tags, 'studio-field-seriesSlug');
+    expect(seriesSlug).toContain('maxlength="100"');
+    expect(seriesSlug).toContain('pattern="[a-z0-9]+(?:-[a-z0-9]+)*"');
+    expect(seriesSlug).toContain('aria-describedby="studio-field-seriesSlug-help"');
+    expect(html).toContain('id="studio-field-seriesSlug-help"');
+
+    const part = tagWithId(tags, 'studio-field-seriesPart');
+    expect(part).toContain('type="number"');
+    expect(part).toContain('min="1"');
+    expect(part).toContain('step="1"');
+  });
+
+  it('restores stored series values into the editor fields', () => {
+    const series = { slug: 'northern-islands', title: 'Northern Islands', part: 2 };
+    const html = render(StudioEditor, {
+      props: { editor: { ...editor, metadata: { ...metadata, series } } },
+    }).body;
+    const tags = inputTags(html);
+    expect(tagWithId(tags, 'studio-field-seriesTitle')).toContain('value="Northern Islands"');
+    expect(tagWithId(tags, 'studio-field-seriesSlug')).toContain('value="northern-islands"');
+    expect(tagWithId(tags, 'studio-field-seriesPart')).toContain('value="2"');
+  });
+
   it('enforces the server-side URL limit on every reference URL input', () => {
     const html = renderEditorHtml();
     const urlInputs = inputTags(html).filter((tag) => tag.includes('name="referenceUrl"'));

@@ -20,6 +20,7 @@ export interface ArticleSourceFrontmatter {
   updatedAt: string;
   status: 'draft' | 'published' | 'archived';
   category: string;
+  series?: { slug: string; title: string; part: number };
   tags: string[];
   author: string;
   cover: { src: string; alt: string };
@@ -37,8 +38,8 @@ export interface ArticleSourceInput {
  *
  * - `---` opening delimiter line;
  * - YAML frontmatter emitted in the locked field order `title, slug, excerpt,
- *   publishedAt?, updatedAt, status, category, tags, author, cover, audio?,
- *   references`, with stable YAML quoting chosen by the pinned `yaml` emitter
+ *   publishedAt?, updatedAt, status, category, series?, tags, author, cover,
+ *   audio?, references`, with stable YAML quoting chosen by the pinned `yaml` emitter
  *   (`lineWidth: 0` so scalars are never wrapped);
  * - `---` closing delimiter line followed by exactly one LF;
  * - the Markdown body with CRLF and lone CR line endings normalized to LF.
@@ -61,6 +62,15 @@ function toYamlMapping(frontmatter: ArticleSourceFrontmatter): Record<string, un
     updatedAt: frontmatter.updatedAt,
     status: frontmatter.status,
     category: frontmatter.category,
+    ...(frontmatter.series === undefined
+      ? {}
+      : {
+          series: {
+            slug: frontmatter.series.slug,
+            title: frontmatter.series.title,
+            part: frontmatter.series.part,
+          },
+        }),
     tags: frontmatter.tags,
     author: frontmatter.author,
     cover: { src: frontmatter.cover.src, alt: frontmatter.cover.alt },

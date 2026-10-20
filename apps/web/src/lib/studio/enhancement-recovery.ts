@@ -407,6 +407,10 @@ export function captureStudioSubmittedSnapshot(form: FormData): StudioEditorInpu
     });
   }
 
+  const seriesTitle = read('seriesTitle');
+  const seriesSlug = read('seriesSlug');
+  const seriesPart = read('seriesPart');
+  const hasSeries = seriesTitle !== '' || seriesSlug !== '' || seriesPart !== '';
   const audioSrc = read('audioSrc');
   const audioDuration = read('audioDurationSeconds');
   const publishedAt = read('publishedAt');
@@ -438,6 +442,15 @@ export function captureStudioSubmittedSnapshot(form: FormData): StudioEditorInpu
                 : { durationSeconds: Number(audioDuration) }),
             },
           }),
+      ...(hasSeries
+        ? {
+            series: {
+              slug: seriesSlug,
+              title: seriesTitle,
+              part: Number(seriesPart),
+            },
+          }
+        : {}),
       references,
     },
     body: read('body'),

@@ -152,6 +152,7 @@ function frontmatterFromRecord(record: Record<string, unknown>, sourcePath: stri
     'cover',
     'audio',
     'references',
+    'series',
   ]);
   for (const key of Object.keys(record)) {
     if (!allowed.has(key))
@@ -160,6 +161,43 @@ function frontmatterFromRecord(record: Record<string, unknown>, sourcePath: stri
         'INVALID_FRONTMATTER',
         `Unsupported frontmatter field "${key}".`,
       );
+  }
+  const series = record.series;
+  if (
+    series !== undefined &&
+    (series === null || typeof series !== 'object' || Array.isArray(series))
+  ) {
+    throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', 'series must be a mapping.');
+  }
+  const seriesRecord = series as Record<string, unknown> | undefined;
+  let parsedSeries: ArticleSourceFrontmatter['series'];
+  if (seriesRecord !== undefined) {
+    const allowedSeriesKeys: Record<string, true> = { slug: true, title: true, part: true };
+    for (const key of Object.keys(seriesRecord)) {
+      if (!Object.hasOwn(allowedSeriesKeys, key))
+        throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', `Unknown series field "${key}".`);
+    }
+    const seriesSlug = asString(seriesRecord.slug);
+    const seriesTitle = asString(seriesRecord.title);
+    if (
+      !seriesSlug ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(seriesSlug) ||
+      !seriesTitle ||
+      typeof seriesRecord.part !== 'number' ||
+      !Number.isInteger(seriesRecord.part) ||
+      seriesRecord.part < 1
+    ) {
+      throw raiseIssue(
+        sourcePath,
+        'INVALID_FRONTMATTER',
+        'series requires a kebab-case slug, a non-empty title, and a positive integer part.',
+      );
+    }
+    parsedSeries = {
+      slug: seriesSlug,
+      title: seriesTitle,
+      part: seriesRecord.part,
+    };
   }
   const cover = record.cover;
   const references = record.references;
@@ -280,6 +318,7 @@ function frontmatterFromRecord(record: Record<string, unknown>, sourcePath: stri
     updatedAt: record.updatedAt as string,
     status,
     category: record.category as string,
+    ...(parsedSeries === undefined ? {} : { series: parsedSeries }),
     tags: record.tags as string[],
     author: record.author as string,
     cover: {

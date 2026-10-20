@@ -11,6 +11,7 @@ const document: ArticleDocument = {
   publishedAt: '2026-07-26',
   updatedAt: '2026-07-26',
   category: 'Remote Čačak',
+  series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 1 },
   tags: ['islands'],
   author: 'Jelementi',
   cover: { src: 'https://media.example.test/cover.webp', alt: 'An island' },
@@ -27,6 +28,7 @@ const entry: ArticleIndexEntry = {
   publishedAt: '2026-07-26',
   updatedAt: document.updatedAt,
   category: document.category,
+  series: document.series,
   categorySlug: 'remote-cacak',
   tags: document.tags,
   author: document.author,
@@ -40,6 +42,16 @@ describe('generated content boundary', () => {
     expect(validateGeneratedContent([entry], { 'cacak-island.json': document }).articles).toEqual({
       'cacak-island': document,
     });
+  });
+  it('accepts congruent pre-series artifacts without optional series metadata', () => {
+    const legacyDocument = { ...document };
+    const legacyEntry = { ...entry };
+    delete legacyDocument.series;
+    delete legacyEntry.series;
+
+    expect(
+      validateGeneratedContent([legacyEntry], { 'cacak-island.json': legacyDocument }).articles,
+    ).toEqual({ 'cacak-island': legacyDocument });
   });
   it('rejects duplicate index slugs before building the article map', () => {
     expect(() =>
@@ -61,6 +73,12 @@ describe('generated content boundary', () => {
       validateGeneratedContent([{ ...entry, title: 'Different' }], {
         'cacak-island.json': document,
       }),
+    ).toThrow('metadata');
+    expect(() =>
+      validateGeneratedContent(
+        [{ ...entry, series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 2 } }],
+        { 'cacak-island.json': document },
+      ),
     ).toThrow('metadata');
   });
 

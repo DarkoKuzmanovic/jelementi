@@ -20,6 +20,7 @@ const cardFields: ReadonlyArray<Exclude<keyof ArticleIndexEntry, 'categorySlug' 
   'publishedAt',
   'updatedAt',
   'category',
+  'series',
   'tags',
   'author',
   'cover',

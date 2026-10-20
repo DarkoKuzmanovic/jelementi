@@ -189,6 +189,15 @@ export const ArticleReferenceSchema = z
   .strict();
 
 export const ArticleStatusSchema = z.enum(['draft', 'published', 'archived']);
+export const ArticleSeriesSchema = z
+  .object({
+    slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Expected a kebab-case series slug'),
+    title: NonEmptyStringSchema,
+    part: z.number().int().min(1),
+  })
+  .strict();
+
+export type ArticleSeries = z.infer<typeof ArticleSeriesSchema>;
 
 function collectFootnoteReferences(nodes: InlineNode[], ids: Set<string>): void {
   for (const node of nodes) {
@@ -221,6 +230,7 @@ export const ArticleDocumentSchema = z
     publishedAt: IsoDateSchema.optional(),
     updatedAt: IsoDateSchema,
     category: NonEmptyStringSchema,
+    series: ArticleSeriesSchema.optional(),
     tags: z.array(NonEmptyStringSchema),
     author: NonEmptyStringSchema,
     cover: z.object({ src: MediaUrlSchema, alt: z.string() }).strict(),
@@ -285,6 +295,7 @@ export const ArticleIndexEntrySchema = z
     publishedAt: IsoDateSchema,
     updatedAt: IsoDateSchema,
     category: NonEmptyStringSchema,
+    series: ArticleSeriesSchema.optional(),
     categorySlug: NonEmptyStringSchema,
     tags: z.array(NonEmptyStringSchema),
     author: NonEmptyStringSchema,

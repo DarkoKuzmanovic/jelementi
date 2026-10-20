@@ -90,6 +90,7 @@ function createIndexEntry({ document, searchText }: CompiledArticle): ArticleInd
     publishedAt: document.publishedAt,
     updatedAt: document.updatedAt,
     category: document.category,
+    ...(document.series === undefined ? {} : { series: document.series }),
     categorySlug: slug,
     tags: document.tags,
     author: document.author,
@@ -97,6 +98,52 @@ function createIndexEntry({ document, searchText }: CompiledArticle): ArticleInd
     readingTimeMinutes: document.readingTimeMinutes,
     searchText,
   };
+}
+
+function validatePublishedSeries(published: CompiledSource[]): void {
+  const groups = new Map<
+    string,
+    { title: string; category: string; parts: Map<number, CompiledSource> }
+  >();
+  for (const source of published) {
+    const { document } = source.compiled;
+    const series = document.series;
+    if (series === undefined) continue;
+
+    let group = groups.get(series.slug);
+    if (group === undefined) {
+      group = { title: series.title, category: document.category, parts: new Map() };
+      groups.set(series.slug, group);
+    } else {
+      if (group.title !== series.title) {
+        throw issue(`Series "${series.slug}" must use one consistent title.`, source.sourcePath);
+      }
+      if (group.category !== document.category) {
+        throw issue(`Series "${series.slug}" must use one consistent category.`, source.sourcePath);
+      }
+    }
+    if (group.parts.has(series.part)) {
+      throw issue(
+        `Series "${series.slug}" contains duplicate part ${series.part}.`,
+        source.sourcePath,
+      );
+    }
+    group.parts.set(series.part, source);
+  }
+
+  for (const [slug, group] of groups) {
+    const parts = [...group.parts.entries()].sort(([left], [right]) => left - right);
+    let expectedPart = 1;
+    for (const [part, source] of parts) {
+      if (part !== expectedPart) {
+        throw issue(
+          `Series "${slug}" parts must be contiguous from 1; expected part ${expectedPart}.`,
+          source.sourcePath,
+        );
+      }
+      expectedPart += 1;
+    }
+  }
 }
 
 export function validateCompiledBatch(compiledSources: CompiledSource[]): ContentBatch {
@@ -125,6 +172,7 @@ export function validateCompiledBatch(compiledSources: CompiledSource[]): Conten
   const published = compiledSources.filter(
     ({ compiled }) => compiled.document.status === 'published',
   );
+  validatePublishedSeries(published);
   const index = published
     .map(({ compiled }) => createIndexEntry(compiled))
     .sort((left, right) => {

@@ -232,6 +232,12 @@ export interface StudioReference {
   accessedAt?: string;
 }
 
+export interface StudioSeries {
+  slug: string;
+  title: string;
+  part: number;
+}
+
 export interface StudioMetadata {
   title: string;
   slug: string;
@@ -244,6 +250,7 @@ export interface StudioMetadata {
   author: string;
   cover: { src: string; alt: string };
   audio?: { src: string; durationSeconds?: number };
+  series?: StudioSeries;
   references: StudioReference[];
 }
 
@@ -942,6 +949,30 @@ function optionalIsoStampValue(input: unknown, path: string, issues: string[]): 
   return isoDateValue(input, path, issues);
 }
 
+function seriesValue(input: unknown, path: string, issues: string[]): StudioSeries | undefined {
+  if (!isRecord(input)) {
+    collectIssues(path, issues, 'object');
+    return undefined;
+  }
+  const issuesBeforeKeys = issues.length;
+  rejectUnknownKeys(input, ['slug', 'title', 'part'], path, issues);
+  if (issues.length > issuesBeforeKeys) return undefined;
+
+  const issuesBeforeFields = issues.length;
+  stringIssue(input.title, `${path}.title`, issues, { max: EDITOR_INPUT_LIMITS.titleMax });
+  const slug = slugValue(input.slug, `${path}.slug`, issues);
+  const part = intAtLeastOne(input.part, `${path}.part`, issues);
+  if (
+    issues.length > issuesBeforeFields ||
+    typeof input.title !== 'string' ||
+    slug === undefined ||
+    part === undefined
+  ) {
+    return undefined;
+  }
+  return { slug, title: input.title, part };
+}
+
 function metadataValue(input: unknown, path: string, issues: string[]): StudioMetadata | undefined {
   if (!isRecord(input)) {
     collectIssues(path, issues, 'object');
@@ -961,6 +992,7 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
       'author',
       'cover',
       'audio',
+      'series',
       'references',
     ],
     path,
@@ -1026,6 +1058,9 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
       }
     }
   }
+  const series =
+    input.series === undefined ? undefined : seriesValue(input.series, `${path}.series`, issues);
+
   if (!Array.isArray(input.references) || input.references.length > MAX_LIST) {
     collectIssues(path, issues, 'references');
   } else {
@@ -1083,6 +1118,7 @@ function metadataValue(input: unknown, path: string, issues: string[]): StudioMe
               : { durationSeconds: audioRecord.durationSeconds as number }),
           },
         }),
+    ...(series === undefined ? {} : { series }),
     references: (input.references as Array<Record<string, unknown>>).map((reference) => ({
       title: reference.title as string,
       url: reference.url as string,

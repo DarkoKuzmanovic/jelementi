@@ -392,6 +392,13 @@ export function restoreCandidateToForm(
     'audioDurationSeconds',
     metadata.audio?.durationSeconds === undefined ? '' : String(metadata.audio.durationSeconds),
   );
+  setNamedValue(form, 'seriesTitle', metadata.series?.title ?? '');
+  setNamedValue(form, 'seriesSlug', metadata.series?.slug ?? '');
+  setNamedValue(
+    form,
+    'seriesPart',
+    metadata.series === undefined ? '' : String(metadata.series.part),
+  );
   setNamedValue(form, 'body', candidate.body);
 
   const titleInputs = Array.from(

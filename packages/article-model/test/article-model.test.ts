@@ -82,6 +82,19 @@ describe('ArticleDocument validation', () => {
     expect(doc.blocks).toHaveLength(7);
     expect(doc.footnotes).toHaveLength(1);
   });
+  it('accepts optional strict series metadata and rejects invalid parts or keys', () => {
+    const series = { slug: 'kalemegdan', title: 'Kalemegdan', part: 1 };
+    expect(ArticleDocumentSchema.safeParse({ ...validDocument, series }).success).toBe(true);
+    expect(
+      ArticleDocumentSchema.safeParse({ ...validDocument, series: { ...series, part: 0 } }).success,
+    ).toBe(false);
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        series: { ...series, extra: 'unsupported' },
+      }).success,
+    ).toBe(false);
+  });
 
   it('rejects a published article without publishedAt', () => {
     const { publishedAt: _publishedAt, ...unpublished } = validDocument;
@@ -182,6 +195,13 @@ describe('ArticleIndex validation and search normalization', () => {
     expect(ArticleIndexSchema.safeParse([indexEntry]).success).toBe(true);
     const { publishedAt: _publishedAt, ...withoutDate } = indexEntry;
     expect(ArticleIndexSchema.safeParse([withoutDate]).success).toBe(false);
+  });
+  it('accepts optional series metadata on index entries', () => {
+    expect(
+      ArticleIndexSchema.safeParse([
+        { ...indexEntry, series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 1 } },
+      ]).success,
+    ).toBe(true);
   });
 
   it('rejects index entries whose categorySlug does not match categorySlug(category)', () => {

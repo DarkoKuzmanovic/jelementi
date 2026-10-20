@@ -2,9 +2,10 @@ import { mkdtemp, mkdir, readFile, readdir, rename, rm, unlink, writeFile } from
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { compileArticle } from '@jelementi/content-compiler';
+import { ContentCompileError, compileArticle } from '@jelementi/content-compiler';
 import {
   buildContent,
+  ContentGenerationError,
   defaultDebounce,
   formatContentError,
   loadMediaBaseUrl,
@@ -25,15 +26,17 @@ async function makeRoot(): Promise<string> {
 function article({
   slug,
   status = 'published',
-  category = 'Remote Places',
   publishedAt = '2026-07-26',
+  category = 'Remote Places',
   body = 'A valid article body.',
+  series,
 }: {
   slug: string;
   status?: 'published' | 'draft' | 'archived';
   category?: string;
   publishedAt?: string;
   body?: string;
+  series?: { slug: string; title: string; part: number };
 }): string {
   return `---
 title: ${slug}
@@ -42,7 +45,7 @@ excerpt: ${slug} excerpt.
 ${status === 'published' ? `publishedAt: '${publishedAt}'\n` : ''}updatedAt: '2026-07-26'
 status: ${status}
 category: ${category}
-tags: [islands]
+${series === undefined ? '' : `series:\n  slug: ${series.slug}\n  title: ${JSON.stringify(series.title)}\n  part: ${series.part}\n`}tags: [islands]
 author: Jelementi
 cover:
   src: media/articles/${slug}/cover.webp
@@ -90,6 +93,64 @@ afterEach(async () => {
 });
 
 const mediaBaseUrl = 'http://localhost:5173/';
+async function expectBatchSeriesIssue(
+  rootDir: string,
+  sourcePath: string,
+  message: string,
+): Promise<void> {
+  const error = await validateContent({ rootDir, mediaBaseUrl }).then(
+    () => undefined,
+    (caught: unknown) => caught,
+  );
+  expect(error).toBeInstanceOf(ContentGenerationError);
+  const issue = (error as ContentGenerationError).issues[0];
+  expect(issue).toMatchObject({ code: 'CONTENT_GENERATION', sourcePath });
+  expect(issue?.message).toContain(message);
+}
+
+async function expectSeriesCompileIssue(
+  rootDir: string,
+  sourcePath: string,
+  message: string,
+): Promise<void> {
+  const error = await validateContent({ rootDir, mediaBaseUrl }).then(
+    () => undefined,
+    (caught: unknown) => caught,
+  );
+  expect(error).toBeInstanceOf(ContentCompileError);
+  const issue = (error as ContentCompileError).issues[0];
+  expect(issue).toMatchObject({ code: 'INVALID_FRONTMATTER', sourcePath });
+  expect(issue?.line).toBeTypeOf('number');
+  expect(issue?.column).toBeTypeOf('number');
+  expect(issue?.message).toContain(message);
+}
+
+const invalidPublishedSeriesCases = [
+  {
+    name: 'duplicate parts',
+    first: { title: 'Kalemegdan', part: 1, category: 'Places' },
+    second: { title: 'Kalemegdan', part: 1, category: 'Places' },
+    message: 'duplicate part',
+  },
+  {
+    name: 'gapped parts',
+    first: { title: 'Kalemegdan', part: 1, category: 'Places' },
+    second: { title: 'Kalemegdan', part: 3, category: 'Places' },
+    message: 'contiguous from 1',
+  },
+  {
+    name: 'mismatched titles',
+    first: { title: 'Kalemegdan', part: 1, category: 'Places' },
+    second: { title: 'The Fortress', part: 2, category: 'Places' },
+    message: 'consistent title',
+  },
+  {
+    name: 'mismatched categories',
+    first: { title: 'Kalemegdan', part: 1, category: 'Places' },
+    second: { title: 'Kalemegdan', part: 2, category: 'History' },
+    message: 'consistent category',
+  },
+] as const;
 
 describe('content batch validation', () => {
   it('validates in memory without creating generated output', async () => {
@@ -141,6 +202,124 @@ describe('content batch validation', () => {
     await writeArticle(root, 'two.md', article({ slug: 'two', category: 'Cacak' }));
 
     await expect(validateContent({ rootDir: root, mediaBaseUrl })).rejects.toThrow('category slug');
+  });
+  it('copies series metadata into published index entries', async () => {
+    const root = await makeRoot();
+    await writeArticle(
+      root,
+      'part-one.md',
+      article({
+        slug: 'part-one',
+        category: 'Places',
+        series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 1 },
+      }),
+    );
+
+    const batch = await validateContent({ rootDir: root, mediaBaseUrl });
+    expect(batch.index[0]?.series).toEqual({
+      slug: 'kalemegdan',
+      title: 'Kalemegdan',
+      part: 1,
+    });
+  });
+
+  it.each(invalidPublishedSeriesCases)(
+    'rejects $name with a source-located issue',
+    async ({ first, second, message }) => {
+      const root = await makeRoot();
+      await writeArticle(
+        root,
+        'one.md',
+        article({
+          slug: 'one',
+          category: first.category,
+          series: { slug: 'kalemegdan', title: first.title, part: first.part },
+        }),
+      );
+      await writeArticle(
+        root,
+        'two.md',
+        article({
+          slug: 'two',
+          category: second.category,
+          series: { slug: 'kalemegdan', title: second.title, part: second.part },
+        }),
+      );
+
+      await expectBatchSeriesIssue(root, 'content/articles/two.md', message);
+    },
+  );
+
+  it('rejects an unknown series key with a source-located compiler issue', async () => {
+    const root = await makeRoot();
+    const markdown = article({
+      slug: 'broken-series',
+      category: 'Places',
+      series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 1 },
+    }).replace('  part: 1\n', '  part: 1\n  extra: unsupported\n');
+    await writeArticle(root, 'broken-series.md', markdown);
+
+    await expectSeriesCompileIssue(
+      root,
+      'content/articles/broken-series.md',
+      'Unknown series field',
+    );
+  });
+
+  it('rejects a zero series part with a source-located compiler issue', async () => {
+    const root = await makeRoot();
+    await writeArticle(
+      root,
+      'broken-series.md',
+      article({
+        slug: 'broken-series',
+        category: 'Places',
+        series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 0 },
+      }),
+    );
+
+    await expectSeriesCompileIssue(
+      root,
+      'content/articles/broken-series.md',
+      'positive integer part',
+    );
+  });
+
+  it('checks series relationships only among published articles', async () => {
+    const root = await makeRoot();
+    await writeArticle(
+      root,
+      'published.md',
+      article({
+        slug: 'published',
+        category: 'Places',
+        series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 1 },
+      }),
+    );
+    await writeArticle(
+      root,
+      'draft.md',
+      article({
+        slug: 'draft',
+        status: 'draft',
+        category: 'History',
+        series: { slug: 'kalemegdan', title: 'Different title', part: 1 },
+      }),
+    );
+    await writeArticle(
+      root,
+      'archived.md',
+      article({
+        slug: 'archived',
+        status: 'archived',
+        category: 'History',
+        series: { slug: 'kalemegdan', title: 'Archived title', part: 1 },
+      }),
+    );
+
+    await expect(validateContent({ rootDir: root, mediaBaseUrl })).resolves.toMatchObject({
+      published: [{ compiled: { document: { series: { slug: 'kalemegdan', part: 1 } } } }],
+    });
   });
 
   describe('content build output', () => {
