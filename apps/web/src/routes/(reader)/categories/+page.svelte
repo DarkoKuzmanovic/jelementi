@@ -1,30 +1,8 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import { formatPublishedDate } from '$lib/article/format-date';
 
   let { data }: { data: PageData } = $props();
-
-  const MONTHS = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ] as const;
-
-  function formatPublishedDate(value: string): string {
-    const date = new Date(`${value}T00:00:00Z`);
-    if (Number.isNaN(date.getTime())) return value;
-    const month = MONTHS[date.getUTCMonth()];
-    if (month === undefined) return value;
-    return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`;
-  }
 </script>
 
 <svelte:head
@@ -37,24 +15,45 @@
   <header class="page-intro">
     <p class="kicker">Browse the publication</p>
     <h1 id="categories-heading">Categories</h1>
-    <p>Every thread, ordered by the number of published articles.</p>
+    <p>
+      Every thread, ordered by the number of published articles. Each opens on its newest
+      illustration.
+    </p>
   </header>
-  <ol class="category-index divided-list" aria-label="Categories">
+  <ol class="category-index" aria-label="Categories">
     {#each data.categories as category (category.slug)}
-      <li class="category-entry">
-        <div>
+      <li class="category-entry" class:category-entry--illustrated={category.count >= 3}>
+        <a class="category-entry__cover" href={`/categories/${category.slug}`}>
+          <img
+            src={category.newest.cover.src}
+            alt={category.newest.cover.alt}
+            width="1600"
+            height="900"
+            loading="lazy"
+          />
+        </a>
+        <div class="category-entry__content">
           <h2><a href={`/categories/${category.slug}`}>{category.name}</a></h2>
-          <span class="category-count">
-            {category.count}
-            {category.count === 1 ? 'article' : 'articles'}
-          </span>
-        </div>
-        <div class="category-newest">
-          <span class="category-newest__label">Newest article</span>
-          <a href={`/articles/${category.newest.slug}`}>{category.newest.title}</a>
-          <time datetime={category.newest.publishedAt}>
-            {formatPublishedDate(category.newest.publishedAt)}
-          </time>
+          <p class="category-entry__meta">
+            <span>{category.count} {category.count === 1 ? 'story' : 'stories'}</span>
+            <span aria-hidden="true"> · </span>
+            <span
+              >newest <time datetime={category.newest.publishedAt}>
+                {formatPublishedDate(category.newest.publishedAt)}
+              </time></span
+            >
+          </p>
+          <ol class="category-entry__articles">
+            {#each category.newestArticles as article (article.slug)}
+              <li>
+                <a href={`/articles/${article.slug}`}>{article.title}</a>
+                <span>{article.readingTimeMinutes} min</span>
+              </li>
+            {/each}
+          </ol>
+          <a class="category-entry__all" href={`/categories/${category.slug}`}
+            >All {category.count} in {category.name} →</a
+          >
         </div>
       </li>
     {/each}

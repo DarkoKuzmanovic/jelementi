@@ -6,11 +6,14 @@
     article,
     lead = false,
     audioAvailable = false,
+    headingLevel = 2,
   }: {
     article: ArticleIndexEntry;
     lead?: boolean;
     audioAvailable?: boolean;
+    headingLevel?: 2 | 3 | 4;
   } = $props();
+  const titleTag = $derived(`h${headingLevel}`);
 </script>
 
 {#snippet metadata()}
@@ -34,9 +37,9 @@
   />
   <div class="article-summary__text">
     {#if lead}<p class="article-summary__eyebrow">Latest article</p>{:else}{@render metadata()}{/if}
-    <h2 class="article-summary__title">
+    <svelte:element this={titleTag} class="article-summary__title">
       <a href={`/articles/${article.slug}`}>{article.title}</a>
-    </h2>
+    </svelte:element>
     <p class="article-summary__excerpt">
       {article.excerpt}
     </p>

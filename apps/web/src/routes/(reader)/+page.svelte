@@ -1,7 +1,10 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import ArticleSummary from '$lib/article/ArticleSummary.svelte';
+
   let { data }: { data: PageData } = $props();
+  const wideShelves = $derived(data.catalog.shelves.filter((shelf) => shelf.entries.length === 3));
+  const compactShelves = $derived(data.catalog.shelves.filter((shelf) => shelf.entries.length < 3));
 </script>
 
 <svelte:head
@@ -37,15 +40,66 @@
     </div>
     <a href="/podcast.xml">Get the podcast <span aria-hidden="true">↗</span></a>
   </aside>
-  {#if data.catalog.more.length > 0}
-    <section class="home-more" aria-labelledby="more-heading" data-home-tier="more">
-      <p class="home-section-heading" id="more-heading">More articles</p>
-      <ol class="home-more__list divided-list">
-        {#each data.catalog.more as article (article.slug)}<li>
-            <ArticleSummary {article} />
-          </li>{/each}
-      </ol>
+  {#if data.catalog.shelves.length > 0}
+    <section class="home-more" aria-labelledby="more-heading" data-home-tier="shelves">
+      <div class="home-section-heading">
+        <h2 id="more-heading">More articles</h2>
+        <a href="/search">Search the archive →</a>
+      </div>
+      {#if wideShelves.length > 0}
+        <div class="home-shelves home-shelves--wide">
+          {#each wideShelves as shelf (shelf.categorySlug)}
+            <section
+              class="home-shelf home-shelf--wide"
+              aria-labelledby={`home-shelf-${shelf.categorySlug}`}
+            >
+              <div class="home-shelf__label">
+                <h3 id={`home-shelf-${shelf.categorySlug}`}>
+                  <a href={`/categories/${shelf.categorySlug}`}>{shelf.category}</a>
+                </h3>
+                <p>{shelf.total} stories</p>
+                <a class="home-shelf__all" href={`/categories/${shelf.categorySlug}`}>
+                  <span class="home-shelf__all-wide">All in {shelf.category} →</span>
+                  <span class="home-shelf__all-compact">All {shelf.total} →</span>
+                </a>
+              </div>
+              <ol class="home-shelf__entries">
+                {#each shelf.entries as article (article.slug)}
+                  <li><ArticleSummary {article} headingLevel={4} /></li>
+                {/each}
+              </ol>
+            </section>
+          {/each}
+        </div>
+      {/if}
+      {#if compactShelves.length > 0}
+        <div class="home-shelves home-shelves--compact">
+          {#each compactShelves as shelf (shelf.categorySlug)}
+            <section
+              class="home-shelf home-shelf--compact"
+              aria-labelledby={`home-shelf-${shelf.categorySlug}`}
+            >
+              <div class="home-shelf__heading">
+                <div>
+                  <h3 id={`home-shelf-${shelf.categorySlug}`}>
+                    <a href={`/categories/${shelf.categorySlug}`}>{shelf.category}</a>
+                  </h3>
+                  <p>{shelf.total} stories</p>
+                </div>
+                <a class="home-shelf__all" href={`/categories/${shelf.categorySlug}`}>
+                  <span class="home-shelf__all-wide">All in {shelf.category} →</span>
+                  <span class="home-shelf__all-compact">All {shelf.total} →</span>
+                </a>
+              </div>
+              <ol class="home-shelf__entries">
+                {#each shelf.entries as article (article.slug)}
+                  <li><ArticleSummary {article} headingLevel={4} /></li>
+                {/each}
+              </ol>
+            </section>
+          {/each}
+        </div>
+      {/if}
     </section>
   {/if}
-  <a class="archive-link" href="/search">Search the archive →</a>
 </section>

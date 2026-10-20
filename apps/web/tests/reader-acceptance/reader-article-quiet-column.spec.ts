@@ -72,6 +72,33 @@ test('reader-owned fragments resolve to exact targets beside colliding authored 
   }
 });
 
+test('sources expose authored numbers and domains, then reveal later references natively', async ({
+  page,
+}) => {
+  await page.goto('/articles/acceptance-rich-column');
+  const sources = page.getByRole('region', { name: 'Sources', exact: true });
+  const sourceLists = sources.locator('.article-sources');
+
+  await expect(sourceLists).toHaveCount(2);
+  await expect(sourceLists.nth(0).locator('li')).toHaveCount(8);
+  await expect(sourceLists.nth(1).locator('li')).toHaveCount(3);
+  await expect(sources.locator('.article-source__number').first()).toHaveText('4');
+  await expect(sources.locator('.article-source__domain').first()).toContainText('example.com');
+  await expect(sources.locator('.article-source__domain').first()).toContainText(
+    'Jelementi fixtures',
+  );
+  await expect(
+    sources.getByRole('link', { name: 'Reader acceptance source', exact: true }),
+  ).toHaveAttribute('href', 'https://www.example.com/reader-acceptance-1');
+
+  const details = sources.locator('details');
+  const summary = details.getByText('Show all 11 sources', { exact: true });
+  await expect(summary).toBeVisible();
+  await summary.click();
+  await expect(sources.locator('.article-source__number').last()).toHaveText('11');
+  await expect(sources.getByRole('link', { name: 'Reader acceptance source 11' })).toBeVisible();
+});
+
 test('rich article opening presents the complete compact hierarchy', async ({ page }) => {
   await page.goto('/articles/acceptance-rich-column');
   const opening = page.locator('.article-opening');
@@ -145,7 +172,9 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   await expect(page.getByRole('heading', { name: 'Footnotes', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to footnote reference 1' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Back to footnote reference 2' })).toBeVisible();
-  await expect(page.locator('section.article-endmatter ol > li')).toHaveCount(1);
+  await expect(
+    page.locator('section.article-endmatter[aria-labelledby="reader:footnotes"] ol > li'),
+  ).toHaveCount(1);
 });
 
 test('no-audio sparse article leaves no empty treatment', async ({ page }) => {

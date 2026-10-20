@@ -88,8 +88,8 @@ cover:
   src: cover.webp
   alt: Cover
 references:
-  - title: Research
-    url: https://example.org/research
+  - title: "[7] Research"
+    url: https://www.example.org/research
 ---
 ${markdown}`,
   }).document;
@@ -115,6 +115,16 @@ describe('generated reader routes', () => {
         .map((match) => match[1]);
       expect(targets).toEqual(['h2']);
     }
+  });
+  it('renders scannable source numbering and cleaned domains in the generated article route', () => {
+    const body = renderFragmentArticle(compileFragmentArticle('A source-backed passage.'));
+
+    expect(body).toContain('<span class="article-source__number">7</span>');
+    expect(body).toContain(
+      '<a class="article-source__title" href="https://www.example.org/research" aria-label="Research">Research</a>',
+    );
+    expect(body).toContain('<span>example.org</span>');
+    expect(body).not.toContain('[7] Research</a>');
   });
   it.each(['sources', 'footnotes'])(
     'isolates the %s accessible endmatter label from headings',

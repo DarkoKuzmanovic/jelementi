@@ -119,14 +119,11 @@ const richDocument = ArticleDocumentSchema.parse({
       children: [text('The backlink target is derived by the authoritative renderer.')],
     },
   ],
-  references: [
-    {
-      title: 'Reader acceptance source',
-      url: 'https://example.com/reader-acceptance',
-      publisher: 'Jelementi fixtures',
-      accessedAt: '2026-08-18',
-    },
-  ],
+  references: Array.from({ length: 11 }, (_, index) => ({
+    title: index === 0 ? '[4] Reader acceptance source' : `Reader acceptance source ${index + 1}`,
+    url: `https://www.example.com/reader-acceptance-${index + 1}`,
+    ...(index === 0 ? { publisher: 'Jelementi fixtures', accessedAt: '2026-08-18' } : {}),
+  })),
 });
 
 interface MinimalDocumentOptions {
