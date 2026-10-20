@@ -77,21 +77,21 @@
         <section class="article-endmatter" aria-labelledby="reader:sources">
           <h2 class="endmatter-heading" id="reader:sources">Sources</h2>
           {#if document.references.length > 10}
-            <ol class="article-sources">
+            <ol class="article-sources" role="list">
               {#each document.references.slice(0, 8) as reference, index (index)}
                 {@render sourceRow(reference, index)}
               {/each}
             </ol>
             <details class="article-sources__details">
               <summary>Show all {document.references.length} sources</summary>
-              <ol class="article-sources" start="9">
+              <ol class="article-sources" role="list" start="9">
                 {#each document.references.slice(8) as reference, offset (offset)}
                   {@render sourceRow(reference, offset + 8)}
                 {/each}
               </ol>
             </details>
           {:else}
-            <ol class="article-sources">
+            <ol class="article-sources" role="list">
               {#each document.references as reference, index (index)}
                 {@render sourceRow(reference, index)}
               {/each}

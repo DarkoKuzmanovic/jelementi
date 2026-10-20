@@ -140,7 +140,7 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('A quiet invariant.');
     expect(body).toContain('Fixture only');
     expect(body).toContain('<hr');
-    expect(renderedBody).toContain('<ol class="article-sources">');
+    expect(renderedBody).toContain('<ol class="article-sources" role="list">');
     expect(renderedBody).toContain('<span class="article-source__number">1</span>');
     expect(body).toContain('Quiet source');
     expect(body).toContain('<ol>');
@@ -165,9 +165,11 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     const body = render(ArticleRenderer, {
       props: { document: { ...document, references } },
     }).body;
-    const initialSources = body.match(/<ol class="article-sources">([\s\S]*?)<\/ol>/)?.[1];
+    const initialSources = body.match(
+      /<ol class="article-sources" role="list">([\s\S]*?)<\/ol>/,
+    )?.[1];
     const expandedSources = body.match(
-      /<details class="article-sources__details">[\s\S]*?<ol class="article-sources" start="9">([\s\S]*?)<\/ol>/,
+      /<details class="article-sources__details">[\s\S]*?<ol class="article-sources" role="list" start="9">([\s\S]*?)<\/ol>/,
     )?.[1];
 
     expect(body).toContain('<summary>Show all 11 sources</summary>');
