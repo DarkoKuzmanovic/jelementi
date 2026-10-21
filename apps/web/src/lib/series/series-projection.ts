@@ -100,7 +100,9 @@ export function projectSeries(index: readonly ArticleIndexEntry[]): SeriesProjec
       };
     })
     .sort((left, right) => {
-      const dateDifference = newestPart(right).publishedAt.localeCompare(newestPart(left).publishedAt);
+      const dateDifference = newestPart(right).publishedAt.localeCompare(
+        newestPart(left).publishedAt,
+      );
       return dateDifference || left.slug.localeCompare(right.slug);
     });
 }

@@ -9,7 +9,9 @@
     series,
   }: { article: ArticleDocument; nextOlder: ArticleIndexEntry | null; series?: SeriesProjection } =
     $props();
-  const seriesPartIndex = $derived(series?.parts.findIndex(({ slug }) => slug === article.slug) ?? -1);
+  const seriesPartIndex = $derived(
+    series?.parts.findIndex(({ slug }) => slug === article.slug) ?? -1,
+  );
   const nextSeriesPart = $derived(
     series && seriesPartIndex >= 0 ? series.parts[seriesPartIndex + 1] : undefined,
   );
@@ -47,7 +49,10 @@
           >
         </div>
       </article>
-      <aside class="article-series-continuation__list" aria-labelledby="article-series-whole-heading">
+      <aside
+        class="article-series-continuation__list"
+        aria-labelledby="article-series-whole-heading"
+      >
         <h2 id="article-series-whole-heading">The whole series</h2>
         <ol>
           {#each series.parts as part (part.slug)}
@@ -60,7 +65,9 @@
                 {:else}
                   <a href={`/articles/${part.slug}`}>{seriesPartTitle(series, part)}</a>
                   <span class="article-series-continuation__status">
-                    {part.slug === nextSeriesPart.slug ? 'Up next' : `${part.readingTimeMinutes} min`}
+                    {part.slug === nextSeriesPart.slug
+                      ? 'Up next'
+                      : `${part.readingTimeMinutes} min`}
                   </span>
                 {/if}
               </div>
@@ -69,9 +76,7 @@
         </ol>
       </aside>
     </div>
-    <a
-      class="article-continuation__category"
-      href={`/categories/${categorySlug(article.category)}`}
+    <a class="article-continuation__category" href={`/categories/${categorySlug(article.category)}`}
       >More in {article.category} →</a
     >
   {:else}
@@ -81,7 +86,9 @@
           <p>Next in {article.category}</p>
           <p class="article-continuation__meta">
             {nextOlder.category} · {nextOlder.readingTimeMinutes} min read ·
-            <time datetime={nextOlder.publishedAt}>{formatPublishedDate(nextOlder.publishedAt)}</time>
+            <time datetime={nextOlder.publishedAt}
+              >{formatPublishedDate(nextOlder.publishedAt)}</time
+            >
           </p>
           <h2>
             <a
@@ -101,9 +108,7 @@
         />
       </div>
     {/if}
-    <a
-      class="article-continuation__category"
-      href={`/categories/${categorySlug(article.category)}`}
+    <a class="article-continuation__category" href={`/categories/${categorySlug(article.category)}`}
       >← Return to {article.category}</a
     >
   {/if}

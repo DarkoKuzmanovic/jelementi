@@ -215,9 +215,9 @@ test('continuation: exactly one next-older in the category and no wrapped contin
 
   // The middle page's next older article is part three of the series.
   await page.goto('/articles/acceptance-field-middle');
-  await expect(
-    nav.getByRole('link', { name: /Field Notes, part 3: The final tower/ }),
-  ).toHaveCount(1);
+  await expect(nav.getByRole('link', { name: /Field Notes, part 3: The final tower/ })).toHaveCount(
+    1,
+  );
 
   // Oldest article in the category: no wrapped continuation.
   await page.goto('/articles/acceptance-field-oldest');
@@ -250,9 +250,10 @@ test('series articles show their position, part links, margin list, and next-ser
   await expect(nav.locator('.article-series-continuation__kicker')).toContainText(
     'Continue the series',
   );
-  await expect(
-    nav.getByRole('link', { name: 'Continue to part 2 →' }),
-  ).toHaveAttribute('href', partTwo);
+  await expect(nav.getByRole('link', { name: 'Continue to part 2 →' })).toHaveAttribute(
+    'href',
+    partTwo,
+  );
   await expect(nav.locator('.article-series-continuation__list')).toContainText('You are here');
   await expect(nav.locator('.article-series-continuation__list')).toContainText('Up next');
 
@@ -276,10 +277,9 @@ test('series articles show their position, part links, margin list, and next-ser
   );
   await expect(nav.locator('.article-series-continuation')).toHaveCount(0);
   await expect(nav.getByText('Next in Field Notes')).toBeVisible();
-  await expect(nav.getByRole('link', { name: /Next older article in Field Notes/ })).toHaveAttribute(
-    'href',
-    partTwo,
-  );
+  await expect(
+    nav.getByRole('link', { name: /Next older article in Field Notes/ }),
+  ).toHaveAttribute('href', partTwo);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(partTwo);
@@ -290,7 +290,6 @@ test('series articles show their position, part links, margin list, and next-ser
     .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
   expect(endingColumns.trim().split(/\s+/)).toHaveLength(1);
 });
-
 
 test('320px reflow has no page-level horizontal overflow on the rich article', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });

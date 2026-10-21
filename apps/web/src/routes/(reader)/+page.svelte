@@ -53,14 +53,10 @@
               {#each series.parts as part (part.slug)}
                 <li>
                   <a href={`/articles/${part.slug}`}>
-                    <img
-                      src={part.cover.src}
-                      alt=""
-                      width="1600"
-                      height="900"
-                      loading="lazy"
-                    />
-                    <span class="home-series__card-meta">Part {part.part} · {part.readingTimeMinutes} min</span>
+                    <img src={part.cover.src} alt="" width="1600" height="900" loading="lazy" />
+                    <span class="home-series__card-meta"
+                      >Part {part.part} · {part.readingTimeMinutes} min</span
+                    >
                     <span class="home-series__card-title">{seriesPartTitle(series, part)}</span>
                   </a>
                 </li>
@@ -126,9 +122,7 @@
                 </a>
               </div>
               <ol class="home-shelf__entries">
-                {#each shelf.entries as entry (entry.kind === 'series'
-                  ? `series:${entry.series.slug}`
-                  : entry.article.slug)}
+                {#each shelf.entries as entry (entry.kind === 'series' ? `series:${entry.series.slug}` : entry.article.slug)}
                   <li>
                     {#if entry.kind === 'series'}
                       <SeriesSummary {entry} headingLevel={4} />
@@ -162,9 +156,7 @@
                 </a>
               </div>
               <ol class="home-shelf__entries">
-                {#each shelf.entries as entry (entry.kind === 'series'
-                  ? `series:${entry.series.slug}`
-                  : entry.article.slug)}
+                {#each shelf.entries as entry (entry.kind === 'series' ? `series:${entry.series.slug}` : entry.article.slug)}
                   <li>
                     {#if entry.kind === 'series'}
                       <SeriesSummary {entry} headingLevel={4} />

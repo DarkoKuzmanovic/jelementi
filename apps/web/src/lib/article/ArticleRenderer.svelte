@@ -14,10 +14,7 @@
   import { footnoteReferenceTargets } from './footnotes';
 
   import ArticleAudio from './ArticleAudio.svelte';
-  import {
-    seriesPartTitle,
-    type SeriesProjection,
-  } from '../series/series-projection';
+  import { seriesPartTitle, type SeriesProjection } from '../series/series-projection';
   let {
     document,
     contents,

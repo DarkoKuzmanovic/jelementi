@@ -18,7 +18,9 @@
       {#each series.parts as part (part.slug)}
         <li class:article-series-position__segment--current={part.slug === currentSlug}>
           <span aria-hidden="true"></span>
-          <span class="visually-hidden" aria-current={part.slug === currentSlug ? 'step' : undefined}
+          <span
+            class="visually-hidden"
+            aria-current={part.slug === currentSlug ? 'step' : undefined}
             >Part {part.part}{part.slug === currentSlug ? ', current' : ''}</span
           >
         </li>

@@ -62,7 +62,6 @@ describe('series projection', () => {
     ]);
   });
 
-
   it('strips only the exact case-sensitive series title and part prefix', () => {
     const series = projectSeries(articles)[0];
     if (series === undefined) throw new Error('Expected a series projection.');

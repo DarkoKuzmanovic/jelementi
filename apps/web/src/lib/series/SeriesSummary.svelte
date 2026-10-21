@@ -32,9 +32,7 @@
       <a href={`/articles/${entry.href}`}>{entry.title}</a>
     </svelte:element>
     <p class="article-summary__excerpt">A series in {entry.series.parts.length} parts.</p>
-    <time
-      class="article-summary__date visually-hidden"
-      datetime={entry.publishedAt}
+    <time class="article-summary__date visually-hidden" datetime={entry.publishedAt}
       >{formatPublishedDate(entry.publishedAt)}</time
     >
   </div>

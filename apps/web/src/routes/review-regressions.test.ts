@@ -4,6 +4,11 @@ vi.mock(
   '$lib/article/ArticleSummary.svelte',
   async () => import('../lib/article/ArticleSummary.svelte'),
 );
+vi.mock(
+  '$lib/series/SeriesSummary.svelte',
+  async () => import('../lib/series/SeriesSummary.svelte'),
+);
+vi.mock('$lib/series/series-projection', async () => import('../lib/series/series-projection'));
 import HomePage from './(reader)/+page.svelte';
 
 vi.mock('../lib/generated-content.server', async () => {
@@ -87,7 +92,13 @@ it('keeps authored prose numbers even when a reference has the same number', asy
   if (!data?.catalog.lead) throw new Error('Missing lead fixture');
   const { body } = render(HomePage, {
     props: {
-      data: { ...data, topics: [], catalog: data.catalog, hasLeadAudio: data.hasLeadAudio },
+      data: {
+        ...data,
+        topics: [],
+        catalog: data.catalog,
+        series: data.series,
+        hasLeadAudio: data.hasLeadAudio,
+      },
     },
   });
   expect(body).toContain('Choose option [1] for the experiment.');

@@ -136,7 +136,6 @@ test('Home places the series band after recent stories with responsive reading o
   expect(buttonWidth).toBeGreaterThan(bandWidth - 50);
 });
 
-
 test('compact illustrated archive rows retain stories without expanded preview prose', async ({
   page,
 }) => {

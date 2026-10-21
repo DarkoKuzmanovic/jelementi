@@ -223,7 +223,9 @@
   height: 0.2rem;
   background: var(--rule);
 }
-.article-series-position__segments li.article-series-position__segment--current span[aria-hidden='true'] {
+.article-series-position__segments
+  li.article-series-position__segment--current
+  span[aria-hidden='true'] {
   height: 0.3rem;
   background: var(--blue);
 }

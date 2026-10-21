@@ -44,19 +44,11 @@
             >
           </p>
           <ol class="category-entry__articles">
-            {#each category.newestArticles as entry (entry.kind === 'series'
-              ? `series:${entry.series.slug}`
-              : entry.article.slug)}
+            {#each category.newestArticles as entry (entry.kind === 'series' ? `series:${entry.series.slug}` : entry.article.slug)}
               <li>
                 {#if entry.kind === 'series'}
                   <a class="category-entry__series" href={`/articles/${entry.href}`}>
-                    <img
-                      src={entry.cover.src}
-                      alt=""
-                      width="1600"
-                      height="900"
-                      loading="lazy"
-                    />
+                    <img src={entry.cover.src} alt="" width="1600" height="900" loading="lazy" />
                     <span>{entry.title}</span>
                   </a>
                   <span>{entry.readingTimeMinutes} min</span>

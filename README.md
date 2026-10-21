@@ -9,7 +9,7 @@ Jelementi is a custom-built digital magazine. The Phase 1 reader is a generated,
 - Root content scripts discover canonical Markdown, validate every source, and atomically generate gitignored `generated/index.json` plus `generated/articles/<slug>.json`.
 - The web app statically imports and validates those JSON artifacts at its build/server boundary. It never imports the compiler or reads generated data with runtime filesystem/fetch APIs.
 
-Only published documents appear in the generated index and all reader routes/prerender entries derive from that validated index. The reader provides `/`, `/articles/[slug]`, `/categories/[category]`, `/search`, and `/about`; unknown article/category values return the shared error experience.
+Only published documents appear in the generated index and all reader routes/prerender entries derive from that validated index. The reader provides `/`, `/articles/[slug]`, `/categories/[category]`, `/search`, and `/about`; unknown article/category values return the shared error experience. Multi-part series are featured on Home and grouped once in its category shelves and the Categories directory; category pages continue to list every part individually.
 
 ## Local development
 

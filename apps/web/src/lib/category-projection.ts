@@ -1,5 +1,10 @@
 import type { ArticleIndexEntry } from '@jelementi/article-model';
-import { collapseSeriesEntries, projectSeries, type SeriesAwareCatalogEntry, type SeriesProjection } from './series/series-projection';
+import {
+  collapseSeriesEntries,
+  projectSeries,
+  type SeriesAwareCatalogEntry,
+  type SeriesProjection,
+} from './series/series-projection';
 
 export interface CategoryDirectoryEntry {
   name: string;
