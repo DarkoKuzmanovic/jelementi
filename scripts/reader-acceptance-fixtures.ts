@@ -133,6 +133,7 @@ interface MinimalDocumentOptions {
   publishedAt: string;
   excerpt?: string;
   tags?: string[];
+  series?: NonNullable<ArticleDocument['series']>;
 }
 
 function minimalDocument({
@@ -142,6 +143,7 @@ function minimalDocument({
   publishedAt,
   excerpt = `Deterministic summary for ${title}.`,
   tags = [],
+  series,
 }: MinimalDocumentOptions): ArticleDocument {
   return ArticleDocumentSchema.parse({
     schemaVersion: 1,
@@ -152,6 +154,7 @@ function minimalDocument({
     publishedAt,
     updatedAt: publishedAt,
     category,
+    ...(series === undefined ? {} : { series }),
     tags,
     author: 'Jelementi',
     cover: { src: `${mediaOrigin}${slug}.webp`, alt: `Fixture cover for ${title}` },
@@ -186,7 +189,7 @@ const representativeDocuments = [
     slug: 'acceptance-field-oldest',
     title: 'The Oldest Field Note',
     category: 'Field Notes',
-    publishedAt: '2026-08-08',
+    publishedAt: '2026-08-06',
   }),
   minimalDocument({
     slug: 'acceptance-culture-old',
@@ -240,6 +243,27 @@ const representativeDocuments = [
     ],
     footnotes: [],
     references: [],
+  }),
+  minimalDocument({
+    slug: 'acceptance-field-series-third',
+    title: 'Field Notes, part 3: The final tower',
+    category: 'Field Notes',
+    publishedAt: '2026-08-09',
+    series: { slug: 'field-notes', title: 'Field Notes', part: 3 },
+  }),
+  minimalDocument({
+    slug: 'acceptance-field-series-first',
+    title: 'Field Notes, part 1: The first tower',
+    category: 'Field Notes',
+    publishedAt: '2026-08-07',
+    series: { slug: 'field-notes', title: 'Field Notes', part: 1 },
+  }),
+  minimalDocument({
+    slug: 'acceptance-field-series-middle',
+    title: 'Field Notes, part 2: The middle tower',
+    category: 'Field Notes',
+    publishedAt: '2026-08-08',
+    series: { slug: 'field-notes', title: 'Field Notes', part: 2 },
   }),
 ] as const;
 
@@ -296,6 +320,7 @@ function indexEntry(document: ArticleDocument): ArticleIndexEntry {
     updatedAt: document.updatedAt,
     category: document.category,
     categorySlug: categorySlug(document.category),
+    ...(document.series === undefined ? {} : { series: document.series }),
     tags: document.tags,
     author: document.author,
     cover: document.cover,

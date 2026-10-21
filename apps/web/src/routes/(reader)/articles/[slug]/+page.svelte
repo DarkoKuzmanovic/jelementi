@@ -35,6 +35,14 @@
   </nav>
 {/snippet}
 <div class="article-page">
-  <ArticleRenderer document={data.article} contents={headings.length > 0 ? contents : undefined} />
-  <ArticleContinuation article={data.article} nextOlder={data.continuation.nextOlder} />
+  <ArticleRenderer
+    document={data.article}
+    series={data.series}
+    contents={headings.length > 0 ? contents : undefined}
+  />
+  <ArticleContinuation
+    article={data.article}
+    nextOlder={data.continuation.nextOlder}
+    series={data.series}
+  />
 </div>

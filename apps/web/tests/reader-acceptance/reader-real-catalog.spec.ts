@@ -17,7 +17,13 @@ const catalog = projectHomeCatalog(canonicalIndex);
 const expectedHomeShelves = [
   ...(catalog.lead ? [catalog.lead] : []),
   ...catalog.recent,
-  ...catalog.shelves.flatMap((shelf) => shelf.entries),
+  ...catalog.shelves.flatMap((shelf) =>
+    shelf.entries.map((entry) =>
+      entry.kind === 'series'
+        ? { slug: entry.href, title: entry.title }
+        : { slug: entry.article.slug, title: entry.article.title },
+    ),
+  ),
 ];
 
 test('published topic shortcuts keep approved desktop order with compact navigation and fallback recovery', async ({

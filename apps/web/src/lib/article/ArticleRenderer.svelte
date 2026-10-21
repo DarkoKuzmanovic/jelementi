@@ -14,7 +14,15 @@
   import { footnoteReferenceTargets } from './footnotes';
 
   import ArticleAudio from './ArticleAudio.svelte';
-  let { document, contents }: { document: ArticleDocument; contents?: Snippet } = $props();
+  import {
+    seriesPartTitle,
+    type SeriesProjection,
+  } from '../series/series-projection';
+  let {
+    document,
+    contents,
+    series,
+  }: { document: ArticleDocument; contents?: Snippet; series?: SeriesProjection } = $props();
   type ArticleReference = ArticleDocument['references'][number];
   const footnoteTargets = $derived(footnoteReferenceTargets(document.blocks));
 </script>
@@ -44,12 +52,33 @@
       </div>
     </li>
   {/snippet}
-  <ArticleOpening article={document} />
+  <ArticleOpening article={document} {series} />
   <figure class="article-cover" aria-label={document.cover.alt}>
     <img src={document.cover.src} alt={document.cover.alt} loading="eager" />
   </figure>
-  <div class="article-reading" class:article-reading--with-contents={!!contents}>
-    {#if contents}<aside class="article-margin">{@render contents()}</aside>{/if}
+  <div class="article-reading" class:article-reading--with-contents={!!contents || !!series}>
+    {#if contents || series}
+      <aside class="article-margin">
+        {#if contents}{@render contents()}{/if}
+        {#if series}
+          <section class="article-series-margin" aria-labelledby="article-series-margin-heading">
+            <h2 id="article-series-margin-heading">In this series</h2>
+            <ol>
+              {#each series.parts as part (part.slug)}
+                <li>
+                  <span class="article-series-margin__number">{part.part}</span>
+                  {#if part.slug === document.slug}
+                    <span aria-current="page">{seriesPartTitle(series, part)}</span>
+                  {:else}
+                    <a href={`/articles/${part.slug}`}>{seriesPartTitle(series, part)}</a>
+                  {/if}
+                </li>
+              {/each}
+            </ol>
+          </section>
+        {/if}
+      </aside>
+    {/if}
     <div class="article-reading__column">
       <ArticleAudio article={document} />
       <div class="article-body">

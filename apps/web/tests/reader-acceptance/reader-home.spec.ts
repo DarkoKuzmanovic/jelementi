@@ -18,6 +18,7 @@ const catalogs = {
     lead: ['Čačak Field Notes: Every Reader Structure'],
     recent: ['The Middle Field Note', 'Culture at the Newest Edge', 'A Measured Sky'],
     shelves: [
+      'Field Notes · series in 3 parts',
       'The Oldest Field Note',
       'Culture in the Archive',
       'The Patient Instrument',
@@ -41,7 +42,7 @@ async function tierTitles(page: import('@playwright/test').Page, tier: string): 
     .then((titles) => titles.map((title) => title.trim()));
 }
 
-test('@home-catalog-scenario renders each published article once in the exact Editorial-front tier order', async ({
+test('@home-catalog-scenario renders the exact tier order with series grouped once', async ({
   page,
 }) => {
   const expected = expectedCatalog();
@@ -84,6 +85,57 @@ test('@home-catalog-scenario renders each published article once in the exact Ed
     }
   }
 });
+test('Home places the series band after recent stories with responsive reading order', async ({
+  page,
+}) => {
+  test.skip(scenario !== 'representative', 'Representative series fixture.');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+
+  const band = page.locator('.home-series');
+  await expect(band).toHaveCount(1);
+  await expect(band.locator('.home-series__kicker')).toHaveText('Series · Field Notes');
+  await expect(band.locator('h2')).toHaveText('Field Notes');
+  await expect(band.locator('.home-series__details')).toHaveText('3 parts · 9 min');
+  await expect(band.locator('.home-series__cards li')).toHaveCount(3);
+  await expect(band.locator('.home-series__card-title')).toHaveText([
+    'The first tower',
+    'The middle tower',
+    'The final tower',
+  ]);
+  await expect(band.getByRole('link', { name: 'Start with part 1 →' })).toHaveAttribute(
+    'href',
+    '/articles/acceptance-field-series-first',
+  );
+
+  const topPositions = await page.evaluate(() =>
+    ['[data-home-tier="recent"]', '.home-series', '.podcast-invitation'].map((selector) => {
+      const element = document.querySelector(selector);
+      if (!element) throw new Error(`Missing Home section: ${selector}`);
+      return element.getBoundingClientRect().top;
+    }),
+  );
+  expect(topPositions[0]!).toBeLessThan(topPositions[1]!);
+  expect(topPositions[1]!).toBeLessThan(topPositions[2]!);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(band.locator('.home-series__cards')).toBeHidden();
+  await expect(band.locator('.home-series__covers li')).toHaveCount(3);
+  await expect(band.locator('.home-series__covers')).toBeVisible();
+  await expect(band.locator('.home-series__mobile-list a')).toHaveText([
+    'The first tower',
+    'The middle tower',
+    'The final tower',
+  ]);
+  const buttonWidth = await band
+    .locator('.home-series__action')
+    .evaluate((element) => element.getBoundingClientRect().width);
+  const bandWidth = await band
+    .locator('.home-series__band')
+    .evaluate((element) => element.getBoundingClientRect().width);
+  expect(buttonWidth).toBeGreaterThan(bandWidth - 50);
+});
+
 
 test('compact illustrated archive rows retain stories without expanded preview prose', async ({
   page,
@@ -178,6 +230,7 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     '/articles/acceptance-field-middle',
     '/articles/acceptance-culture-new',
     '/articles/acceptance-science-new',
+    '/articles/acceptance-field-series-first',
     '/articles/acceptance-field-oldest',
     '/articles/acceptance-culture-old',
     '/articles/acceptance-science-old',
@@ -197,8 +250,17 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     '/articles/acceptance-culture-new',
     '/categories/science',
     '/articles/acceptance-science-new',
+    '/articles/acceptance-field-series-first',
+    '/articles/acceptance-field-series-middle',
+    '/articles/acceptance-field-series-third',
+    '/articles/acceptance-field-series-first',
+    '/articles/acceptance-field-series-middle',
+    '/articles/acceptance-field-series-third',
+    '/articles/acceptance-field-series-first',
     '/categories/field-notes',
     '/categories/field-notes',
+    '/categories/field-notes',
+    '/articles/acceptance-field-series-first',
     '/categories/field-notes',
     '/articles/acceptance-field-oldest',
     '/categories/culture',

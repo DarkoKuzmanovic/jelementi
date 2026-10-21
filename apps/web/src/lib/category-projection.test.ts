@@ -58,15 +58,42 @@ describe('category projections', () => {
       article('culture-oldest', 'Culture', 'culture', '2026-01-15'),
     ]);
 
-    expect(directory[0]?.newestArticles.map(({ slug }) => slug)).toEqual([
-      'culture-new',
-      'culture-middle',
-      'culture-old',
+    expect(
+      directory[0]?.newestArticles.map((entry) =>
+        entry.kind === 'article' ? entry.article.slug : entry.title,
+      ),
+    ).toEqual(['culture-new', 'culture-middle', 'culture-old']);
+    expect(
+      directory[1]?.newestArticles.map((entry) =>
+        entry.kind === 'article' ? entry.article.slug : entry.title,
+      ),
+    ).toEqual(['science-new', 'science-old']);
+  });
+
+  it('collapses grouped parts into one newest-directory entry while retaining article counts', () => {
+    const part = (slug: string, publishedAt: string, partNumber: number) => ({
+      ...article(slug, 'Places', 'places', publishedAt),
+      series: { slug: 'citadel', title: 'Citadel', part: partNumber },
+    });
+    const [places] = projectCategoryDirectory([
+      part('citadel-1', '2026-04-10', 1),
+      part('citadel-2', '2026-04-11', 2),
+      part('citadel-3', '2026-04-12', 3),
+      article('place-older-one', 'Places', 'places', '2026-04-09'),
+      article('place-older-two', 'Places', 'places', '2026-04-08'),
     ]);
-    expect(directory[1]?.newestArticles.map(({ slug }) => slug)).toEqual([
-      'science-new',
-      'science-old',
-    ]);
+
+    expect(places?.count).toBe(5);
+    expect(
+      places?.newestArticles.map((entry) =>
+        entry.kind === 'series' ? entry.title : entry.article.slug,
+      ),
+    ).toEqual(['Citadel · series in 3 parts', 'place-older-one', 'place-older-two']);
+    expect(places?.newestArticles[0]).toMatchObject({
+      kind: 'series',
+      href: 'citadel-1',
+      cover: { src: 'https://example.test/citadel-3.webp' },
+    });
   });
 
   it('projects category listings newest first with slug ordering for date ties', () => {
