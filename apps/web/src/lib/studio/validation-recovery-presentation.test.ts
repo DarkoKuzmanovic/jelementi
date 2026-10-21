@@ -285,7 +285,7 @@ describe('StudioEditor recovery presentation modes', () => {
   it('documents the allowed slug pattern inline next to the slug control', () => {
     const { body } = render(StudioEditor, { props: { editor } });
 
-    expect(body).toContain('Lowercase letters, numbers, and hyphens.');
+    expect(body).toContain('Lowercase, numbers, hyphens.');
     expect(body).toContain('id="studio-field-slug-help"');
     expect(body).toContain('aria-describedby="studio-field-slug-help"');
     expect(body).toContain('pattern="[a-z0-9]+(?:-[a-z0-9]+)*"');

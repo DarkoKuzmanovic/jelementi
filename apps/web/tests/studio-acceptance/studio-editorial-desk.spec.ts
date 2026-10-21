@@ -54,13 +54,35 @@ test.describe('Editorial desk server baseline', () => {
     const statusField = page.locator('#studio-field-status');
     await expect(statusField).toHaveText('Draft');
     await expect(page.locator('#studio-article-form select[name="status"]')).toHaveCount(0);
-    await expect(page.getByText(/Change publishing state via Publish \/ Unpublish/)).toBeVisible();
+    await expect(page.getByText(/Set via Publish \/ Unpublish/)).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Excerpt', exact: true })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Body', exact: true })).toBeVisible();
     await expect(page.getByText('Writing · No autosave')).toBeVisible();
 
     await page.getByText('More metadata', { exact: false }).click();
     await expect(page.getByRole('textbox', { name: 'Updated date', exact: true })).toBeVisible();
+
+    // Every editor control shares one left edge. The disclosure band and its
+    // fieldsets group without inset: a horizontal padding, a UA fieldset
+    // border, or a summary marker each used to step nested fields further
+    // right than Title/Excerpt/Body.
+    const columnEdges = await page.evaluate(() => {
+      const x = (selector: string) => {
+        const element = document.querySelector(selector);
+        return element === null ? -1 : Math.round(element.getBoundingClientRect().x);
+      };
+      return {
+        title: x('#studio-field-title'),
+        body: x("textarea[name='body']"),
+        summary: x('.studio-editor__metadata summary'),
+        updatedAt: x('#studio-field-updatedAt'),
+        coverSrc: x('#studio-field-coverSrc'),
+      };
+    });
+    expect(columnEdges.title).toBeGreaterThan(0);
+    for (const [name, edge] of Object.entries(columnEdges)) {
+      expect(`${name}:${edge}`).toBe(`${name}:${columnEdges.title}`);
+    }
     await expect(page.getByRole('textbox', { name: 'Category', exact: true })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Author', exact: true })).toBeVisible();
 

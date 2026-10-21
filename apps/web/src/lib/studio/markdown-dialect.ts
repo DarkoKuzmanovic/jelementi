@@ -13,10 +13,10 @@
 export const MEDIA_KEY_PATTERN_HINT = 'articles/<slug>/<file>-v1.ext';
 
 export const COVER_MEDIA_KEY_HINT =
-  "Relative path under this article's media folder: articles/<slug>/<file>-v1.ext — for example articles/my-article/cover-v1.jpg. No leading slash.";
+  'articles/<slug>/<file>-v1.ext, for example articles/my-article/cover-v1.jpg. No leading slash.';
 
 export const AUDIO_MEDIA_KEY_HINT =
-  "Relative path under this article's media folder: articles/<slug>/<file>-v1.ext — for example articles/my-article/audio-v1.mp3. No leading slash.";
+  'articles/<slug>/<file>-v1.ext, for example articles/my-article/audio-v1.mp3. No leading slash.';
 
 export interface RejectedDialectExample {
   /** Markdown snippet as the writer would type it. */

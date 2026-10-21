@@ -59,7 +59,7 @@ test.describe('new-article slug safety (#109)', () => {
     const slugInput = page.getByRole('textbox', { name: 'Slug', exact: true });
     await expect(slugInput).toHaveAttribute('pattern', '[a-z0-9]+(?:-[a-z0-9]+)*');
     await expect(slugInput).toHaveAttribute('aria-describedby', 'studio-field-slug-help');
-    await expect(page.getByText('Lowercase letters, numbers, and hyphens.')).toBeVisible();
+    await expect(page.getByText('Lowercase, numbers, hyphens.')).toBeVisible();
   });
 
   test('JS: typing a title derives the slug; a hand edit freezes it; clearing resumes it', async ({

@@ -130,23 +130,36 @@
  * untouched.
  */
 .studio-column-caption {
-  /* Sit on the same line as the sibling panels' eyebrows. Those are pushed
-     down by the panel border (1px), the panel padding, and the UA's 1em top
-     margin on a `p` at this font size — reproduce that sum here, since this
-     caption is not inside a panel. Asserted as geometry, not arithmetic, in
+  /* Now inside a column panel like the sibling eyebrows, so the only
+     remaining delta is the element's own top margin: an eyebrow `p` carries
+     the UA's 1em, an h2 does not. Asserted as geometry, not arithmetic, in
      studio-editorial-desk.spec.ts. */
-  margin-block: calc(1px + var(--studio-space-4) + var(--studio-text-compact)) var(--studio-space-3);
+  margin-block: var(--studio-text-compact) var(--studio-space-3);
   color: var(--studio-text-muted);
   font-family: var(--studio-font-interface);
   font-size: var(--studio-text-compact);
   font-weight: 400;
 }
 
-.studio-lifecycle-summary {
+/*
+ * The three Editorial desk columns share one surface so they read as one
+ * family: editor, preview, and publication center.
+ */
+.studio-column-panel {
+  min-width: 0;
   background: var(--studio-panel);
   border: 1px solid var(--studio-border);
   border-radius: var(--studio-radius-panel);
   padding: var(--studio-space-4);
+}
+
+/*
+ * Sections inside a column panel are plain: the column itself is the card, so
+ * nested chrome would read as a card inside a card. Semantic callouts (info,
+ * danger, evidence) keep their own tinted surface — those carry meaning.
+ */
+.studio-lifecycle-summary {
+  margin-block: 0;
 }
 
 .studio-lifecycle-summary__axis {
