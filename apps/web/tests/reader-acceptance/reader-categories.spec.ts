@@ -5,7 +5,9 @@ const LONG_CATEGORY_SLUG = 'a-deliberately-long-category-name-for-narrow-readers
 const TEXT_SPACING_STRESS =
   'html { font-size: 200%; } * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }';
 
-test('Categories is a deterministic static directory with canonical links', async ({ page }) => {
+test('Categories is an illustrated static directory with newest stories and canonical links', async ({
+  page,
+}) => {
   await page.goto('/categories');
   await expect(page.getByRole('heading', { level: 1, name: 'Categories' })).toBeVisible();
   await expect(page.locator('main script')).toHaveCount(0);
@@ -19,12 +21,12 @@ test('Categories is a deterministic static directory with canonical links', asyn
     'A Deliberately Long Category Name for Narrow Readers',
     'Solo',
   ]);
-  await expect(rows.locator('.category-count')).toHaveText([
-    '3 articles',
-    '2 articles',
-    '2 articles',
-    '1 article',
-    '1 article',
+  await expect(rows.locator('.category-entry__meta')).toContainText([
+    '3 stories',
+    '2 stories',
+    '2 stories',
+    '1 story',
+    '1 story',
   ]);
 
   const fieldNotes = rows.first();
@@ -32,12 +34,56 @@ test('Categories is a deterministic static directory with canonical links', asyn
     'href',
     '/categories/field-notes',
   );
-  await expect(
-    fieldNotes.getByRole('link', { name: 'Čačak Field Notes: Every Reader Structure' }),
-  ).toHaveAttribute('href', '/articles/acceptance-rich-column');
-  await expect(fieldNotes.getByText('Newest article')).toBeVisible();
-  await expect(fieldNotes.locator('time')).toHaveAttribute('datetime', '2026-08-18');
-  await expect(fieldNotes.locator('time')).toHaveText('18 August 2026');
+  await expect(fieldNotes.locator('.category-entry__cover img')).toHaveAttribute(
+    'src',
+    'https://reader-acceptance.invalid/rich-cover.webp',
+  );
+  await expect(fieldNotes.locator('.category-entry__cover img')).toHaveAttribute('loading', 'lazy');
+  await expect(fieldNotes.locator('.category-entry__meta time')).toHaveAttribute(
+    'datetime',
+    '2026-08-18',
+  );
+  await expect(fieldNotes.locator('.category-entry__meta time')).toHaveText('18 August 2026');
+  await expect(fieldNotes.locator('.category-entry__articles a')).toHaveText([
+    'Čačak Field Notes: Every Reader Structure',
+    'The Middle Field Note',
+    'The Oldest Field Note',
+  ]);
+  await expect(fieldNotes.locator('.category-entry__articles li > span')).toHaveText([
+    '7 min',
+    '3 min',
+    '3 min',
+  ]);
+  await expect(fieldNotes.getByRole('link', { name: 'All 3 in Field Notes →' })).toHaveAttribute(
+    'href',
+    '/categories/field-notes',
+  );
+  const ink = await page
+    .locator('.reader-surface')
+    .evaluate((element) => getComputedStyle(element).color);
+  const heading = fieldNotes.locator('h2 a');
+  const title = fieldNotes.locator('.category-entry__articles a').first();
+  expect(
+    await heading.evaluate((element) => ({
+      color: getComputedStyle(element).color,
+      fontWeight: getComputedStyle(element).fontWeight,
+    })),
+  ).toEqual({ color: ink, fontWeight: '500' });
+  expect(
+    await title.evaluate((element) => ({
+      color: getComputedStyle(element).color,
+      fontSize: getComputedStyle(element).fontSize,
+      fontWeight: getComputedStyle(element).fontWeight,
+      textDecoration: getComputedStyle(element).textDecorationLine,
+    })),
+  ).toEqual({
+    color: ink,
+    fontSize: '17px',
+    fontWeight: '500',
+    textDecoration: 'none',
+  });
+  await title.hover();
+  await expect(title).toHaveCSS('text-decoration-line', 'underline');
 });
 
 test('category listings are one newest-first reading sequence with return navigation', async ({
@@ -124,14 +170,16 @@ test('Categories reflows at 320px with text spacing, visible focus, themes, and 
       .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
   ).toBe(1);
 
-  for (let tab = 0; tab < 8; tab += 1) await page.keyboard.press('Tab');
-  await expect(page.getByRole('link', { name: 'Field Notes', exact: true })).toBeFocused();
-  const focusOutline = await page
-    .getByRole('link', { name: 'Field Notes', exact: true })
-    .evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { style: style.outlineStyle, width: style.outlineWidth };
-    });
+  const fieldNotesLink = page.locator('.category-entry').first().locator('h2 a');
+  for (let tab = 0; tab < 20; tab += 1) {
+    await page.keyboard.press('Tab');
+    if (await fieldNotesLink.evaluate((element) => element === document.activeElement)) break;
+  }
+  await expect(fieldNotesLink).toBeFocused();
+  const focusOutline = await fieldNotesLink.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { style: style.outlineStyle, width: style.outlineWidth };
+  });
   expect(focusOutline.style).not.toBe('none');
   expect(Number.parseFloat(focusOutline.width)).toBeGreaterThan(0);
   await expectNoBlockingAccessibilityViolations(page);

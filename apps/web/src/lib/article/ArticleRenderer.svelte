@@ -15,6 +15,7 @@
 
   import ArticleAudio from './ArticleAudio.svelte';
   let { document, contents }: { document: ArticleDocument; contents?: Snippet } = $props();
+  type ArticleReference = ArticleDocument['references'][number];
   const footnoteTargets = $derived(footnoteReferenceTargets(document.blocks));
 </script>
 
@@ -26,6 +27,23 @@
   Studio receives only content, without reader navigation.
 -->
 <article>
+  {#snippet sourceRow(reference: ArticleReference, index: number)}
+    {@const marker = /^\[(\d+)\] /.exec(reference.title)}
+    {@const title = marker ? reference.title.slice(marker[0].length) : reference.title}
+    {@const number = marker?.[1] ?? String(index + 1)}
+    {@const domain = new URL(reference.url).hostname.replace(/^www\./, '')}
+    <li class="article-source">
+      <span class="article-source__number">{number}</span>
+      <div class="article-source__content">
+        <a class="article-source__title" href={reference.url} aria-label={title}>{title}</a>
+        <p class="article-source__domain">
+          <span>{domain}</span>
+          {#if reference.publisher}<span> · {reference.publisher}</span>{/if}
+          {#if reference.accessedAt}<span> · accessed {reference.accessedAt}</span>{/if}
+        </p>
+      </div>
+    </li>
+  {/snippet}
   <ArticleOpening article={document} />
   <figure class="article-cover" aria-label={document.cover.alt}>
     <img src={document.cover.src} alt={document.cover.alt} loading="eager" />
@@ -58,17 +76,27 @@
       {#if document.references.length > 0}
         <section class="article-endmatter" aria-labelledby="reader:sources">
           <h2 class="endmatter-heading" id="reader:sources">Sources</h2>
-          <ul role="list">
-            {#each document.references as reference, index (index)}
-              <li>
-                <a href={reference.url}>{reference.title}</a>
-                {#if reference.publisher}
-                  <span> — {reference.publisher}</span>{/if}
-                {#if reference.accessedAt}
-                  <span> (accessed {reference.accessedAt})</span>{/if}
-              </li>
-            {/each}
-          </ul>
+          {#if document.references.length > 10}
+            <ol class="article-sources" role="list">
+              {#each document.references.slice(0, 8) as reference, index (index)}
+                {@render sourceRow(reference, index)}
+              {/each}
+            </ol>
+            <details class="article-sources__details">
+              <summary>Show all {document.references.length} sources</summary>
+              <ol class="article-sources" role="list" start="9">
+                {#each document.references.slice(8) as reference, offset (offset)}
+                  {@render sourceRow(reference, offset + 8)}
+                {/each}
+              </ol>
+            </details>
+          {:else}
+            <ol class="article-sources" role="list">
+              {#each document.references as reference, index (index)}
+                {@render sourceRow(reference, index)}
+              {/each}
+            </ol>
+          {/if}
         </section>
       {/if}
       {#if document.footnotes.length > 0}

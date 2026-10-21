@@ -14,6 +14,9 @@
   --foundation-accent: #284c99;
   --foundation-accent-soft: #e9edf4;
   --foundation-focus: #284c99;
+  --band: #284c99;
+  --on-band: #f8f6f0;
+  --band-action: #284c99;
   --foundation-control-surface: #f8f6f0;
   --foundation-control-text: #202522;
   --foundation-control-border: #60645f;
@@ -35,6 +38,9 @@
     --foundation-accent: #a8c2ff;
     --foundation-accent-soft: #28364e;
     --foundation-focus: #a8c2ff;
+    --band: #28364e;
+    --on-band: #f1efe7;
+    --band-action: #191d1b;
     --foundation-control-surface: #191d1b;
     --foundation-control-text: #f1efe7;
     --foundation-control-border: #b7bdb6;

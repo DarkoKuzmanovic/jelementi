@@ -52,6 +52,23 @@ describe('category projections', () => {
     ]);
   });
 
+  it('includes exactly the three newest category articles for directory entries', () => {
+    const directory = projectCategoryDirectory([
+      ...unsorted,
+      article('culture-oldest', 'Culture', 'culture', '2026-01-15'),
+    ]);
+
+    expect(directory[0]?.newestArticles.map(({ slug }) => slug)).toEqual([
+      'culture-new',
+      'culture-middle',
+      'culture-old',
+    ]);
+    expect(directory[1]?.newestArticles.map(({ slug }) => slug)).toEqual([
+      'science-new',
+      'science-old',
+    ]);
+  });
+
   it('projects category listings newest first with slug ordering for date ties', () => {
     const tied = [
       article('science-zulu', 'Science', 'science', '2026-04-01'),

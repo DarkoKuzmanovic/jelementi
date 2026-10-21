@@ -1,16 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-
-interface CanonicalIndexEntry {
-  slug: string;
-  title: string;
-  publishedAt: string;
-  categorySlug: string;
-}
+import type { ArticleIndexEntry } from '@jelementi/article-model';
+import { projectHomeCatalog } from '../../src/lib/home/home-catalog';
 
 const canonicalIndex = JSON.parse(
   readFileSync(new URL('../../../../generated/index.json', import.meta.url), 'utf8'),
-) as CanonicalIndexEntry[];
+) as ArticleIndexEntry[];
 const expectedHome = [...canonicalIndex].sort((left, right) => {
   const newestFirst = right.publishedAt.localeCompare(left.publishedAt);
   if (newestFirst !== 0) return newestFirst;
@@ -18,6 +13,12 @@ const expectedHome = [...canonicalIndex].sort((left, right) => {
   if (left.slug > right.slug) return 1;
   return 0;
 });
+const catalog = projectHomeCatalog(canonicalIndex);
+const expectedHomeShelves = [
+  ...(catalog.lead ? [catalog.lead] : []),
+  ...catalog.recent,
+  ...catalog.shelves.flatMap((shelf) => shelf.entries),
+];
 
 test('published topic shortcuts keep approved desktop order with compact navigation and fallback recovery', async ({
   page,
@@ -85,23 +86,25 @@ test('smokes the complete canonical generated Reader inventory independently of 
 
   await page.goto('/');
   const homeLinks = page.locator('.home-catalog .article-summary__title a');
-  await expect(homeLinks).toHaveCount(expectedHome.length);
+  await expect(homeLinks).toHaveCount(expectedHomeShelves.length);
   expect(
     await homeLinks.evaluateAll((links) => links.map((link) => link.getAttribute('href'))),
-  ).toEqual(expectedHome.map((entry) => `/articles/${entry.slug}`));
+  ).toEqual(expectedHomeShelves.map((entry) => `/articles/${entry.slug}`));
   expect((await homeLinks.allTextContents()).map((title) => title.trim())).toEqual(
-    expectedHome.map((entry) => entry.title),
+    expectedHomeShelves.map((entry) => entry.title),
   );
 
   const leadLink = page.locator('[data-home-tier="lead"] .article-summary__title a');
   await expect(leadLink).toHaveCount(1);
   await expect(leadLink).toHaveText(expectedLead.title);
-  await expect(page.locator('.home-catalog .article-summary')).toHaveCount(expectedHome.length);
+  await expect(page.locator('.home-catalog .article-summary')).toHaveCount(
+    expectedHomeShelves.length,
+  );
   await expect(page.getByRole('region', { name: 'Recently published' })).toHaveCount(
     expectedHome.length > 1 ? 1 : 0,
   );
   await expect(page.getByRole('region', { name: 'More articles' })).toHaveCount(
-    expectedHome.length > 4 ? 1 : 0,
+    catalog.shelves.length > 0 ? 1 : 0,
   );
 
   await page.goto('/categories');
@@ -183,4 +186,75 @@ test('smokes the complete canonical generated Reader inventory independently of 
   expect(notFound?.status()).toBe(404);
   await expect(page.getByRole('heading', { name: 'This page is not available.' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Page recovery' })).toBeVisible();
+});
+test('wide home shelves become full-width compact rows on narrow screens', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+
+  const shelves = page.locator('.home-shelf--wide');
+  await expect(shelves).not.toHaveCount(0);
+  const firstShelf = shelves.first();
+  const shelfTitle = firstShelf.locator('.article-summary__title').first();
+  const labelTitle = firstShelf.locator('.home-shelf__label h3');
+  const ink = await page
+    .locator('.reader-surface')
+    .evaluate((element) => getComputedStyle(element).color);
+  const desktopStyles = await Promise.all([
+    shelfTitle.evaluate((element) => ({
+      tag: element.tagName,
+      fontSize: getComputedStyle(element).fontSize,
+      fontWeight: getComputedStyle(element).fontWeight,
+      color: getComputedStyle(element.querySelector('a')!).color,
+      textDecoration: getComputedStyle(element.querySelector('a')!).textDecorationLine,
+    })),
+    labelTitle.evaluate((element) => ({
+      fontSize: getComputedStyle(element).fontSize,
+      fontWeight: getComputedStyle(element).fontWeight,
+      color: getComputedStyle(element.querySelector('a')!).color,
+    })),
+  ]);
+
+  expect(desktopStyles[0]).toEqual({
+    tag: 'H4',
+    fontSize: '20px',
+    fontWeight: '500',
+    color: ink,
+    textDecoration: 'none',
+  });
+  expect(desktopStyles[1]).toEqual({
+    fontSize: '28px',
+    fontWeight: '500',
+    color: ink,
+  });
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
+
+    for (const shelf of await shelves.all()) {
+      await expect(shelf.locator('.home-shelf__all-compact')).toBeVisible();
+      await expect(shelf.locator('.home-shelf__all-wide')).toBeHidden();
+      const layout = await shelf.locator('.home-shelf__entries').evaluate((list) => {
+        const items = Array.from(list.children) as HTMLElement[];
+        const summary = items[0]?.querySelector('.article-summary') as HTMLElement | null;
+        const title = summary?.querySelector('.article-summary__title') as HTMLElement | null;
+        const cover = summary?.querySelector('.article-summary__cover') as HTMLElement | null;
+        return {
+          columns: getComputedStyle(list).gridTemplateColumns.split(/\s+/).filter(Boolean).length,
+          itemWidths: items.map((item) => item.getBoundingClientRect().width),
+          itemTops: items.map((item) => item.getBoundingClientRect().top),
+          titleWidth: title?.getBoundingClientRect().width ?? 0,
+          coverWidth: cover?.getBoundingClientRect().width ?? 0,
+        };
+      });
+
+      expect(layout.columns).toBe(1);
+      expect(layout.itemWidths.length).toBe(3);
+      expect(layout.itemWidths.every((itemWidth) => itemWidth > width / 2)).toBe(true);
+      expect(layout.titleWidth).toBeGreaterThan(width / 2);
+      expect(layout.coverWidth).toBeCloseTo(96, 0);
+      expect(layout.itemTops[1]).toBeGreaterThan(layout.itemTops[0]!);
+      expect(layout.itemTops[2]).toBeGreaterThan(layout.itemTops[1]!);
+    }
+  }
 });

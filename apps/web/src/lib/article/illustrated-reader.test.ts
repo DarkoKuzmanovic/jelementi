@@ -57,6 +57,16 @@ describe('illustrated discovery', () => {
     expect(body).toContain('Read article');
     expect(body).toContain(`href="/articles/${article.slug}"`);
   });
+
+  it('supports deeper title levels for category shelves without changing the default card heading', () => {
+    const compact = render(ArticleSummary, {
+      props: { article, headingLevel: 4 },
+    }).body;
+    const regular = render(ArticleSummary, { props: { article } }).body;
+
+    expect(compact).toContain('<h4 class="article-summary__title">');
+    expect(regular).toContain('<h2 class="article-summary__title">');
+  });
   it('retains bracketed prose numbers that are not authored citation markers', () => {
     const { body } = render(ArticleSummary, {
       props: {

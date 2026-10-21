@@ -124,7 +124,8 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
   });
 
   it('renders all seven block discriminants, inline marks/nodes, wide image caption, sources, footnotes, and backlinks', () => {
-    const body = stripClasses(strip(render(ArticleRenderer, { props: { document } }).body));
+    const renderedBody = strip(render(ArticleRenderer, { props: { document } }).body);
+    const body = stripClasses(renderedBody);
 
     expect(body).toContain('<strong>strong</strong>');
     expect(body).toContain('<em>em</em>');
@@ -139,15 +140,53 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('A quiet invariant.');
     expect(body).toContain('Fixture only');
     expect(body).toContain('<hr');
-    expect(body).toContain('Sources');
+    expect(renderedBody).toContain('<ol class="article-sources" role="list">');
+    expect(renderedBody).toContain('<span class="article-source__number">1</span>');
     expect(body).toContain('Quiet source');
-    expect(body).toContain('<ul role="list">');
+    expect(body).toContain('<ol>');
+    expect(body).not.toContain('<details');
     expect(body).toContain('Footnotes');
     expect(body).toContain('The backlink target.');
     expect(body).toContain('aria-label="Back to footnote reference 1"');
     expect(body).toContain('↩');
   });
 
+  it('numbers and scans sources, strips citation prefixes, and collapses references after ten', () => {
+    const references = Array.from({ length: 11 }, (_, index) => ({
+      title:
+        index === 0
+          ? '[42] First source'
+          : index === 10
+            ? '[17] Final source'
+            : `Source ${index + 1}`,
+      url: `https://www.example.com/source-${index + 1}`,
+      ...(index === 0 ? { publisher: 'Example publisher', accessedAt: '2026-10-20' } : {}),
+    }));
+    const body = render(ArticleRenderer, {
+      props: { document: { ...document, references } },
+    }).body;
+    const initialSources = body.match(
+      /<ol class="article-sources" role="list">([\s\S]*?)<\/ol>/,
+    )?.[1];
+    const expandedSources = body.match(
+      /<details class="article-sources__details">[\s\S]*?<ol class="article-sources" role="list" start="9">([\s\S]*?)<\/ol>/,
+    )?.[1];
+
+    expect(body).toContain('<summary>Show all 11 sources</summary>');
+    expect(initialSources?.match(/class="article-source"/g)).toHaveLength(8);
+    expect(expandedSources?.match(/class="article-source"/g)).toHaveLength(3);
+    expect(body).toContain('<span class="article-source__number">42</span>');
+    expect(body).toContain(
+      '<a class="article-source__title" href="https://www.example.com/source-1" aria-label="First source">First source</a>',
+    );
+    expect(body).toContain('<span class="article-source__number">9</span>');
+    expect(body).toContain('<span class="article-source__number">17</span>');
+    expect(body).toContain('<span>example.com</span>');
+    expect(body).toContain('Example publisher');
+    expect(body).toContain('accessed 2026-10-20');
+    expect(body).not.toContain('[42] First source</a>');
+    expect(body).not.toContain('[17] Final source</a>');
+  });
   it('omits audio markup when audio is absent, leaving no empty treatment', () => {
     const noAudio = render(ArticleRenderer, {
       props: { document: { ...document, audio: undefined } },

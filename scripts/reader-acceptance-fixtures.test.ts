@@ -47,7 +47,7 @@ describe('Reader acceptance fixture catalogs', () => {
       new Set(['paragraph', 'heading', 'image', 'list', 'quote', 'callout', 'divider']),
     );
     expect(rich.audio).toBeDefined();
-    expect(rich.references).toHaveLength(1);
+    expect(rich.references).toHaveLength(11);
     expect(rich.footnotes).toHaveLength(1);
     expect(JSON.stringify(rich.blocks).match(/footnoteReference/g)).toHaveLength(2);
     expect(JSON.stringify(rich.blocks)).toContain('https://example.com/reader-acceptance');

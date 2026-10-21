@@ -7,17 +7,17 @@ const catalogs = {
   sparse: {
     lead: ['One Article Is Still a Catalog'],
     recent: [],
-    more: [],
+    shelves: [],
   },
   intermediate: {
     lead: ['Čačak Field Notes: Every Reader Structure'],
     recent: ['The Middle Field Note', 'Culture at the Newest Edge', 'A Measured Sky'],
-    more: [],
+    shelves: [],
   },
   representative: {
     lead: ['Čačak Field Notes: Every Reader Structure'],
     recent: ['The Middle Field Note', 'Culture at the Newest Edge', 'A Measured Sky'],
-    more: [
+    shelves: [
       'The Oldest Field Note',
       'Culture in the Archive',
       'The Patient Instrument',
@@ -45,20 +45,20 @@ test('@home-catalog-scenario renders each published article once in the exact Ed
   page,
 }) => {
   const expected = expectedCatalog();
-  const expectedTitles = [...expected.lead, ...expected.recent, ...expected.more];
+  const expectedTitles = [...expected.lead, ...expected.recent, ...expected.shelves];
 
   await page.goto('/');
 
   await expect(page.getByRole('heading', { level: 1, name: 'Jelementi' })).toHaveCount(1);
   expect(await tierTitles(page, 'lead')).toEqual(expected.lead);
   expect(await tierTitles(page, 'recent')).toEqual(expected.recent);
-  expect(await tierTitles(page, 'more')).toEqual(expected.more);
+  expect(await tierTitles(page, 'shelves')).toEqual(expected.shelves);
 
   await expect(page.getByRole('region', { name: 'Recently published' })).toHaveCount(
     expected.recent.length > 0 ? 1 : 0,
   );
   await expect(page.getByRole('region', { name: 'More articles' })).toHaveCount(
-    expected.more.length > 0 ? 1 : 0,
+    expected.shelves.length > 0 ? 1 : 0,
   );
 
   const allTitles = await page
@@ -76,7 +76,12 @@ test('@home-catalog-scenario renders each published article once in the exact Ed
     await expect(summary.locator('a[href^="/categories/"]')).toHaveCount(1);
     await expect(summary.locator('time[datetime]')).toHaveCount(1);
     await expect(summary).toContainText(/\d+ min read/);
-    await expect(summary.locator('.article-summary__excerpt')).not.toHaveText('');
+    await expect(summary.locator('.article-summary__meta')).toContainText(/ · \d+ min read/);
+    if (await summary.evaluate((element) => !!element.closest('[data-home-tier="shelves"]'))) {
+      await expect(summary.locator('.article-summary__excerpt')).toBeHidden();
+    } else {
+      await expect(summary.locator('.article-summary__excerpt')).not.toHaveText('');
+    }
   }
 });
 
@@ -85,8 +90,8 @@ test('compact illustrated archive rows retain stories without expanded preview p
 }) => {
   test.skip(scenario !== 'representative', 'Representative archive composition.');
   await page.goto('/');
-  await expect(page.locator('.home-more .article-summary__excerpt').first()).toBeHidden();
-  await expect(page.locator('.home-more .article-summary__title').first()).toBeVisible();
+  await expect(page.locator('.home-shelf--compact .article-summary__excerpt').first()).toBeHidden();
+  await expect(page.locator('.home-shelf--compact .article-summary__title').first()).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(
     page.locator('.home-recent__list > li').nth(1).locator('.article-summary__excerpt'),
@@ -103,12 +108,14 @@ test('representative Home preserves the wide editorial scan and one 320px source
   await page.goto('/');
 
   const recent = page.locator('.home-recent__list');
-  const more = page.locator('.home-more__list');
+  const compactShelves = page.locator('.home-shelves--compact');
   expect(
     (await recent.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' '),
   ).toHaveLength(3);
   expect(
-    (await more.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' '),
+    (
+      await compactShelves.evaluate((element) => getComputedStyle(element).gridTemplateColumns)
+    ).split(' '),
   ).toHaveLength(2);
 
   await page.setViewportSize({ width: 320, height: 800 });
@@ -118,7 +125,9 @@ test('representative Home preserves the wide editorial scan and one 320px source
     (await recent.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' '),
   ).toHaveLength(1);
   expect(
-    (await more.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' '),
+    (
+      await compactShelves.evaluate((element) => getComputedStyle(element).gridTemplateColumns)
+    ).split(' '),
   ).toHaveLength(1);
 
   const sourceOrder = await page
@@ -128,7 +137,7 @@ test('representative Home preserves the wide editorial scan and one 320px source
   expect(sourceOrder).toEqual([
     ...catalogs.representative.lead,
     ...catalogs.representative.recent,
-    ...catalogs.representative.more,
+    ...catalogs.representative.shelves,
   ]);
 });
 
@@ -151,9 +160,9 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     page.getByText('unbroken-content-token-that-must-reflow-without-page-level-overflow'),
   ).toHaveCount(1);
   await expect(
-    page.getByRole('link', {
+    page.getByRole('heading', {
+      level: 3,
       name: 'A Deliberately Long Category Name for Narrow Readers',
-      exact: true,
     }),
   ).toBeVisible();
   const noHorizontalOverflow = await page.evaluate(
@@ -189,13 +198,23 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     '/categories/science',
     '/articles/acceptance-science-new',
     '/categories/field-notes',
+    '/categories/field-notes',
+    '/categories/field-notes',
     '/articles/acceptance-field-oldest',
+    '/categories/culture',
+    '/categories/culture',
     '/categories/culture',
     '/articles/acceptance-culture-old',
     '/categories/science',
+    '/categories/science',
+    '/categories/science',
     '/articles/acceptance-science-old',
     '/categories/a-deliberately-long-category-name-for-narrow-readers',
+    '/categories/a-deliberately-long-category-name-for-narrow-readers',
+    '/categories/a-deliberately-long-category-name-for-narrow-readers',
     '/articles/acceptance-long-category',
+    '/categories/solo',
+    '/categories/solo',
     '/categories/solo',
     '/articles/acceptance-no-audio-long-column',
   ];

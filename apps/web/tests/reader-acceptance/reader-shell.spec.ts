@@ -78,16 +78,24 @@ test('podcast invitation keyboard focus contrasts with its panel in both themes'
         return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
       };
       const outline = luminance(style.outlineColor);
-      const panel = luminance(getComputedStyle(el.parentElement!).backgroundColor);
+      const panelColor = getComputedStyle(el.parentElement!).backgroundColor;
       return {
         visible: el.matches(':focus-visible'),
         width: parseFloat(style.outlineWidth),
-        contrast: (Math.max(outline, panel) + 0.05) / (Math.min(outline, panel) + 0.05),
+        contrast:
+          (Math.max(outline, luminance(panelColor)) + 0.05) /
+          (Math.min(outline, luminance(panelColor)) + 0.05),
+        panelColor,
+        actionBackground: style.backgroundColor,
       };
     });
     expect(focus.visible).toBe(true);
     expect(focus.width).toBeGreaterThanOrEqual(2);
     expect(focus.contrast).toBeGreaterThanOrEqual(3);
+    expect(focus.panelColor).toBe(colorScheme === 'light' ? 'rgb(40, 76, 153)' : 'rgb(40, 54, 78)');
+    expect(focus.actionBackground).toBe(
+      colorScheme === 'light' ? 'rgb(248, 246, 240)' : 'rgb(241, 239, 231)',
+    );
   }
 });
 

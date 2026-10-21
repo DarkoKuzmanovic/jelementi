@@ -66,6 +66,49 @@
   font-size: 0.9375rem;
   overflow-wrap: anywhere;
 }
+.article-endmatter .article-sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.article-endmatter .article-sources > li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0 0.75rem;
+  padding: 0.875rem 0;
+}
+.article-source__number {
+  grid-row: 1 / 3;
+  color: var(--foundation-muted);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.article-source__content {
+  min-width: 0;
+}
+.article-source__title {
+  text-decoration: none;
+}
+.article-source__domain {
+  margin: 0.25rem 0 0;
+  color: var(--foundation-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.article-sources__details {
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--foundation-rule);
+}
+.article-sources__details summary {
+  color: var(--foundation-link);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.article-sources__details .article-sources {
+  margin-top: 0.5rem;
+}
 .endmatter-heading {
   font-family: var(--font-sans);
   font-weight: 500;
