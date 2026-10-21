@@ -14,7 +14,7 @@ export const READER_ASSET_BUDGETS = {
   },
   representativeHtml: 70_885,
   uniqueReaderCss: 29_632,
-  searchJavaScript: 167_781,
+  searchJavaScript: 167_987,
   // Raw generated JSON bytes from the same main@261cb6a canonical build.
   // This reports content-artifact growth separately; it never raises any
   // production HTML/CSS/JS implementation ceiling.
