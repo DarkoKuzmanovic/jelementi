@@ -3,6 +3,7 @@ import {
   projectCategoryArticles,
   projectCategoryDirectory,
 } from '../apps/web/src/lib/category-projection';
+import { projectSeries } from '../apps/web/src/lib/series/series-projection';
 import { filterArticles } from '../apps/web/src/lib/generated-content';
 import {
   loadReaderAcceptanceContent,
@@ -23,7 +24,7 @@ describe('Reader acceptance fixture catalogs', () => {
     ]);
     expect(intermediate.index).toHaveLength(4);
     expect(Object.keys(intermediate.articles)).toHaveLength(intermediate.index.length);
-    expect(representative.index).toHaveLength(9);
+    expect(representative.index).toHaveLength(12);
     expect(Object.keys(representative.articles)).toHaveLength(representative.index.length);
     expect(representative.index.every((entry) => entry.searchText.length > 0)).toBe(true);
     expect(
@@ -64,7 +65,7 @@ describe('Reader acceptance fixture catalogs', () => {
         newest: newest.slug,
       })),
     ).toEqual([
-      { name: 'Field Notes', count: 3, newest: 'acceptance-rich-column' },
+      { name: 'Field Notes', count: 6, newest: 'acceptance-rich-column' },
       { name: 'Culture', count: 2, newest: 'acceptance-culture-new' },
       { name: 'Science', count: 2, newest: 'acceptance-science-new' },
       {
@@ -74,7 +75,22 @@ describe('Reader acceptance fixture catalogs', () => {
       },
       { name: 'Solo', count: 1, newest: 'acceptance-no-audio-long-column' },
     ]);
-    expect(projectCategoryArticles(content.index, 'field-notes')).toHaveLength(3);
+    expect(
+      projectSeries(content.index).map(({ title, parts }) => [
+        title,
+        parts.map(({ part, slug }) => [part, slug]),
+      ]),
+    ).toEqual([
+      [
+        'Field Notes',
+        [
+          [1, 'acceptance-field-series-first'],
+          [2, 'acceptance-field-series-middle'],
+          [3, 'acceptance-field-series-third'],
+        ],
+      ],
+    ]);
+    expect(projectCategoryArticles(content.index, 'field-notes')).toHaveLength(6);
     expect(
       projectCategoryArticles(
         content.index,

@@ -84,6 +84,9 @@ function validForm(): FormData {
   form.set('coverAlt', 'Cover');
   form.set('audioSrc', '');
   form.set('audioDurationSeconds', '');
+  form.set('seriesTitle', '');
+  form.set('seriesSlug', '');
+  form.set('seriesPart', '');
   form.append('referenceTitle', '');
   form.append('referenceUrl', '');
   form.append('referencePublisher', '');
@@ -215,6 +218,49 @@ describe('Studio editor route boundary', () => {
     });
   });
 
+  it('rejects a partial series and anchors the missing fields on Preview', async () => {
+    const form = validForm();
+    const overlongSeriesTitle = 'N'.repeat(501);
+    form.set('seriesTitle', overlongSeriesTitle);
+
+    const result = await previewStudioEditorAction(
+      event(
+        new Request('https://jelementi.quz.ma/studio/articles/new?/preview', {
+          method: 'POST',
+          body: form,
+        }),
+      ),
+    );
+
+    expect(result.preview.kind).toBe('preview_issues');
+    if (result.preview.kind !== 'preview_issues') throw new Error('expected preview_issues');
+    expect(result.preview.compileIssues.map(({ code }) => code)).toEqual([
+      'EDITOR_INPUT_SERIES_TITLE',
+      'EDITOR_INPUT_SERIES_SLUG',
+      'EDITOR_INPUT_SERIES_PART',
+    ]);
+    expect(result.validation?.first.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-seriesTitle',
+      label: 'Series title',
+    });
+    expect(result.validation?.issues[1]?.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-seriesSlug',
+      label: 'Series slug',
+    });
+    expect(result.validation?.issues[2]?.target).toEqual({
+      kind: 'field',
+      controlId: 'studio-field-seriesPart',
+      label: 'Part number',
+    });
+    expect(result.editor?.metadata.series).toMatchObject({
+      title: overlongSeriesTitle.slice(0, 500),
+      slug: '',
+    });
+    expect(result.editor?.metadata.series?.part).toBeUndefined();
+  });
+
   it('keeps the generic INVALID_EDITOR_INPUT fallback only for unmappable decode failures (#110)', async () => {
     const form = validForm();
     form.set('baseMainSha', 'not-a-sha');
@@ -302,6 +348,10 @@ describe('Studio save route boundary', () => {
   it('commits a new draft and returns its server-authored identity and workspace envelope', async () => {
     const form = validForm();
     form.set('slug', 'a-fresh-save');
+    const series = { slug: 'northern-islands', title: 'Northern Islands', part: 2 };
+    form.set('seriesTitle', series.title);
+    form.set('seriesSlug', series.slug);
+    form.set('seriesPart', String(series.part));
     form.set('enhancementOperationId', 'save-op');
     form.set('submittedSnapshotId', 'save-snapshot');
     const main = await adapter.getMainRef();
@@ -323,7 +373,10 @@ describe('Studio save route boundary', () => {
     expect(result.save.pullRequest.number).toBeGreaterThan(0);
     expect(result.save.concurrency.draftHeadSha).toBeDefined();
     expect(result.editor?.metadata.slug).toBe('a-fresh-save');
+    expect(result.editor?.metadata.series).toEqual(series);
     expect(result.acceptedSlug).toBe('a-fresh-save');
+    const reloaded = await loadStudioEditorPage(event(), 'a-fresh-save');
+    expect(reloaded.editor.metadata.series).toEqual(series);
     const envelope = decodeStudioActionEnvelope(result.envelope);
     expect(envelope).toMatchObject({
       ok: true,

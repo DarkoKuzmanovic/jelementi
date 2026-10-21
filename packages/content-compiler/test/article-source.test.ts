@@ -16,6 +16,7 @@ const fullFrontmatter: ArticleSourceFrontmatter = {
   updatedAt: '2026-07-26',
   status: 'published',
   category: 'History',
+  series: { slug: 'remote-islands', title: 'Remote Islands', part: 1 },
   tags: ['remote places', 'islands', 'communities'],
   author: 'Jelementi',
   cover: {
@@ -59,6 +60,10 @@ publishedAt: 2026-07-26
 updatedAt: 2026-07-26
 status: published
 category: History
+series:
+  slug: remote-islands
+  title: Remote Islands
+  part: 1
 tags:
   - remote places
   - islands
@@ -115,12 +120,12 @@ describe('serializeArticleSource', () => {
     );
 
     // The frontmatter block is always delimited by exactly two `---` lines.
-    const source = serializeArticleSource({ frontmatter: draftFrontmatter, body: 'Body.' });
+    const source = serializeArticleSource({ frontmatter: fullFrontmatter, body: 'Body.' });
     expect(source.startsWith('---\n')).toBe(true);
     expect(source.indexOf('\n---\n')).toBe(source.lastIndexOf('\n---\n'));
 
-    // Key order inside the YAML block is locked: title, slug, excerpt, updatedAt,
-    // status, category, tags, author, cover, references.
+    // Key order inside the YAML block is locked, including optional series and audio.
+    // The series field sits immediately after category.
     const yamlBlock = source.slice(4, source.indexOf('\n---\n'));
     const lines = yamlBlock.split('\n').map((line) => line.split(':')[0]);
     expect(
@@ -131,12 +136,15 @@ describe('serializeArticleSource', () => {
       'title',
       'slug',
       'excerpt',
+      'publishedAt',
       'updatedAt',
       'status',
       'category',
+      'series',
       'tags',
       'author',
       'cover',
+      'audio',
       'references',
     ]);
   });
@@ -172,6 +180,7 @@ describe('serializeArticleSource', () => {
       updatedAt: '2026-07-26',
       status: 'published',
       category: 'History',
+      series: { slug: 'remote-islands', title: 'Remote Islands', part: 1 },
       tags: ['remote places', 'islands', 'communities'],
       author: 'Jelementi',
       cover: {
@@ -349,7 +358,7 @@ describe('parseArticleSource', () => {
     }
   });
 
-  it('rejects unknown frontmatter, cover, audio, and reference keys', () => {
+  it('rejects unknown frontmatter, cover, audio, reference, and series keys', () => {
     const cases = [
       yamlSource('Body', 'bogus: true\n'),
       serializeArticleSource({ frontmatter: draftFrontmatter, body: 'Body' }).replace(
@@ -364,6 +373,10 @@ describe('parseArticleSource', () => {
         'url: https://example.org/draft',
         'url: https://example.org/draft\n  language: en',
       ),
+      serializeArticleSource({ frontmatter: fullFrontmatter, body: 'Body' }).replace(
+        '  part: 1',
+        '  part: 1\n  unknown: unsupported',
+      ),
     ];
     for (const markdown of cases) {
       let captured: unknown;
@@ -377,6 +390,8 @@ describe('parseArticleSource', () => {
         code: 'INVALID_FRONTMATTER',
         sourcePath,
       });
+      expect((captured as ContentCompileError).issues[0]?.line).toBeTypeOf('number');
+      expect((captured as ContentCompileError).issues[0]?.column).toBeTypeOf('number');
     }
   });
 
@@ -390,6 +405,8 @@ describe('parseArticleSource', () => {
       draftSource.replace('status: draft', 'status: scheduled'),
       fullSource.replace('publishedAt: 2026-07-26\n', ''),
       fullSource.replace('durationSeconds: 1842', 'durationSeconds: 0'),
+      fullSource.replace('  part: 1', '  part: 0'),
+      fullSource.replace('  slug: remote-islands', '  slug: Remote Islands'),
       draftSource.replace('url: https://example.org/draft\n', ''),
     ];
     for (const markdown of cases) {
@@ -404,6 +421,8 @@ describe('parseArticleSource', () => {
         code: 'INVALID_FRONTMATTER',
         sourcePath,
       });
+      expect((captured as ContentCompileError).issues[0]?.line).toBeTypeOf('number');
+      expect((captured as ContentCompileError).issues[0]?.column).toBeTypeOf('number');
     }
   });
 

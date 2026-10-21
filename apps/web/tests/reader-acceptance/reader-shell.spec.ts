@@ -99,6 +99,58 @@ test('podcast invitation keyboard focus contrasts with its panel in both themes'
   }
 });
 
+test('series band uses a distinct surface with legible text in both themes', async ({ page }) => {
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto('/');
+    const band = page.locator('.home-series__band').first();
+    await expect(band).toBeVisible();
+    const palette = await band.evaluate((element) => {
+      const background = getComputedStyle(element).backgroundColor;
+      const luminance = (color: string) => {
+        const channels = color
+          .match(/[\d.]+/g)!
+          .slice(0, 3)
+          .map(Number);
+        const [red, green, blue] = channels.map((channel) => {
+          const value = channel / 255;
+          return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
+      };
+      const contrast = (foreground: string, surface: string) => {
+        const foregroundLuminance = luminance(foreground);
+        const surfaceLuminance = luminance(surface);
+        return (
+          (Math.max(foregroundLuminance, surfaceLuminance) + 0.05) /
+          (Math.min(foregroundLuminance, surfaceLuminance) + 0.05)
+        );
+      };
+      const details = element.querySelector('.home-series__details')!;
+      const kicker = element.querySelector('.home-series__kicker')!;
+      const action = element.querySelector('.home-series__action')!;
+      const actionStyle = getComputedStyle(action);
+      return {
+        background,
+        podcastBackground: getComputedStyle(document.querySelector('.podcast-invitation')!)
+          .backgroundColor,
+        inkContrast: contrast(getComputedStyle(element).color, background),
+        kickerContrast: contrast(getComputedStyle(kicker).color, background),
+        detailsContrast: contrast(getComputedStyle(details).color, background),
+        actionContrast: contrast(actionStyle.color, actionStyle.backgroundColor),
+      };
+    });
+    expect(palette.background).toBe(
+      colorScheme === 'light' ? 'rgb(233, 237, 244)' : 'rgb(34, 40, 36)',
+    );
+    expect(palette.background).not.toBe(palette.podcastBackground);
+    expect(palette.inkContrast).toBeGreaterThanOrEqual(4.5);
+    expect(palette.kickerContrast).toBeGreaterThanOrEqual(4.5);
+    expect(palette.detailsContrast).toBeGreaterThanOrEqual(4.5);
+    expect(palette.actionContrast).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
 test('skip link is keyboard-operable and focuses main', async ({ page }, testInfo) => {
   if (testInfo.project.name.includes('no-js')) test.skip();
   await page.goto('/');

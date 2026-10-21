@@ -56,6 +56,10 @@ const FIELD_LABELS: Record<string, string> = {
   category: 'Category',
   tags: 'Tags',
   author: 'Author',
+  series: 'Series',
+  seriesTitle: 'Series title',
+  seriesSlug: 'Series slug',
+  seriesPart: 'Part number',
   coverSrc: 'Cover media key',
   coverAlt: 'Cover alt text',
   audioSrc: 'Audio media key',
@@ -74,6 +78,7 @@ const QUOTED_FIELD_CONTROLS: Record<string, string> = {
   category: 'category',
   tags: 'tags',
   author: 'author',
+  series: 'series',
   cover: 'coverSrc',
   audio: 'audioSrc',
   references: 'references',
@@ -121,6 +126,18 @@ const DECODE_FIELD_REQUIREMENTS: Record<string, { code: string; message: string 
   'input.metadata.author': {
     code: 'EDITOR_INPUT_AUTHOR',
     message: `Author must be at most ${EDITOR_INPUT_LIMITS.authorMax} characters.`,
+  },
+  'input.metadata.series.title': {
+    code: 'EDITOR_INPUT_SERIES_TITLE',
+    message: `Series title must be at most ${EDITOR_INPUT_LIMITS.titleMax} characters.`,
+  },
+  'input.metadata.series.slug': {
+    code: 'EDITOR_INPUT_SERIES_SLUG',
+    message: `Series slug must use lowercase letters, digits, and hyphens with no leading or trailing hyphen (at most ${EDITOR_INPUT_LIMITS.slugMax} characters).`,
+  },
+  'input.metadata.series.part': {
+    code: 'EDITOR_INPUT_SERIES_PART',
+    message: 'Series part number must be a whole number of at least 1.',
   },
   'input.metadata.tags': {
     code: 'EDITOR_INPUT_TAGS',
@@ -187,6 +204,9 @@ const DECODE_ISSUE_CONTROLS: Record<string, string> = {
   EDITOR_INPUT_COVER_ALT: 'coverAlt',
   EDITOR_INPUT_AUDIO_SRC: 'audioSrc',
   EDITOR_INPUT_AUDIO_DURATION: 'audioDurationSeconds',
+  EDITOR_INPUT_SERIES_TITLE: 'seriesTitle',
+  EDITOR_INPUT_SERIES_SLUG: 'seriesSlug',
+  EDITOR_INPUT_SERIES_PART: 'seriesPart',
   EDITOR_INPUT_REFERENCES: 'references',
   EDITOR_INPUT_BODY: 'body',
 };

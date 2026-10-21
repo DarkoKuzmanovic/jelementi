@@ -217,7 +217,7 @@
     <details class="studio-editor__metadata">
       <summary>
         More metadata
-        <span>Dates, category, tags, author, media, audio, and references</span>
+        <span>Dates, category, tags, author, series, media, audio, and references</span>
       </summary>
       <div class="studio-editor__field-grid">
         <label>
@@ -266,6 +266,48 @@
           />
         </label>
       </div>
+
+      <fieldset id="studio-field-series" tabindex="-1">
+        <legend>Series (optional)</legend>
+        <div class="studio-editor__field-grid">
+          <label>
+            Series title
+            <input
+              id="studio-field-seriesTitle"
+              name="seriesTitle"
+              value={metadata.series?.title ?? ''}
+              maxlength={EDITOR_INPUT_LIMITS.titleMax}
+            />
+          </label>
+          <div>
+            <label>
+              Series slug
+              <input
+                id="studio-field-seriesSlug"
+                name="seriesSlug"
+                value={metadata.series?.slug ?? ''}
+                maxlength={EDITOR_INPUT_LIMITS.slugMax}
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                aria-describedby="studio-field-seriesSlug-help"
+              />
+            </label>
+            <span id="studio-field-seriesSlug-help" class="studio-editor__field-hint">
+              Lowercase letters, numbers, and hyphens.
+            </span>
+          </div>
+          <label>
+            Part number
+            <input
+              id="studio-field-seriesPart"
+              name="seriesPart"
+              type="number"
+              min="1"
+              step="1"
+              value={metadata.series?.part ?? ''}
+            />
+          </label>
+        </div>
+      </fieldset>
 
       <fieldset>
         <legend>Cover</legend>

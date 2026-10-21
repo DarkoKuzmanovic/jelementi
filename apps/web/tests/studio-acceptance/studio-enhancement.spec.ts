@@ -276,6 +276,13 @@ test.describe('Recovery copy browser behavior (#78)', () => {
 
     const body = page.getByRole('textbox', { name: 'Body', exact: true });
     await body.fill(RECOVERY_CANDIDATE_BODY);
+    await page.getByText('More metadata', { exact: false }).click();
+    const seriesTitle = page.getByRole('textbox', { name: 'Series title', exact: true });
+    const seriesSlug = page.getByRole('textbox', { name: 'Series slug', exact: true });
+    const seriesPart = page.getByRole('spinbutton', { name: 'Part number', exact: true });
+    await seriesTitle.fill('Kalemegdan');
+    await seriesSlug.fill('kalemegdan');
+    await seriesPart.fill('3');
     await expect(page.getByRole('heading', { name: 'Recovery copy' })).toBeVisible({
       timeout: 3000,
     });
@@ -295,10 +302,17 @@ test.describe('Recovery copy browser behavior (#78)', () => {
     await expect(page.getByText('Not saved yet.', { exact: false }).first()).toBeVisible();
     // Never auto-applied: the form shows the committed server content.
     await expect(body).not.toHaveValue(RECOVERY_CANDIDATE_BODY);
+    await page.getByText('More metadata', { exact: false }).click();
+    await expect(seriesTitle).toHaveValue('');
+    await expect(seriesSlug).toHaveValue('');
+    await expect(seriesPart).toHaveValue('');
 
     // Explicit restoration applies the candidate.
     await page.getByRole('button', { name: 'Restore recovery copy' }).click();
     await expect(body).toHaveValue(RECOVERY_CANDIDATE_BODY);
+    await expect(seriesTitle).toHaveValue('Kalemegdan');
+    await expect(seriesSlug).toHaveValue('kalemegdan');
+    await expect(seriesPart).toHaveValue('3');
   });
 
   test('JS: stale recovery renders fresh server content first and requires Compare/Restore before restore', async ({

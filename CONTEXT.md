@@ -8,6 +8,10 @@ The Jelementi content platform. Authoring, publishing, and reader surface for a 
 A unit of published content with canonical Markdown at `content/articles/<slug>.md` on `main`. Has status `draft | published | archived`.
 _Avoid_: Post, piece, content item
 
+**Series**:
+An explicitly identified group of articles sharing a stable slug, display title, and category. Each article declares a positive part number; published parts are unique and contiguous starting at 1.
+_Avoid_: Inferring membership or order from title wording
+
 **Canonical article**:
 The article as it exists on `main`. A draft branch or pull request is not the article; the article is canonical only when its blob is on `main`.
 

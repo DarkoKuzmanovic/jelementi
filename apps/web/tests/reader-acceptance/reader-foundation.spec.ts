@@ -9,7 +9,7 @@ test('loads the representative fixture through the real static Reader routes', a
 
   await page.goto('/categories/field-notes');
   await expect(page.getByRole('heading', { level: 1, name: 'Field Notes' })).toBeVisible();
-  await expect(page.getByRole('listitem')).toHaveCount(3);
+  await expect(page.getByRole('listitem')).toHaveCount(6);
 });
 
 test('renders every rich-content fixture capability without relying on JavaScript', async ({

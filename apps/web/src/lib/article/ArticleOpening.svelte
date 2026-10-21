@@ -2,8 +2,10 @@
   import type { ArticleDocument } from '@jelementi/article-model';
   import { categorySlug } from '@jelementi/article-model';
   import { formatPublishedDate } from './format-date';
+  import ArticleSeriesPosition from './ArticleSeriesPosition.svelte';
+  import type { SeriesProjection } from '../series/series-projection';
 
-  let { article }: { article: ArticleDocument } = $props();
+  let { article, series }: { article: ArticleDocument; series?: SeriesProjection } = $props();
 </script>
 
 <!--
@@ -32,6 +34,7 @@
     {/if}
     <span>{article.readingTimeMinutes} min read</span>
   </p>
+  {#if series}<ArticleSeriesPosition {series} currentSlug={article.slug} />{/if}
   {#if article.tags.length > 0}
     <ul class="article-opening__tags" aria-label="Tags">
       {#each article.tags as tag (tag)}

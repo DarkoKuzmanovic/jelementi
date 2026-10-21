@@ -32,6 +32,7 @@ const candidate: StudioEditorInput = {
     tags: ['studio'],
     author: 'Jelementi',
     cover: { src: 'articles/recovered-article/cover.svg', alt: 'A lighthouse.' },
+    series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 3 },
     references: [],
   },
   body: 'Newer unsaved body.',
@@ -298,6 +299,9 @@ describe('captureStudioSubmittedSnapshot', () => {
     form.set('author', 'Jelementi');
     form.set('coverSrc', 'articles/recovered-article/cover.svg');
     form.set('coverAlt', 'A lighthouse.');
+    form.set('seriesTitle', 'Kalemegdan');
+    form.set('seriesSlug', 'kalemegdan');
+    form.set('seriesPart', '3');
     form.set('body', 'Newer unsaved body.');
     form.set('baseMainSha', 'a'.repeat(40));
     form.set('draftHeadSha', 'b'.repeat(40));
@@ -305,7 +309,23 @@ describe('captureStudioSubmittedSnapshot', () => {
     const snapshot = captureStudioSubmittedSnapshot(form);
     expect(snapshot).toBeDefined();
     expect(snapshot?.metadata.tags).toEqual(['studio', 'recovery']);
+    expect(snapshot?.metadata.series).toEqual({
+      slug: 'kalemegdan',
+      title: 'Kalemegdan',
+      part: 3,
+    });
     expect(snapshot?.body).toBe('Newer unsaved body.');
+    form.set('seriesTitle', '');
+    form.set('seriesSlug', '');
+    form.set('seriesPart', '');
+    expect(captureStudioSubmittedSnapshot(form)?.metadata.series).toBeUndefined();
+
+    form.set('seriesSlug', 'kalemegdan');
+    expect(captureStudioSubmittedSnapshot(form)).toBeUndefined();
+
+    form.set('seriesTitle', 'Kalemegdan');
+    form.set('seriesPart', '0');
+    expect(captureStudioSubmittedSnapshot(form)).toBeUndefined();
   });
 
   it('returns undefined for a malformed form so the caller falls through to native submission', () => {

@@ -36,8 +36,8 @@ describe('Isolated fixed-catalog Reader benchmark', () => {
     expect(READER_ASSET_BUDGETS.routes.notFound.ceiling).toBe(9_473);
     expect(READER_ASSET_BUDGETS.routes.categories.ceiling).toBe(8_192);
     expect(READER_ASSET_BUDGETS.representativeHtml).toBe(70_885);
-    expect(READER_ASSET_BUDGETS.uniqueReaderCss).toBe(22_784);
-    expect(READER_ASSET_BUDGETS.searchJavaScript).toBe(167_781);
+    expect(READER_ASSET_BUDGETS.uniqueReaderCss).toBe(29_440);
+    expect(READER_ASSET_BUDGETS.searchJavaScript).toBe(169_279);
   });
 
   it('uses the pinned tristan fixture as the only catalog source', async () => {

@@ -44,10 +44,18 @@
             >
           </p>
           <ol class="category-entry__articles">
-            {#each category.newestArticles as article (article.slug)}
+            {#each category.newestArticles as entry (entry.kind === 'series' ? `series:${entry.series.slug}` : entry.article.slug)}
               <li>
-                <a href={`/articles/${article.slug}`}>{article.title}</a>
-                <span>{article.readingTimeMinutes} min</span>
+                {#if entry.kind === 'series'}
+                  <a class="category-entry__series" href={`/articles/${entry.href}`}>
+                    <img src={entry.cover.src} alt="" width="1600" height="900" loading="lazy" />
+                    <span>{entry.title}</span>
+                  </a>
+                  <span>{entry.readingTimeMinutes} min</span>
+                {:else}
+                  <a href={`/articles/${entry.article.slug}`}>{entry.article.title}</a>
+                  <span>{entry.article.readingTimeMinutes} min</span>
+                {/if}
               </li>
             {/each}
           </ol>

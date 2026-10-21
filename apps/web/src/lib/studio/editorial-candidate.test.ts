@@ -14,6 +14,7 @@ const first: StudioPreviewInput = {
     tags: ['studio', 'writing'],
     author: 'Jelementi',
     cover: { src: 'articles/article/cover-v1.svg', alt: 'Cover.' },
+    series: { slug: 'kalemegdan', title: 'Kalemegdan', part: 3 },
     audio: { src: 'articles/article/audio-v1.mp3', durationSeconds: 90 },
     references: [
       {
@@ -38,6 +39,7 @@ const sameValuesDifferentPropertyOrder: StudioPreviewInput = {
         title: 'Source',
       },
     ],
+    series: { part: 3, title: 'Kalemegdan', slug: 'kalemegdan' },
     audio: { durationSeconds: 90, src: 'articles/article/audio-v1.mp3' },
     cover: { alt: 'Cover.', src: 'articles/article/cover-v1.svg' },
     author: 'Jelementi',
@@ -69,7 +71,9 @@ describe('studioEditorCandidateEquals', () => {
     ).toBe(true);
   });
 
-  it('detects changes across optional audio and reference fields', () => {
+  it('detects changes across optional audio, series, and reference fields', () => {
+    const series = first.metadata.series;
+    if (series === undefined) throw new Error('series fixture missing');
     const reference = sameValuesDifferentPropertyOrder.metadata.references[0];
     if (reference === undefined) throw new Error('reference fixture missing');
 
@@ -82,6 +86,18 @@ describe('studioEditorCandidateEquals', () => {
         },
       }),
     ).toBe(false);
+    for (const changedSeries of [
+      { ...series, slug: 'another-series' },
+      { ...series, title: 'Another series' },
+      { ...series, part: 4 },
+    ]) {
+      expect(
+        studioEditorCandidateEquals(first, {
+          ...sameValuesDifferentPropertyOrder,
+          metadata: { ...sameValuesDifferentPropertyOrder.metadata, series: changedSeries },
+        }),
+      ).toBe(false);
+    }
     expect(
       studioEditorCandidateEquals(first, {
         ...sameValuesDifferentPropertyOrder,

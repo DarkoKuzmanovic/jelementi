@@ -176,6 +176,46 @@ describe('loadStudioEditor', () => {
     });
   });
 
+  it('preserves an existing series when saving without changing its fields', async () => {
+    const adapter = new FakeGithubAdapter(config);
+    const series = { slug: 'northern-islands', title: 'Northern Islands', part: 2 };
+    const sourceFrontmatter: ArticleSourceFrontmatter = {
+      ...metadata,
+      series,
+      references: metadata.references,
+    };
+    const main = await adapter.getMainRef();
+    if (!main.ok) throw new Error('main missing');
+    adapter.seedFile(
+      'main',
+      `content/articles/${metadata.slug}.md`,
+      serializeArticleSource({ frontmatter: sourceFrontmatter, body: 'Saved body.' }),
+      'e'.repeat(64),
+    );
+
+    const loaded = await loadStudioEditor(adapter, metadata.slug);
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.value.metadata.series).toEqual(series);
+
+    const saved = await saveStudioDraft(
+      adapter,
+      metadata.slug,
+      {
+        metadata: loaded.value.metadata,
+        body: loaded.value.body,
+        concurrency: loaded.value.concurrency,
+      },
+      { mediaBaseUrl: 'https://media.jelementi.quz.ma/' },
+    );
+    expect(saved.kind).toBe('saved');
+    if (saved.kind !== 'saved') return;
+
+    const reloaded = await loadStudioEditor(adapter, metadata.slug);
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.value.metadata.series).toEqual(series);
+  });
+
   it('keeps an intentionally invalid saved source resumable for correction', async () => {
     const adapter = new FakeGithubAdapter(config);
     const main = await adapter.getMainRef();
@@ -210,10 +250,13 @@ describe('loadStudioEditor', () => {
     const main = await adapter.getMainRef();
     if (!main.ok) throw new Error('main missing');
     const overLongTitle = 'A'.repeat(600);
+    const overLongSeriesTitle = 'S'.repeat(600);
+    const overLongSeriesSlug = 's'.repeat(120);
     const manyTags = Array.from({ length: 105 }, (_, index) => `tag-${index}`);
     const sourceFrontmatter: ArticleSourceFrontmatter = {
       ...metadata,
       title: overLongTitle,
+      series: { slug: overLongSeriesSlug, title: overLongSeriesTitle, part: 1 },
       tags: manyTags,
       references: metadata.references,
     };
@@ -230,6 +273,11 @@ describe('loadStudioEditor', () => {
     if (result.ok) {
       expect(result.value.metadata.title).toHaveLength(500);
       expect(result.value.metadata.title).toBe(overLongTitle.slice(0, 500));
+      expect(result.value.metadata.series).toEqual({
+        slug: overLongSeriesSlug.slice(0, 100),
+        title: overLongSeriesTitle.slice(0, 500),
+        part: 1,
+      });
       expect(result.value.metadata.tags).toHaveLength(100);
       expect(result.value.metadata.tags).toEqual(manyTags.slice(0, 100));
     }
@@ -301,7 +349,7 @@ describe('loadStudioEditor', () => {
 });
 
 describe('decodeStudioFormData', () => {
-  it('reconstructs all metadata fields without accepting raw frontmatter', () => {
+  it('reconstructs metadata with optional series without accepting raw frontmatter', () => {
     const form = new FormData();
     form.set('title', metadata.title);
     form.set('slug', metadata.slug);
@@ -326,6 +374,9 @@ describe('decodeStudioFormData', () => {
     form.append('referenceUrl', '');
     form.append('referencePublisher', '');
     form.append('referenceAccessedAt', '');
+    form.set('seriesTitle', '');
+    form.set('seriesSlug', '');
+    form.set('seriesPart', '');
     form.set('body', 'Current body.');
     form.set('baseMainSha', 'a'.repeat(40));
 
@@ -339,6 +390,18 @@ describe('decodeStudioFormData', () => {
         concurrency: { baseMainSha: 'a'.repeat(40) },
       },
     });
+    const series = { slug: 'northern-islands', title: 'Northern Islands', part: 2 };
+    form.set('seriesTitle', series.title);
+    form.set('seriesSlug', series.slug);
+    form.set('seriesPart', String(series.part));
+    const withSeries = decodeStudioFormData(form);
+    expect(withSeries.ok).toBe(true);
+    if (withSeries.ok) expect(withSeries.value.metadata.series).toEqual(series);
+
+    form.set('seriesPart', '');
+    const partial = decodeStudioFormData(form);
+    expect(partial.ok).toBe(false);
+    if (!partial.ok) expect(partial.issues).toContain('input.metadata.series.part.integer');
   });
 });
 

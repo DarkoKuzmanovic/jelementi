@@ -22,7 +22,7 @@ test('Categories is an illustrated static directory with newest stories and cano
     'Solo',
   ]);
   await expect(rows.locator('.category-entry__meta')).toContainText([
-    '3 stories',
+    '6 stories',
     '2 stories',
     '2 stories',
     '1 story',
@@ -47,14 +47,18 @@ test('Categories is an illustrated static directory with newest stories and cano
   await expect(fieldNotes.locator('.category-entry__articles a')).toHaveText([
     'Čačak Field Notes: Every Reader Structure',
     'The Middle Field Note',
-    'The Oldest Field Note',
+    'Field Notes · series in 3 parts',
   ]);
+  await expect(fieldNotes.locator('.category-entry__series img')).toHaveAttribute(
+    'src',
+    'https://reader-acceptance.invalid/acceptance-field-series-third.webp',
+  );
   await expect(fieldNotes.locator('.category-entry__articles li > span')).toHaveText([
     '7 min',
     '3 min',
-    '3 min',
+    '9 min',
   ]);
-  await expect(fieldNotes.getByRole('link', { name: 'All 3 in Field Notes →' })).toHaveAttribute(
+  await expect(fieldNotes.getByRole('link', { name: 'All 6 in Field Notes →' })).toHaveAttribute(
     'href',
     '/categories/field-notes',
   );
@@ -91,7 +95,7 @@ test('category listings are one newest-first reading sequence with return naviga
 }) => {
   await page.goto('/categories/field-notes');
   await expect(page.getByRole('heading', { level: 1, name: 'Field Notes' })).toBeVisible();
-  await expect(page.getByText('3 articles, newest first.')).toBeVisible();
+  await expect(page.getByText('6 articles, newest first.')).toBeVisible();
   await expect(
     page.locator('.page-intro').getByRole('link', { name: 'Categories', exact: true }),
   ).toHaveAttribute('href', '/categories');
@@ -101,10 +105,13 @@ test('category listings are one newest-first reading sequence with return naviga
   );
 
   const summaries = page.locator('.category-articles > li');
-  await expect(summaries).toHaveCount(3);
+  await expect(summaries).toHaveCount(6);
   await expect(summaries.locator('h2 a')).toHaveText([
     'Čačak Field Notes: Every Reader Structure',
     'The Middle Field Note',
+    'Field Notes, part 3: The final tower',
+    'Field Notes, part 2: The middle tower',
+    'Field Notes, part 1: The first tower',
     'The Oldest Field Note',
   ]);
   for (const article of await summaries.all()) {

@@ -1,11 +1,17 @@
 import type { ArticleIndexEntry } from '@jelementi/article-model';
 import { projectCategoryDirectory } from '../category-projection';
+import {
+  collapseSeriesEntries,
+  projectSeries,
+  type SeriesAwareCatalogEntry,
+  type SeriesProjection,
+} from '../series/series-projection';
 
 export interface HomeCategoryShelf {
   category: string;
   categorySlug: string;
   total: number;
-  entries: readonly ArticleIndexEntry[];
+  entries: readonly SeriesAwareCatalogEntry[];
 }
 
 export interface HomeCatalog {
@@ -25,7 +31,10 @@ function compareSlug(left: string, right: string): number {
  * category shelves. Publication date is the only ranking signal; slug provides
  * a deterministic tie-break for articles published on the same calendar date.
  */
-export function projectHomeCatalog(index: readonly ArticleIndexEntry[]): HomeCatalog {
+export function projectHomeCatalog(
+  index: readonly ArticleIndexEntry[],
+  series: readonly SeriesProjection[] = projectSeries(index),
+): HomeCatalog {
   const ordered = [...index].sort(
     (left, right) =>
       right.publishedAt.localeCompare(left.publishedAt) || compareSlug(left.slug, right.slug),
@@ -39,7 +48,7 @@ export function projectHomeCatalog(index: readonly ArticleIndexEntry[]): HomeCat
     entries.push(article);
     remainingByCategory.set(article.categorySlug, entries);
   }
-  const shelves = projectCategoryDirectory(index).flatMap((category) => {
+  const shelves = projectCategoryDirectory(index, series).flatMap((category) => {
     const entries = remainingByCategory.get(category.slug);
     if (!entries || entries.length === 0) return [];
     return [
@@ -47,7 +56,7 @@ export function projectHomeCatalog(index: readonly ArticleIndexEntry[]): HomeCat
         category: category.name,
         categorySlug: category.slug,
         total: category.count,
-        entries: entries.slice(0, 3),
+        entries: collapseSeriesEntries(entries, series).slice(0, 3),
       },
     ];
   });

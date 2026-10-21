@@ -8,6 +8,7 @@ export {
   ArticleIndexSchema,
   CalloutVariantSchema,
   ArticleStatusSchema,
+  ArticleSeriesSchema,
 } from './schema';
 
 export type {
@@ -31,6 +32,7 @@ export type {
   ArticleIndexEntry,
   ArticleIndex,
   ArticleStatus,
+  ArticleSeries,
 } from './schema';
 
 export { validateArticleDocument, safeValidateArticleDocument } from './validate';

@@ -79,6 +79,7 @@ const fullMetadata: StudioMetadata = {
     alt: 'The volcanic island of Tristan da Cunha',
   },
   audio: { src: 'articles/tristan-da-cunha/audio-v1.mp3', durationSeconds: 1842 },
+  series: { slug: 'remote-islands', title: 'Remote Islands', part: 1 },
   references: [
     {
       title: 'Tristan da Cunha — Government and history',
@@ -214,6 +215,7 @@ describe('decodeStudioEditorInput', () => {
     if (result.ok) {
       expect(result.value.body).toBe(fullEditorInput.body);
       expect(result.value.metadata.audio?.durationSeconds).toBe(1842);
+      expect(result.value.metadata.series).toEqual(fullMetadata.series);
       expect(result.value.metadata.references[0]?.publisher).toBe('Example Org');
       expect(result.value.concurrency).toEqual(concurrencyEvidence);
     }
@@ -226,6 +228,7 @@ describe('decodeStudioEditorInput', () => {
       expect(result.value.metadata.status).toBe('draft');
       expect(result.value.metadata.publishedAt).toBeUndefined();
       expect(result.value.metadata.audio).toBeUndefined();
+      expect(result.value.metadata.series).toBeUndefined();
       expect(result.value.body).toBe('');
     }
   });
@@ -253,7 +256,7 @@ describe('decodeStudioEditorInput', () => {
     expect(decodeStudioEditorInput({ ...fullEditorInput, installationToken: 'x' }).ok).toBe(false);
   });
 
-  it('rejects unknown metadata, cover, audio, and reference keys', () => {
+  it('rejects unknown metadata, cover, audio, series, and reference keys', () => {
     const cases: Array<Record<string, unknown>> = [
       { ...fullEditorInput, metadata: { ...fullMetadata, secret: 'x' } },
       {
@@ -266,12 +269,48 @@ describe('decodeStudioEditorInput', () => {
       },
       {
         ...fullEditorInput,
+        metadata: { ...fullMetadata, series: { ...fullMetadata.series, extra: 'x' } },
+      },
+      {
+        ...fullEditorInput,
         metadata: { ...fullMetadata, references: [{ ...fullMetadata.references[0], extra: 'x' }] },
       },
     ];
     for (const value of cases) {
       expect(decodeStudioEditorInput(value).ok).toBe(false);
     }
+  });
+
+  it('accepts a valid optional series and rejects incomplete or malformed groups', () => {
+    const valid = decodeStudioEditorInput(fullEditorInput);
+    expect(valid.ok).toBe(true);
+    if (valid.ok) expect(valid.value.metadata.series).toEqual(fullMetadata.series);
+
+    const invalidSeries = [
+      { title: '', slug: 'remote-islands', part: 1 },
+      { title: 'Remote Islands', slug: '', part: 1 },
+      { title: 'Remote Islands', slug: 'Remote-Islands', part: 1 },
+      { title: 'Remote Islands', slug: 'remote-islands', part: 0 },
+      { title: 'Remote Islands', slug: 'remote-islands', part: 1.5 },
+      { title: 'R'.repeat(501), slug: 'remote-islands', part: 1 },
+      { title: 'Remote Islands', slug: 'r'.repeat(101), part: 1 },
+      { title: 'Remote Islands', slug: 'remote-islands' },
+    ];
+    for (const series of invalidSeries) {
+      expect(
+        decodeStudioEditorInput({ ...fullEditorInput, metadata: { ...fullMetadata, series } }).ok,
+      ).toBe(false);
+    }
+
+    const partial = decodeStudioEditorInput({
+      ...fullEditorInput,
+      metadata: {
+        ...fullMetadata,
+        series: { title: 'Remote Islands', slug: 'remote-islands' },
+      },
+    });
+    expect(partial.ok).toBe(false);
+    if (!partial.ok) expect(partial.issues).toContain('input.metadata.series.part.integer');
   });
 
   it('reports cover, audio, and reference failures even when an unrelated field failed first (#114)', () => {
@@ -727,6 +766,7 @@ describe('contract boundaries', () => {
     expect(compiled.document.slug).toBe('tristan-da-cunha');
     expect(compiled.document.status).toBe('published');
     expect(compiled.document.audio?.durationSeconds).toBe(1842);
+    expect(compiled.document.series).toEqual(fullMetadata.series);
   });
 
   it('lifecycle types never expose credential or raw-upstream fields', () => {

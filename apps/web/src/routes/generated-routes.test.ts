@@ -98,7 +98,13 @@ ${markdown}`,
 function renderFragmentArticle(article: ArticleDocument): string {
   return render(ArticlePage, {
     props: {
-      data: { topics: [], article, contentVersion: 'version', continuation: { nextOlder: null } },
+      data: {
+        topics: [],
+        article,
+        contentVersion: 'version',
+        continuation: { nextOlder: null },
+        series: undefined,
+      },
     },
   }).body;
 }
@@ -203,7 +209,13 @@ describe('generated reader routes', () => {
     };
     const { body } = render(ArticlePage, {
       props: {
-        data: { topics: [], article, contentVersion: 'version', continuation: { nextOlder: null } },
+        data: {
+          topics: [],
+          article,
+          contentVersion: 'version',
+          continuation: { nextOlder: null },
+          series: undefined,
+        },
       },
     });
     expect(body).toContain('Section 1');
@@ -244,7 +256,13 @@ describe('generated reader routes', () => {
     };
     const { body } = render(ArticlePage, {
       props: {
-        data: { topics: [], article, contentVersion: 'version', continuation: { nextOlder: null } },
+        data: {
+          topics: [],
+          article,
+          contentVersion: 'version',
+          continuation: { nextOlder: null },
+          series: undefined,
+        },
       },
     });
     expect(body).toContain('aria-label="In this article"');
@@ -294,7 +312,15 @@ describe('generated reader routes', () => {
     expect(contentVersion).toMatch(/^[0-9a-f]{64}$/);
 
     const { head } = render(ArticlePage, {
-      props: { data: { topics: [], article, contentVersion, continuation: { nextOlder: null } } },
+      props: {
+        data: {
+          topics: [],
+          article,
+          contentVersion,
+          continuation: { nextOlder: null },
+          series: undefined,
+        },
+      },
     });
     const metas = head.match(/<meta\b[^>]*\bname="jelementi-content-version"[^>]*>/g) ?? [];
     expect(metas).toHaveLength(1);
@@ -303,7 +329,15 @@ describe('generated reader routes', () => {
     expect(meta).toContain(`content="${contentVersion}"`);
     expect(meta).not.toContain('content="' + '0'.repeat(64) + '"');
     const { body } = render(ArticlePage, {
-      props: { data: { topics: [], article, contentVersion, continuation: { nextOlder: null } } },
+      props: {
+        data: {
+          topics: [],
+          article,
+          contentVersion,
+          continuation: { nextOlder: null },
+          series: undefined,
+        },
+      },
     });
     expect(body).not.toContain('aria-label="In this article"');
   });

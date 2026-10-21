@@ -5,7 +5,7 @@ import {
   parseArticleSourceDraft,
   serializeArticleSource,
 } from '@jelementi/content-compiler';
-import { decodeStudioEditorInput } from '../../studio/contracts';
+import { decodeStudioEditorInput, EDITOR_INPUT_LIMITS } from '../../studio/contracts';
 import type {
   DecodeResult,
   StudioCompileIssue,
@@ -175,6 +175,9 @@ function rawStudioForm(form: FormData): {
   const audioSrc = formText(form, 'audioSrc').trim();
   const duration = formText(form, 'audioDurationSeconds').trim();
   const rawStatus = formText(form, 'status');
+  const seriesTitle = formText(form, 'seriesTitle');
+  const seriesSlug = formText(form, 'seriesSlug');
+  const seriesPart = formText(form, 'seriesPart');
   const referenceTitles = formValues(form, 'referenceTitle');
   const referenceUrls = formValues(form, 'referenceUrl');
   const referencePublishers = formValues(form, 'referencePublisher');
@@ -230,6 +233,15 @@ function rawStudioForm(form: FormData): {
             audio: {
               src: audioSrc,
               ...(duration === '' ? {} : { durationSeconds: Number(duration) }),
+            },
+          }),
+      ...(seriesTitle === '' && seriesSlug === '' && seriesPart === ''
+        ? {}
+        : {
+            series: {
+              slug: seriesSlug,
+              title: seriesTitle,
+              ...(seriesPart === '' ? {} : { part: Number(seriesPart) }),
             },
           }),
       references,
@@ -728,6 +740,7 @@ function boundedEditorMetadata(
   const defaults = defaultStudioMetadata(slug, now);
   const cover = isRecord(record.cover) ? record.cover : undefined;
   const audio = isRecord(record.audio) ? record.audio : undefined;
+  const series = boundedEditorSeries(record.series);
   const references = Array.isArray(record.references)
     ? record.references.slice(0, MAX_EDITOR_REFERENCES_DISPLAY).map((value) => {
         const reference = isRecord(value) ? value : {};
@@ -779,8 +792,19 @@ function boundedEditorMetadata(
           },
         }
       : {}),
+    ...(series === undefined ? {} : { series }),
     references,
   };
+}
+
+function boundedEditorSeries(value: unknown): StudioMetadata['series'] {
+  if (!isRecord(value)) return undefined;
+  // Keep partial series fields visible after rejection; the decoder enforces the complete shape.
+  return {
+    slug: boundedString(value.slug, '', EDITOR_INPUT_LIMITS.slugMax),
+    title: boundedString(value.title, '', EDITOR_INPUT_LIMITS.titleMax),
+    ...(typeof value.part === 'number' && Number.isFinite(value.part) ? { part: value.part } : {}),
+  } as NonNullable<StudioMetadata['series']>;
 }
 
 function sourceBodyFallback(source: string): string {

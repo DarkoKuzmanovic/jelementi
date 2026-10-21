@@ -213,14 +213,82 @@ test('continuation: exactly one next-older in the category and no wrapped contin
     '/articles/acceptance-field-middle',
   );
 
-  // The next-older page itself renders one next-older (the oldest).
+  // The middle page's next older article is part three of the series.
   await page.goto('/articles/acceptance-field-middle');
-  await expect(nav.getByRole('link', { name: /The Oldest Field Note/ })).toHaveCount(1);
+  await expect(nav.getByRole('link', { name: /Field Notes, part 3: The final tower/ })).toHaveCount(
+    1,
+  );
 
   // Oldest article in the category: no wrapped continuation.
   await page.goto('/articles/acceptance-field-oldest');
   await expect(nav.getByRole('link', { name: /Return to Field Notes/ })).toBeVisible();
   await expect(nav.getByRole('link', { name: /Next older article/ })).toHaveCount(0);
+});
+test('series articles show their position, part links, margin list, and next-series ending', async ({
+  page,
+}) => {
+  const nav = page.getByRole('navigation', { name: 'Continue reading' });
+  const partOne = '/articles/acceptance-field-series-first';
+  const partTwo = '/articles/acceptance-field-series-middle';
+  const partThree = '/articles/acceptance-field-series-third';
+
+  await page.goto(partOne);
+  const position = page.locator('.article-series-position');
+  await expect(position).toContainText('Part 1 of 3');
+  await expect(position.locator('.article-series-position__segments li')).toHaveCount(3);
+  await expect(position.locator('[aria-current=step]')).toHaveText('Part 1, current');
+  await expect(position.locator('.article-series-position__previous')).toHaveCount(0);
+  await expect(position.locator('.article-series-position__next')).toHaveAttribute('href', partTwo);
+
+  const margin = page.locator('.article-series-margin');
+  await expect(margin).toBeVisible();
+  await expect(margin.locator('li')).toHaveCount(3);
+  const currentMarginPart = margin.locator('[aria-current=page]');
+  await expect(currentMarginPart).toHaveText('The first tower');
+  await expect(currentMarginPart.locator('a')).toHaveCount(0);
+
+  await expect(nav.locator('.article-series-continuation__kicker')).toContainText(
+    'Continue the series',
+  );
+  await expect(nav.getByRole('link', { name: 'Continue to part 2 →' })).toHaveAttribute(
+    'href',
+    partTwo,
+  );
+  await expect(nav.locator('.article-series-continuation__list')).toContainText('You are here');
+  await expect(nav.locator('.article-series-continuation__list')).toContainText('Up next');
+
+  await page.goto(partTwo);
+  await expect(position).toContainText('Part 2 of 3');
+  await expect(position.locator('.article-series-position__previous')).toHaveAttribute(
+    'href',
+    partOne,
+  );
+  await expect(position.locator('.article-series-position__next')).toHaveAttribute(
+    'href',
+    partThree,
+  );
+
+  await page.goto(partThree);
+  await expect(position).toContainText('Part 3 of 3');
+  await expect(position.locator('.article-series-position__next')).toHaveCount(0);
+  await expect(position.locator('.article-series-position__previous')).toHaveAttribute(
+    'href',
+    partTwo,
+  );
+  await expect(nav.locator('.article-series-continuation')).toHaveCount(0);
+  await expect(nav.getByText('Next in Field Notes')).toBeVisible();
+  await expect(
+    nav.getByRole('link', { name: /Next older article in Field Notes/ }),
+  ).toHaveAttribute('href', partTwo);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(partTwo);
+  await expect(position).toBeVisible();
+  await expect(page.locator('.article-margin')).toBeHidden();
+  const endingColumns = await nav
+    .locator('.article-series-continuation')
+    .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+  expect(endingColumns.trim().split(/\s+/)).toHaveLength(1);
 });
 
 test('320px reflow has no page-level horizontal overflow on the rich article', async ({ page }) => {

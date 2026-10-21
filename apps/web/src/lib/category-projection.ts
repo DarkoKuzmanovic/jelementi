@@ -1,11 +1,17 @@
 import type { ArticleIndexEntry } from '@jelementi/article-model';
+import {
+  collapseSeriesEntries,
+  projectSeries,
+  type SeriesAwareCatalogEntry,
+  type SeriesProjection,
+} from './series/series-projection';
 
 export interface CategoryDirectoryEntry {
   name: string;
   slug: string;
   count: number;
   newest: ArticleIndexEntry;
-  newestArticles: readonly ArticleIndexEntry[];
+  newestArticles: readonly SeriesAwareCatalogEntry[];
 }
 
 function newestFirst(left: ArticleIndexEntry, right: ArticleIndexEntry): number {
@@ -23,6 +29,7 @@ export function projectCategoryArticles(
 /** Projects the restrained Categories directory without introducing category state. */
 export function projectCategoryDirectory(
   index: readonly ArticleIndexEntry[],
+  series: readonly SeriesProjection[] = projectSeries(index),
 ): CategoryDirectoryEntry[] {
   const grouped = new Map<string, ArticleIndexEntry[]>();
   for (const article of index) {
@@ -41,7 +48,7 @@ export function projectCategoryDirectory(
         slug,
         count: ordered.length,
         newest,
-        newestArticles: ordered.slice(0, 3),
+        newestArticles: collapseSeriesEntries(ordered, series).slice(0, 3),
       };
     })
     .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name, 'en'));

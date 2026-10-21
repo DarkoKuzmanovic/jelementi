@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
-const representativeCatalogSize = 9;
+const representativeCatalogSize = 12;
 
 test('Search has no serious or critical accessibility violations with or without enhancement', async ({
   browser,
@@ -85,12 +85,14 @@ test('client filtering preserves shared search semantics, source order, and inpu
   await input.fill('Jelementi');
   await expect(input).toBeFocused();
   await expect(page.getByRole('article')).toHaveCount(representativeCatalogSize);
-  await expect(page.getByRole('status')).toHaveText('9 results for “Jelementi”.');
+  await expect(page.getByRole('status')).toHaveText('12 results for “Jelementi”.');
 
   await input.fill('');
   await expect(page.getByRole('article')).toHaveCount(representativeCatalogSize);
   await expect(page.getByRole('article').first()).toContainText('Every Reader Structure');
-  await expect(page.getByRole('article').last()).toContainText('A Sparse Column Without Audio');
+  await expect(page.getByRole('article').last()).toContainText(
+    'Field Notes, part 2: The middle tower',
+  );
 });
 
 test('submission and zero-result recovery keep control with the Search input', async ({
@@ -120,7 +122,7 @@ test('submission and zero-result recovery keep control with the Search input', a
   await expect(input).toBeFocused();
   await expect(input).toHaveValue('');
   await expect(page.getByRole('article')).toHaveCount(representativeCatalogSize);
-  await expect(page.getByRole('status')).toHaveText('All 9 published articles.');
+  await expect(page.getByRole('status')).toHaveText('All 12 published articles.');
 
   expect(
     await page.locator('a a, a button, button a, button button').count(),

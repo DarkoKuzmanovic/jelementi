@@ -6,6 +6,10 @@ publishedAt: 2026-10-08
 updatedAt: 2026-10-08
 status: published
 category: Places
+series:
+  slug: kalemegdan
+  title: Kalemegdan
+  part: 6
 tags:
   - Kalemegdan
   - Belgrade
