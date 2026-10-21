@@ -55,8 +55,12 @@ describe('series projection', () => {
       ...article('newer-1', '2026-04-01', 1),
       series: { slug: 'newer', title: 'Newer', part: 1 },
     };
+    const newerSecond = {
+      ...article('newer-2', '2026-04-02', 2),
+      series: { slug: 'newer', title: 'Newer', part: 2 },
+    };
 
-    expect(projectSeries([...articles, newer]).map(({ slug }) => slug)).toEqual([
+    expect(projectSeries([...articles, newer, newerSecond]).map(({ slug }) => slug)).toEqual([
       'newer',
       'fortress',
     ]);
@@ -87,5 +91,15 @@ describe('series projection', () => {
   it('leaves articles outside declared series intact', () => {
     const projected = collapseSeriesEntries([articles[1]!], projectSeries(articles));
     expect(projected).toEqual([{ kind: 'article', article: articles[1] }]);
+  });
+  it('keeps one published part ordinary while the other parts remain drafts', () => {
+    const publishedPart = article('fortress-1', '2026-03-01', 1);
+    // Drafts are absent from the validated published index used by this projection.
+    const series = projectSeries([publishedPart]);
+
+    expect(series).toEqual([]);
+    expect(collapseSeriesEntries([publishedPart], series)).toEqual([
+      { kind: 'article', article: publishedPart },
+    ]);
   });
 });

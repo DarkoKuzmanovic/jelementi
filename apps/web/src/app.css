@@ -13,6 +13,7 @@
   --foundation-link: #284c99;
   --foundation-accent: #284c99;
   --foundation-accent-soft: #e9edf4;
+  --series-surface: #e9edf4;
   --foundation-focus: #284c99;
   --band: #284c99;
   --on-band: #f8f6f0;
@@ -37,6 +38,7 @@
     --foundation-link: #a8c2ff;
     --foundation-accent: #a8c2ff;
     --foundation-accent-soft: #28364e;
+    --series-surface: #222824;
     --foundation-focus: #a8c2ff;
     --band: #28364e;
     --on-band: #f1efe7;

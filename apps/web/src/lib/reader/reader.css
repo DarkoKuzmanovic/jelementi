@@ -153,7 +153,7 @@ nav a.topic-shortcut {
   align-items: start;
   gap: 1.5rem;
   padding: 2rem;
-  background: var(--foundation-accent-soft);
+  background: var(--series-surface);
 }
 .home-series__intro h2 {
   margin: 0.35rem 0 0.5rem;
@@ -206,7 +206,9 @@ nav a.topic-shortcut {
   font-size: 0.875rem;
   text-decoration: none;
 }
-.home-series__cards img {
+.home-series__cards img,
+.home-series__covers img {
+  display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
@@ -856,23 +858,13 @@ nav a.topic-shortcut {
     display: none;
   }
   .home-series__covers {
-    display: flex;
+    display: grid;
     grid-row: 2;
-    gap: 0.5rem;
-    overflow-x: auto;
-    padding-bottom: 0.25rem;
-  }
-  .home-series__covers li {
-    flex: 0 0 4.25rem;
+    grid-template-columns: repeat(var(--series-part-count), minmax(0, 1fr));
+    gap: 0.25rem;
   }
   .home-series__covers a {
     display: block;
-  }
-  .home-series__covers img {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    object-fit: cover;
   }
   .home-series__mobile-list {
     display: grid;

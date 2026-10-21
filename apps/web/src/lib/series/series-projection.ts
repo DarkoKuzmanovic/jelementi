@@ -70,6 +70,7 @@ export function projectSeries(index: readonly ArticleIndexEntry[]): SeriesProjec
   }
 
   return [...grouped.entries()]
+    .filter(([, articles]) => articles.length >= 2)
     .map(([slug, articles]) => {
       const first = articles[0];
       if (first?.series === undefined) throw new Error(`Series projection is empty: ${slug}.`);

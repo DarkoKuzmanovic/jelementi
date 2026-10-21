@@ -31,12 +31,14 @@
   padding: 0;
   list-style: none;
 }
-.article-series-margin li {
+.article-series-margin li,
+.article-series-continuation__list li {
   display: grid;
   grid-template-columns: 1.25rem minmax(0, 1fr);
   gap: 0.5rem;
+}
+.article-series-margin li {
   padding-block: 0.55rem;
-  line-height: 1.4;
 }
 .article-series-margin__number,
 .article-series-continuation__number {
@@ -44,14 +46,17 @@
   font-variant-numeric: tabular-nums;
 }
 .article-series-margin a,
-.article-series-continuation__list a {
+.article-series-continuation__list a,
+.article-series-position__navigation a {
   color: var(--link);
   text-decoration: none;
 }
 .article-series-margin a:hover,
 .article-series-margin a:focus-visible,
 .article-series-continuation__list a:hover,
-.article-series-continuation__list a:focus-visible {
+.article-series-continuation__list a:focus-visible,
+.article-series-position__navigation a:hover,
+.article-series-position__navigation a:focus-visible {
   text-decoration: underline;
 }
 .article-series-margin [aria-current='page'],
@@ -239,12 +244,6 @@
   display: flex;
   align-items: baseline;
   gap: 0.35rem;
-  color: var(--link);
-  text-decoration: none;
-}
-.article-series-position__navigation a:hover,
-.article-series-position__navigation a:focus-visible {
-  text-decoration: underline;
 }
 .article-series-position__navigation span:not([aria-hidden='true']) {
   color: var(--muted);
@@ -326,9 +325,6 @@
   outline-offset: 3px;
 }
 .article-series-continuation__list li {
-  display: grid;
-  grid-template-columns: 1.25rem minmax(0, 1fr);
-  gap: 0.5rem;
   padding-block: 0.75rem;
   border-bottom: 1px solid var(--rule);
 }
@@ -359,19 +355,12 @@
     gap: 0.75rem;
   }
   .article-series-position__next {
-    justify-content: flex-start;
     margin-left: 0;
     text-align: left;
   }
   .article-series-continuation {
     grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;
-  }
-  .article-series-continuation__story {
-    display: block;
-  }
-  .article-series-continuation__story img {
-    margin-bottom: 1rem;
   }
   .article-series-continuation__action {
     display: block;

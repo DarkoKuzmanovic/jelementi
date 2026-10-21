@@ -122,6 +122,21 @@ test('Home places the series band after recent stories with responsive reading o
   await expect(band.locator('.home-series__cards')).toBeHidden();
   await expect(band.locator('.home-series__covers li')).toHaveCount(3);
   await expect(band.locator('.home-series__covers')).toBeVisible();
+  const coverStrip = band.locator('.home-series__covers');
+  const coverLayout = await coverStrip.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      columns: style.gridTemplateColumns.split(' ').length,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      coverWidths: Array.from(element.querySelectorAll('li')).map(
+        (item) => item.getBoundingClientRect().width,
+      ),
+    };
+  });
+  expect(coverLayout.columns).toBe(3);
+  expect(coverLayout.scrollWidth).toBe(coverLayout.clientWidth);
+  expect(coverLayout.coverWidths.every((width) => width > 0)).toBe(true);
   await expect(band.locator('.home-series__mobile-list a')).toHaveText([
     'The first tower',
     'The middle tower',

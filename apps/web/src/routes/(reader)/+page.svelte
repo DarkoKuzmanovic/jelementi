@@ -5,7 +5,6 @@
   import { seriesPartTitle } from '$lib/series/series-projection';
 
   let { data }: { data: PageData } = $props();
-  const homeSeries = $derived(data.series.filter((series) => series.parts.length >= 2));
   const wideShelves = $derived(data.catalog.shelves.filter((shelf) => shelf.entries.length === 3));
   const compactShelves = $derived(data.catalog.shelves.filter((shelf) => shelf.entries.length < 3));
 </script>
@@ -36,9 +35,9 @@
       </ol>
     </section>
   {/if}
-  {#if homeSeries.length > 0}
+  {#if data.series.length > 0}
     <section class="home-series" aria-label="Series" data-home-tier="series">
-      {#each homeSeries as series (series.slug)}
+      {#each data.series as series (series.slug)}
         {@const firstPart = series.parts[0]}
         {#if firstPart}
           <article class="home-series__band">
@@ -62,7 +61,11 @@
                 </li>
               {/each}
             </ol>
-            <ol class="home-series__covers" aria-label={`${series.title} part covers`}>
+            <ol
+              class="home-series__covers"
+              aria-label={`${series.title} part covers`}
+              style={`--series-part-count: ${series.parts.length}`}
+            >
               {#each series.parts as part (part.slug)}
                 <li>
                   <a
