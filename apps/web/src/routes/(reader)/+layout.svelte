@@ -10,6 +10,7 @@
 
 <svelte:head>
   <link rel="alternate" type="application/rss+xml" title="Jelementi podcast" href="/podcast.xml" />
+  <link rel="alternate" type="application/rss+xml" title="Jelementi articles" href="/feed.xml" />
 </svelte:head>
 
 <!--
@@ -17,8 +18,7 @@
   renders inside this shell: working bypass link, one main landmark,
   Jelementi Home, Categories, Search, and About navigation at all widths
   (conventional wrapping, never hidden behind a menu), and quiet footer
-  recovery links. Static markup only — no hydration added. Studio routes
-  render without this shell; they have their own StudioShell boundary.
+  recovery links. Static markup only — no hydration added.
   The shared component also lets the root static fallback render this exact
   shell without introducing a shared runtime application shell (#103).
 -->

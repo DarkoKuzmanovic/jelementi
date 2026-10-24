@@ -83,7 +83,6 @@ test('published topic shortcuts keep approved desktop order with compact navigat
 
 test('smokes the complete canonical generated Reader inventory independently of fixtures', async ({
   page,
-  request,
 }) => {
   const expectedLead = expectedHome[0];
   if (expectedLead === undefined) throw new Error('Canonical generated index is empty.');
@@ -170,20 +169,15 @@ test('smokes the complete canonical generated Reader inventory independently of 
   expect(measures.body).toBeLessThanOrEqual(50 * 16);
   await expect(page.locator('meta[name="jelementi-content-version"]')).toHaveCount(1);
 
-  const indexResponse = await request.get('/index.json');
-  expect(indexResponse.ok()).toBe(true);
-  const remoteIndex = (await indexResponse.json()) as Array<{ slug: string; title: string }>;
-  expect(remoteIndex.length).toBeGreaterThan(0);
-
   await page.goto('/search');
   await expect(page.getByRole('heading', { level: 1, name: 'Find a story.' })).toBeVisible();
-  await expect(page.getByRole('article')).toHaveCount(remoteIndex.length);
+  await expect(page.getByRole('article')).toHaveCount(canonicalIndex.length);
   await expect(page.getByRole('link', { name: expectedLead.title })).toBeVisible();
   expect(
     await page
       .locator('.article-list a[href^="/articles/"]')
       .evaluateAll((links) => links.map((link) => link.getAttribute('href'))),
-  ).toEqual(remoteIndex.map(({ slug }) => `/articles/${slug}`));
+  ).toEqual(canonicalIndex.map(({ slug }) => `/articles/${slug}`));
 
   await page.goto('/about');
   await expect(page.getByRole('heading', { level: 1, name: 'About Jelementi' })).toBeVisible();

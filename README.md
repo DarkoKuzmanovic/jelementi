@@ -1,6 +1,6 @@
 # Jelementi
 
-Jelementi is a custom-built digital magazine. The Phase 1 reader is a generated, prerendered English beta; M2 ships it as an unlisted Cloudflare Worker at [`https://jelementi.quz.ma`](https://jelementi.quz.ma) (`noindex`) with R2 media and Access-protected branch previews.
+Jelementi is a custom-built digital magazine. The Phase 1 reader is a generated, prerendered English beta; it ships as an unlisted Cloudflare Worker at [`https://jelementi.quz.ma`](https://jelementi.quz.ma) (`noindex`) with R2 media.
 
 ## Content boundary
 
@@ -31,35 +31,24 @@ pnpm content:validate  # read-only source validation
 pnpm content:build     # atomic generated-output replacement
 pnpm content:watch
 pnpm build:web         # generation-backed SvelteKit prerender
-pnpm verify:web        # production-output smoke assertions
-pnpm format
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm media:verify       # read-only live R2 media verification
-pnpm verify:deploy      # complete non-deploy gate, including media:verify
-pnpm verify:remote -- --base-url https://jelementi.quz.ma  # post-deploy production probe (after production is live)
+pnpm format            # also lint, typecheck, test
+pnpm media:upload -- --file <path> --key articles/<slug>/<asset>-vN.<ext> --content-type <mime>
+pnpm media:verify      # read-only live media check
+pnpm verify:deploy     # the gate CI and Workers Builds run
+pnpm verify:full       # plus reader browser acceptance, bundle checks, asset budget
+pnpm ship "<message>"  # publish content/articles changes: PR, wait for verify, merge
 ```
 
+## Publishing and deployment
 
-## Cloudflare M2 deployment gate
+Every merge to `main` deploys through Cloudflare Workers Builds, which runs `verify:deploy` first. To publish an approved story: upload its media with `media:upload` (immutable, new `-vN` key per replacement), add the Markdown under `content/articles/`, then run `pnpm ship "feat(content): publish <title>"` from a clean `main`. If a deploy breaks the site, revert through a PR; `pnpm deploy:web` is a manual fallback for when Workers Builds is down.
 
-`build:web` emits the Cloudflare adapter artifact in `.svelte-kit/cloudflare`. `preview:web` starts Wrangler only on loopback with local persistence under `/tmp`; `verify:worker` starts the same local runtime, polls readiness, exercises reader routes and the static 404 path, then terminates it.
+Reader pages are prerendered static HTML with JavaScript disabled per page. `/search` is the only hydrated route. Global robots stays `noindex`.
 
-```bash
-PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy
-```
+## Reader extras
 
-`verify:remote` is the post-deploy HTTP probe for a supplied HTTPS origin. It is **not** part of `verify:deploy` and must not be pointed at Access-protected preview URLs (anonymous Access 302 is an intentional fail). Use it only after production is live or against an intentionally public origin.
-
-`verify:deploy` is the canonical non-deploy gate: format, lint, typecheck, content validation, tests, Cloudflare build, artifact assertions, Wrangler `deploy --dry-run`, local Worker smoke, and read-only live `media:verify`. It performs no upload, deployment, or Cloudflare configuration mutation, but it does contact the public `media.jelementi.quz.ma` origin and therefore requires network access.
-
-`deploy:web` is operator-only and runs the gate before a real Wrangler deployment; do not use it without the applicable checkpoint approval. `media:upload` is an operator-only immutable R2 write; `media:verify` is read-only and is part of both `verify:deploy` and CI after M2.2. The checked-in Worker binding `R2_MEDIA` is reserved for future server work; M2 application code does not read or write it.
-
-Operational checkpoint, upload, Access, production-probe, and rollback procedures are in [the Cloudflare M2 operations runbook](docs/runbooks/cloudflare-m2-operations.md).
-
-Reader pages are server-rendered static HTML with JavaScript disabled per page. `/search` is deliberately the sole hydrated route; it filters the small validated index in the browser using the model's shared normalizer. Global robots remains exactly `noindex`.
-
-## CI
-
-GitHub Actions runs Node 24 with pnpm 11.1.3 and a frozen lockfile. It executes `verify:deploy` with the HTTPS media base. Its only public-origin operation is unauthenticated read-only media verification; CI has read-only repository permissions and no credential, upload, deployment, promotion, DNS, Access, or R2 mutation step.
+- `/podcast.xml` — podcast feed of narrated articles (see `docs/runbooks/podcast-feed.md`).
+- `/feed.xml` — full-text article feed, e.g. for KOReader's news downloader.
+- `/series/<slug>.epub` — a whole series as a text-only EPUB.
+- `/series/<slug>/dates` — tap-to-reveal study cards built from each part's "Dates to remember" list.
+- Article pages carry Open Graph tags, so shared links show the cover and excerpt.

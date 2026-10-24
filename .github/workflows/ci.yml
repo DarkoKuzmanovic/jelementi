@@ -1,8 +1,7 @@
 name: CI
 
+# Pull requests only: pushes to main are gated by Workers Builds, which runs the same verify:deploy.
 on:
-  push:
-    branches: [main]
   pull_request:
 
 permissions:
@@ -15,10 +14,9 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     env:
       PUBLIC_MEDIA_BASE_URL: https://media.jelementi.quz.ma/
-      PLAYWRIGHT_BROWSERS_PREINSTALLED: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -29,7 +27,4 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Install Chromium headless shell and dependencies
-        timeout-minutes: 5
-        run: pnpm exec playwright install --with-deps --only-shell chromium
       - run: pnpm verify:deploy

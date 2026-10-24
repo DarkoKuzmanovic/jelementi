@@ -3,7 +3,7 @@
 @import './lib/reader/reader.css';
 @import './lib/article/article.css';
 
-/* Reader roles are local: Studio retains the surface-neutral foundation. */
+/* Reader roles are local to the reader stylesheet. */
 .reader-surface {
   --foundation-canvas: #f8f6f0;
   --foundation-paper: #f8f6f0;

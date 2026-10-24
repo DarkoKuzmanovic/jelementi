@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ArticleDocument, ArticleIndexEntry } from '@jelementi/article-model';
 import type { GeneratedContent } from '../../../lib/generated-content';
 
-// Same hermetic pattern as the /index.json route test: the route statically
+// Hermetic route test: the route statically
 // imports the real generated artifacts via generated-content.server.ts, so the
 // validated snapshot and the enclosure-length manifest are both mocked here.
 const entry: ArticleIndexEntry = {

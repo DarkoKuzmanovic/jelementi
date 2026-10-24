@@ -25,15 +25,6 @@ const forbiddenClientCapabilities = [
     name: 'content compiler dependency',
     pattern: /@jelementi\/content-compiler|\bContentCompileError\b|\bcompileArticle\b/,
   },
-  {
-    name: 'Studio server module',
-    pattern: /(?:^|[\/.])server\/studio(?:[\/.]|$)|github-adapter|access-auth\.server/i,
-  },
-  {
-    name: 'Studio acceptance fixture',
-    pattern:
-      /STUDIO_ACCEPTANCE_MODE|studio-acceptance-fixture-identity|acceptance-bootstrap\.server|x-studio-acceptance-identity/i,
-  },
 ] as const;
 
 export interface RenderedArticleExpectation {

@@ -26,10 +26,9 @@
 
 <!--
   Authoritative article renderer (spec #96, ticket #98): the ONE shared
-  content renderer consumed by the public article route and Studio preview.
+  content renderer consumed by the public article route.
   Illustration-first composition (#146), optional native audio, complete body
-  and endmatter. The reader route supplies its optional margin snippet;
-  Studio receives only content, without reader navigation.
+  and endmatter. The reader route supplies its optional margin snippet.
 -->
 <article>
   {#snippet sourceRow(reference: ArticleReference, index: number)}

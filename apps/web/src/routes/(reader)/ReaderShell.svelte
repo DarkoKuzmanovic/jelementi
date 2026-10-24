@@ -54,6 +54,7 @@
         <a href="/search">Search</a>
         <a href="/about">About</a>
         <a href="/podcast.xml">Podcast</a>
+        <a href="/feed.xml">Article feed</a>
       </nav>
     </div>
   </footer>

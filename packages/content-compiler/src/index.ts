@@ -25,11 +25,6 @@ export interface CompiledArticle {
   searchText: string;
 }
 
-export interface ArticleSourceDraftInput {
-  frontmatter: Record<string, unknown>;
-  body: string;
-}
-
 export interface ContentCompileIssue {
   code: string;
   message: string;
@@ -357,10 +352,10 @@ function parseFrontmatter(input: CompileArticleInput): Frontmatter {
 
 /**
  * Decode canonical article source into editable frontmatter plus the exact
- * body bytes. This is the Studio-facing pure counterpart of
+ * body bytes. This is the pure counterpart of
  * {@link serializeArticleSource}: it reuses the same compiler-owned
  * frontmatter validation as `compileArticle` so every accepted source decodes
- * deterministically and no Markdown ownership moves into Studio.
+ * deterministically.
  *
  * The body is returned verbatim after the canonical closing delimiter,
  * including empty bodies and LF-normalized bytes of serialized sources.
@@ -386,25 +381,6 @@ export function parseArticleSource(markdown: string, sourcePath: string): Articl
       'Source filename must match frontmatter slug.',
     );
   return { frontmatter, body: match[2] ?? '' };
-}
-
-/**
- * Extracts YAML and body without applying semantic article validation. This is
- * only for resuming an intentionally invalid Studio draft; compilation still
- * uses `parseArticleSource` and reports the real structured issues.
- */
-export function parseArticleSourceDraft(
-  markdown: string,
-  sourcePath: string,
-): ArticleSourceDraftInput {
-  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/);
-  if (!match?.[1])
-    throw raiseIssue(
-      sourcePath,
-      'INVALID_FRONTMATTER',
-      'Expected YAML frontmatter at the start of the file.',
-    );
-  return { frontmatter: parseFrontmatterYaml(match[1], sourcePath), body: match[2] ?? '' };
 }
 
 function resolveMedia(input: CompileArticleInput, key: string, node?: AstNode): string {

@@ -15,11 +15,6 @@
     "binding": "ASSETS",
     "directory": ".svelte-kit/cloudflare",
     "not_found_handling": "404-page",
-    // Studio routes are server-rendered (SSR + form actions). Without this,
-    // the assets router answers browser navigation requests (Sec-Fetch-Mode:
-    // navigate) itself — 404.html for GETs, bare 405 for form POSTs — and the
-    // Worker is never invoked (compatibility_date >= 2025-04-01 behavior).
-    "run_worker_first": ["/studio", "/studio/*"],
   },
   "routes": [
     {
@@ -33,30 +28,7 @@
       "bucket_name": "jelementi-media",
     },
   ],
-  // Studio's production probes (Refresh → Live proof) must call the worker
-  // through this self service binding: a plain fetch of the production origin
-  // from inside the Worker is a same-zone subrequest that bypasses the worker
-  // route (the zone has no origin), so it can never observe the deployed site
-  // (issue #56).
-  "services": [
-    {
-      "binding": "SELF",
-      "service": "jelementi-web",
-    },
-  ],
-  "secrets": {
-    "required": ["GITHUB_APP_PRIVATE_KEY"],
-  },
   "vars": {
-    "ACCESS_AUD": "b8ab323d9d804dd26a17dafe9abbdd519e93d146cb0a7aabbdbe002b7d221735",
-    "ACCESS_TEAM_DOMAIN": "https://quzma.cloudflareaccess.com",
-    "ALLOWED_OPERATOR_EMAIL": "darko.kuzmanovic@gmail.com",
-    "GITHUB_APP_CLIENT_ID": "Iv23lijel88VeotOZ5at",
-    "GITHUB_APP_ID": "4617065",
-    "GITHUB_INSTALLATION_ID": "154254277",
-    "GITHUB_REPO_NAME": "jelementi",
-    "GITHUB_REPO_OWNER": "DarkoKuzmanovic",
-    "PRODUCTION_ORIGIN": "https://jelementi.quz.ma",
     "PUBLIC_MEDIA_BASE_URL": "https://media.jelementi.quz.ma/",
   },
 }
