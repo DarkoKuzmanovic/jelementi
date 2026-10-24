@@ -3,6 +3,7 @@
   import type { InlineNode } from '@jelementi/article-model';
   import ArticleRenderer from '$lib/article/ArticleRenderer.svelte';
   import ArticleContinuation from '$lib/article/ArticleContinuation.svelte';
+  import { siteOrigin } from '../../../../lib/routes';
   let { data }: { data: PageData } = $props();
   const headings = $derived(data.article.blocks.filter((block) => block.type === 'heading'));
 
@@ -20,6 +21,14 @@
   <title>{data.article.title} — Jelementi</title>
   <meta name="description" content={data.article.excerpt} />
   <meta name="jelementi-content-version" content={data.contentVersion} />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Jelementi" />
+  <meta property="og:title" content={data.article.title} />
+  <meta property="og:description" content={data.article.excerpt} />
+  <meta property="og:url" content={`${siteOrigin}/articles/${data.article.slug}`} />
+  <meta property="og:image" content={data.article.cover.src} />
+  <meta property="og:image:alt" content={data.article.cover.alt} />
+  <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 {#snippet contents()}
   <nav class="article-contents" aria-label="In this article">
@@ -44,5 +53,6 @@
     article={data.article}
     nextOlder={data.continuation.nextOlder}
     series={data.series}
+    studyDates={data.seriesHasDates}
   />
 </div>

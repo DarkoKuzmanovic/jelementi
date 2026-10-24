@@ -12,10 +12,6 @@ export default defineConfig({
     ],
     // Browser acceptance seams run under Playwright, never Vitest. Their
     // spec files use @playwright/test's own runner and browser fixtures.
-    exclude: [
-      ...configDefaults.exclude,
-      'apps/web/tests/reader-acceptance/**',
-      'apps/web/tests/studio-acceptance/**',
-    ],
+    exclude: [...configDefaults.exclude, 'apps/web/tests/reader-acceptance/**'],
   },
 });

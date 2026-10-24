@@ -12,8 +12,7 @@
   Article opening — the compact Quiet Column opening hierarchy (Variant A,
   c548b7e): category, title, dek, author, publication date, reading time,
   then tags. The canonical category link uses the shared category slug so
-  every article connects to discovery. Shared by the public article route
-  and Studio preview through the authoritative ArticleRenderer.
+  every article connects to discovery. Rendered through ArticleRenderer.
 -->
 <header class="article-opening">
   <p class="article-opening__category">

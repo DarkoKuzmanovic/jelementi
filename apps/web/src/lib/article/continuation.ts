@@ -15,8 +15,7 @@ export interface ArticleContinuation {
 /**
  * Reader-only continuation projection (#101): exactly one next-older article
  * from the canonical newest-first category sequence, or none for the oldest
- * article. Studio preview must never receive this projection — the shared
- * ArticleRenderer stays content-only.
+ * article. The shared ArticleRenderer stays content-only.
  */
 export function articleContinuation(
   index: ArticleIndex,

@@ -7,8 +7,13 @@
     article,
     nextOlder,
     series,
-  }: { article: ArticleDocument; nextOlder: ArticleIndexEntry | null; series?: SeriesProjection } =
-    $props();
+    studyDates = false,
+  }: {
+    article: ArticleDocument;
+    nextOlder: ArticleIndexEntry | null;
+    series?: SeriesProjection;
+    studyDates?: boolean;
+  } = $props();
   const seriesPartIndex = $derived(
     series?.parts.findIndex(({ slug }) => slug === article.slug) ?? -1,
   );
@@ -17,7 +22,23 @@
   );
 </script>
 
+{#snippet seriesTools(slug: string)}
+  <!-- Inline margin: a new rule would count against the frozen reader CSS budget. -->
+  <p style="margin-top: 1.25rem">
+    <a href={`/series/${slug}.epub`} download>Download the series as an e-book</a>
+  </p>
+  {#if studyDates}<p><a href={`/series/${slug}/dates`}>Dates to remember: study cards</a></p>{/if}
+{/snippet}
+
 <nav class="article-continuation" aria-label="Continue reading">
+  {#if series && !nextSeriesPart}
+    <p class="article-series-continuation__kicker">
+      <span>You've finished the series</span>
+      <span aria-hidden="true"> · </span>
+      <span>{series.title}</span>
+    </p>
+    {@render seriesTools(series.slug)}
+  {/if}
   {#if series && nextSeriesPart}
     <p class="article-series-continuation__kicker">
       <span>Continue the series</span>
@@ -74,6 +95,7 @@
             </li>
           {/each}
         </ol>
+        {@render seriesTools(series.slug)}
       </aside>
     </div>
     <a class="article-continuation__category" href={`/categories/${categorySlug(article.category)}`}

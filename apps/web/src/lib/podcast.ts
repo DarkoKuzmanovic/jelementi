@@ -5,7 +5,7 @@ export interface PodcastFeedOptions {
   byteLengths: Readonly<Record<string, number>>;
 }
 
-function escapeXml(value: string): string {
+export function escapeXml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -22,7 +22,7 @@ function audioMimeType(src: string): string {
   return audioMimeByExtension[extension] ?? 'audio/mpeg';
 }
 
-function rssDate(publishedAt: string): string {
+export function rssDate(publishedAt: string): string {
   const normalized = publishedAt.length === 10 ? `${publishedAt}T00:00:00Z` : publishedAt;
   return new Date(normalized).toUTCString();
 }

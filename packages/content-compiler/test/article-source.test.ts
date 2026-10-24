@@ -3,7 +3,6 @@ import {
   ContentCompileError,
   compileArticle,
   parseArticleSource,
-  parseArticleSourceDraft,
   serializeArticleSource,
   type ArticleSourceFrontmatter,
 } from '@jelementi/content-compiler';
@@ -246,17 +245,6 @@ describe('serializeArticleSource', () => {
       sourcePath: 'content/articles/draft-notes.md',
     });
     expect(issues[0]?.line).toBeTypeOf('number');
-  });
-});
-
-describe('parseArticleSourceDraft', () => {
-  it('preserves parseable frontmatter and body when semantic validation would fail', () => {
-    const source = `---\ntitle: Draft\nslug: draft-notes\nstatus: published\n---\nBody.`;
-
-    expect(parseArticleSourceDraft(source, 'content/articles/draft-notes.md')).toEqual({
-      frontmatter: { title: 'Draft', slug: 'draft-notes', status: 'published' },
-      body: 'Body.',
-    });
   });
 });
 

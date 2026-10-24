@@ -1,61 +1,41 @@
 # Maintainer contract
 
+Jelementi is a small personal magazine (mainly for Lenka). Keep the process light: guard the content model and the live site, nothing more.
+
 ## Ownership boundaries
 
-- `@jelementi/article-model` owns the framework-neutral public `ArticleDocument`, index schemas, and shared search normalization. It does not parse Markdown or access the filesystem/environment.
-- `@jelementi/content-compiler` owns pure Markdown-to-model transformation. Its public core accepts explicit content, source path, and media base URL; it never performs filesystem I/O or reads process-global environment.
-- Root typed scripts own filesystem discovery, environment loading, atomic generation, and watch orchestration. The web app owns generated-data validation and reader routes.
+- `@jelementi/article-model` owns the framework-neutral `ArticleDocument`, index schemas, and shared search normalization. It does not parse Markdown or touch the filesystem/environment.
+- `@jelementi/content-compiler` owns pure Markdown-to-model transformation from explicit content, source path, and media base URL; no filesystem I/O or process environment.
+- Root scripts own filesystem discovery, environment loading, atomic generation, and watch. The web app owns generated-data validation and reader routes.
 
 ## Invariants
 
-- Preserve `schemaVersion: 1`, all seven block discriminants, locked inline marks/nodes, and footnote cross-reference validation.
-- Unsupported Markdown must fail with a structured source-located compiler issue; never silently flatten or drop it.
-- Media keys remain relative and resolve only through the explicit compiler option.
-- Keep generated artifacts out of source changes unless a generation outcome explicitly owns them.
-- Root scripts discover only top-level `content/articles/*.md` in deterministic path order. They validate drafts and archives but publish neither. Published articles that declare a `series` must share one title and category per series slug, with unique parts forming a contiguous sequence from 1 (ADR-0009).
-- `content:build` must stage a sibling directory and atomically replace `generated/`; every compile, write, or replacement failure preserves the last successful output.
-- `content:validate` is a required read-only verification command: it must create and write no output paths.
-- Web code statically imports generated JSON and validates the complete index/article boundary with `@jelementi/article-model`; it imports neither `@jelementi/content-compiler` nor runtime filesystem/fetch APIs.
-- Published-only route data, category lists, and prerender entries derive exclusively from the validated index. Non-search reader pages explicitly set `csr = false`; `/search` is the sole hydrated reader route, while static `404.html` loads the client only to render the custom error fallback.
-- M2.1 targets `adapter-cloudflare({ fallback: 'spa' })`; normal reader routes remain prerendered and non-hydrated, `/search` remains the only normal hydrated route, and the 404 fallback alone bootstraps the client while preserving HTTP 404 through Static Assets `404-page` handling.
-- `/index.json` is a prerendered, non-hydrated public contract (ADR-0005): the same validated index metadata bundled into the homepage and `/search`, minus `searchText` and the internal `series` field, served as JSON with `X-Robots-Tag: noindex`. It is the second, independent Live evidence surface Studio probes alongside an article page's content fingerprint; changing its field set or removing it is a breaking change to that probe contract.
-- `wrangler.jsonc` is the routed production contract: `workers_dev` stays false, `preview_urls` stays true (Access-protected version previews; production deploys with `preview_urls: false` disable Worker-level previews), and the production route is `jelementi.quz.ma`. `wrangler.m2.jsonc` is the route-less Workers Builds branch-upload contract: no production route, `workers_dev` false, `preview_urls` true behind the verified email-scoped Access policy. `R2_MEDIA` remains a declared future binding; M2 application code must not read or write it.
-- `verify:deploy` is the canonical M2.2 non-deploy gate and includes read-only, networked live `media:verify`.
-- Production deploys on merge to `main`, automatically, through Workers Builds. Merging an approved pull request is the deploy action: there is no separate manual step, and no further checkpoint approval is required for an ordinary merge. Treat the merge itself as the approval, and never merge to `main` work the operator has not approved.
-- Every merge to `main` deploys. Do not ask for deploy approval, do not treat a deploy as a checkpoint, and do not require a probe before merging. After a merge, watch `verify` and `Workers Builds: jelementi-web` on the merge commit and report the outcome; a red `Workers Builds` means production is still serving the prior version and needs the incident path, not a retry.
-- `deploy:web` (`verify:deploy` then `wrangler deploy`) is for when Workers Builds cannot deploy. It is an operator action requiring the runbook, because it deploys the working tree rather than an approved merge.
-- `media:upload` stays operator-only: media objects are immutable and version-keyed (`-vN`), and no merge publishes them.
-- Rollback is still never automatic: a bad `main` follows the runbook's incident path — Cloudflare rollback to the recorded known-good Worker version first, then a revert commit through a normal green pull request.
-- Local Wrangler smoke uses loopback only and persists outside the repository. Never commit credentials, `.dev.vars`, Wrangler state, or generated Cloudflare output.
+- Preserve `schemaVersion: 1`, all seven block types, the locked inline marks/nodes, and footnote cross-reference validation.
+- Unsupported Markdown fails with a structured, source-located compiler issue; never silently drop it.
+- Media keys stay relative and resolve only through the explicit compiler option. Media objects are immutable: a replacement gets a new `-vN` key.
+- Only top-level `content/articles/*.md` are discovered; drafts and archives are validated but never published. Series parts share one title and category and number contiguously from 1 (ADR-0009).
+- `content:build` atomically replaces `generated/`; any failure keeps the last good output. `content:validate` writes nothing. Generated output is never committed.
+- Web code statically imports generated JSON, validates it with `@jelementi/article-model`, and imports neither the compiler nor runtime filesystem/fetch APIs (tests may use the compiler).
+- Reader routes are prerendered from the validated index. Pages set `csr = false`; `/search` is the only hydrated page, and the static 404 fallback loads the client only to render the error page while keeping HTTP 404.
+- `wrangler.jsonc` keeps `workers_dev: false`, `preview_urls: true`, and the `jelementi.quz.ma` route; `wrangler.m2.jsonc` is the route-less branch-upload twin. Never commit credentials, `.dev.vars`, or Wrangler state.
+
+## Publishing and deploys
+
+- Every merge to `main` deploys through Workers Builds, which runs `pnpm verify:deploy` first; a failed build leaves the previous version live.
+- A story ships after Darko approves it ("ship it" or similar). Then: `pnpm media:upload` for each new file, and `pnpm ship "feat(content): publish <title>"`. `ship` validates content and live media, opens a PR, waits for the `verify` check, and squash-merges. No separate deploy approval or probe is needed.
+- Code changes go through a normal PR; merge only work Darko approved.
+- After a merge, confirm the article URL returns 200 with the new title. If Workers Builds is red, production still serves the old version: fix forward or revert through a PR. `pnpm deploy:web` is a manual fallback only when Workers Builds itself is down.
 
 ## Verification
 
-Run from the repository root:
-
 ```bash
-pnpm format
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm content:validate
-PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/ pnpm verify:deploy
+pnpm verify:deploy   # format, lint, typecheck, content:validate, test, build, live media:verify
+pnpm verify:full     # plus reader browser acceptance, bundle checks, asset budget (before reader redesigns)
 ```
 
-Agents must run `pnpm format` (Prettier `--check .`) before every push — CI runs it as the
-first step of `verify:deploy`, so a formatting miss fails the job in seconds. Fix locally
-with `pnpm format:fix` (`prettier --write .`) and re-push; do not use `npx prettier`
-directly — the repo pins Prettier via `pnpm` and `prettier-plugin-svelte`.
+`verify:deploy` needs `PUBLIC_MEDIA_BASE_URL=https://media.jelementi.quz.ma/` (or `.env`). Fix formatting with `pnpm format:fix`, not `npx prettier`.
 
 ## Agent skills
 
-### Issue tracker
-
-Issues and specs live as GitHub issues on DarkoKuzmanovic/jelementi, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Five canonical roles mapped to default labels (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+- Issues: GitHub issues on DarkoKuzmanovic/jelementi via `gh` (`docs/agents/issue-tracker.md`, labels in `docs/agents/triage-labels.md`).
+- Domain docs: `CONTEXT.md` + `docs/adr/` (`docs/agents/domain.md`).

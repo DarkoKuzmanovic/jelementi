@@ -1,7 +1,7 @@
 /**
  * Authoritative article-rendering contract (spec #96, ticket #98).
  *
- * The public article route and Studio preview both consume the renderer,
+ * The public article route consumes the renderer,
  * block primitives, and the shared discovery summary through this single
  * ownership contract. Reader page chrome is never imported here; this
  * module carries only document rendering and summary surfaces, keeping the

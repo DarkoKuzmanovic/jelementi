@@ -190,7 +190,7 @@ export function validateCompiledBatch(compiledSources: CompiledSource[]): Conten
 
 export async function validateContent(paths: ContentPaths): Promise<ContentBatch> {
   // ponytail: read-only and offline — no output, no network. Published audio
-  // sizes resolve in buildContent only, so Studio publishing is unchanged.
+  // sizes resolve in buildContent only, so validation stays offline.
   return validateCompiledBatch(await compileSources(paths));
 }
 

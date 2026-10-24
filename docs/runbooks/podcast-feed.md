@@ -19,3 +19,6 @@ output; the feed itself throws at prerender rather than emitting a
 faked length. `content:validate` stays offline and read-only.
 
 Out of scope: podcast directory submissions and cover artwork.
+
+The separate `/feed.xml` is a full-text article feed (every published
+article, with or without audio) for feed readers; it needs no network at build.
