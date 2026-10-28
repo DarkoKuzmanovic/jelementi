@@ -300,7 +300,8 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     await page.keyboard.press('Tab');
     const focused = await page.evaluate(() => {
       const element = document.activeElement;
-      if (!(element instanceof HTMLAnchorElement)) return undefined;
+      if (!(element instanceof HTMLAnchorElement) || !element.closest('.home-catalog'))
+        return undefined;
       const style = getComputedStyle(element);
       return {
         href: element.getAttribute('href'),
@@ -314,7 +315,7 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
   }
   expect(keyboardHrefs).toEqual(expectedKeyboardHrefs);
   expect(focusOutlines).toEqual(
-    expectedKeyboardHrefs.map(() => ({ style: 'solid', width: '3px' })),
+    expectedKeyboardHrefs.map(() => ({ style: 'solid', width: '2px' })),
   );
 });
 

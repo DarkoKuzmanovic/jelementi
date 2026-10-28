@@ -4,7 +4,7 @@ import { expectNoBlockingAccessibilityViolations } from './accessibility';
 const recoveryDestinations = [
   { name: 'Home', href: '/' },
   { name: 'Search', href: '/search' },
-  { name: 'Categories', href: '/categories' },
+  { name: 'Sections', href: '/categories' },
 ] as const;
 const recoveryRoutes = [
   '/unknown-reader-acceptance-route',
@@ -40,7 +40,7 @@ test('secondary reader pages share the publication heading scale', async ({ page
       family: getComputedStyle(element).fontFamily,
     }));
     expect(type.size).toBeGreaterThanOrEqual(40);
-    expect(type.family).toContain('Geist');
+    expect(type.family).toContain('Newsreader');
   }
 });
 

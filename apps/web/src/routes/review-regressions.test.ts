@@ -56,20 +56,23 @@ import { load } from './(reader)/+page.server';
 import { load as loadNavigation } from './(reader)/+layout.server';
 import { generatedContent } from '../lib/generated-content.server';
 
-it('does not access the catalog for compact interior navigation', async () => {
-  const descriptor = Object.getOwnPropertyDescriptor(generatedContent, 'index')!;
-  Object.defineProperty(generatedContent, 'index', {
-    configurable: true,
-    get() {
-      throw new Error('Catalog unavailable');
-    },
-  });
+it('uses published data for utility metadata on both home and compact pages', async () => {
+  const original = generatedContent.index;
   try {
-    expect(await loadNavigation({ url: new URL('https://example.org/about') } as never)).toEqual({
-      topics: [],
-    });
+    const first = original[0]!;
+    generatedContent.index = [
+      { ...first, publishedAt: '2020-01-01', updatedAt: '2030-01-01' },
+      { ...first, slug: 'newer', publishedAt: '2026-10-27' },
+    ];
+    for (const pathname of ['/', '/about']) {
+      const data = await loadNavigation({
+        url: new URL(`https://example.org${pathname}`),
+      } as never);
+      expect(data).toMatchObject({ storyCount: 2, newestPublishedAt: '2026-10-27' });
+      expect(data?.topics).toEqual([{ name: 'Science', slug: 'science' }]);
+    }
   } finally {
-    Object.defineProperty(generatedContent, 'index', descriptor);
+    generatedContent.index = original;
   }
 });
 
@@ -95,6 +98,8 @@ it('keeps authored prose numbers even when a reference has the same number', asy
       data: {
         ...data,
         topics: [],
+        storyCount: 0,
+        newestPublishedAt: undefined,
         catalog: data.catalog,
         series: data.series,
         hasLeadAudio: data.hasLeadAudio,

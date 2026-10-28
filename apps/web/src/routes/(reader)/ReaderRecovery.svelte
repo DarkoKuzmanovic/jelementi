@@ -20,6 +20,6 @@
     {#if retryHref !== undefined}<a href={retryHref}>Try again</a>{/if}
     <a href="/">Home</a>
     <a href="/search">Search</a>
-    <a href="/categories">Categories</a>
+    <a href="/categories">Sections</a>
   </nav>
 </section>

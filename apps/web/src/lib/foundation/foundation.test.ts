@@ -63,7 +63,7 @@ describe('shared foundation', () => {
   it('declares identity, focus, bypass, and visually hidden helpers', () => {
     expect(foundationCss).toContain('.jelementi-wordmark');
     expect(foundationCss).toContain(':focus-visible');
-    expect(foundationCss).toContain('outline: 3px solid var(--foundation-focus)');
+    expect(foundationCss).toContain('outline: 2px solid var(--foundation-focus)');
     expect(foundationCss).toContain('.skip-link');
     expect(foundationCss).toContain('.visually-hidden');
   });

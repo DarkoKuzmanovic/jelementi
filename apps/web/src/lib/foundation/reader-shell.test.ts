@@ -17,6 +17,17 @@ vi.mock('$app/state', () => ({ page: mockedPage }));
 
 import ReaderShell from '../../routes/(reader)/ReaderShell.svelte';
 
+it('derives the utility date from the newest publication and exposes a GET query form', () => {
+  mockedPage.url = new URL('https://jelementi.quz.ma/');
+  const body = render(ReaderShell, {
+    props: { children: childSnippet, storyCount: 7, newestPublishedAt: '2026-02-03' },
+  }).body;
+  expect(body).toContain('Updated 3 February 2026');
+  expect(body).toContain('7 stories');
+  expect(body).toMatch(/<form[^>]*action="\/search"[^>]*method="get"/);
+  expect(body).toContain('name="query"');
+});
+
 it('renders supplied topic shortcuts before the utility links', () => {
   mockedPage.url = new URL('https://jelementi.quz.ma/');
   const topics = [
@@ -29,7 +40,7 @@ it('renders supplied topic shortcuts before the utility links', () => {
   const podcast = header.indexOf('href="/podcast.xml"');
   expect(header.indexOf('href="/categories/science"')).toBeLessThan(podcast);
   expect(header.indexOf('href="/about"')).toBeGreaterThan(podcast);
-  expect(header.indexOf('href="/search"')).toBeGreaterThan(podcast);
+  expect(header.indexOf('action="/search"')).toBeGreaterThan(podcast);
 });
 
 import ReaderLayout from '../../routes/(reader)/+layout.svelte';
@@ -39,7 +50,16 @@ const childSnippet = createRawSnippet(() => ({ render: () => '<p>page-content</p
 
 function renderReaderAt(pathname: string) {
   mockedPage.url = new URL(`https://jelementi.quz.ma${pathname}`);
-  return render(ReaderLayout, { props: { children: childSnippet } });
+  return render(ReaderLayout, {
+    props: {
+      children: childSnippet,
+      data: {
+        topics: [{ name: 'History', slug: 'history' }],
+        storyCount: 1,
+        newestPublishedAt: '2026-07-26',
+      },
+    },
+  });
 }
 
 function renderRootErrorAt(pathname: string, status: number) {
@@ -115,22 +135,16 @@ describe('reader shell public contract', () => {
     expect(searchBody).toMatch(/href="\/search"[^>]*aria-current="page"/);
 
     const { body: categoryBody } = renderReaderAt('/categories/history');
-    expect(categoryBody).toMatch(/href="\/categories"[^>]*aria-current="page"/);
+    expect(categoryBody).toMatch(/href="\/categories\/history"[^>]*aria-current="page"/);
   });
 
-  it('keeps navigation visible at all widths: conventional wrapping, never a hidden menu', () => {
+  it('offers mobile CSS-only chips and footer recovery, without a menu toggle', () => {
     const { body } = renderReaderAt('/');
-    // No burger/menu toggle, hidden attribute, or aria-hidden on nav
-    expect(body).not.toMatch(/aria-hidden="true"/);
     expect(body).not.toMatch(/<button[^>]*menu/i);
-    // Header/footer inner containers use wrapping-friendly layout (flex-wrap)
-    // Assert on rendered CSS presence via layout source is stable public seam:
-    // the spec requires conventional wrapping, so we verify the layout's style
-    // contains flex-wrap and the narrow reflow container pattern.
+    expect(body).toContain('class="mobile-search');
     const shellSource = readFileSync(new URL('../reader/reader.css', import.meta.url), 'utf8');
-    expect(shellSource).toContain('flex-wrap: wrap');
-    expect(shellSource).toContain('min(81rem, calc(100% - 2.75rem))');
-    // Ensure landmark links are not hidden via inline hidden/styles
-    expect(body).not.toContain(' hidden');
+    expect(shellSource).toContain('overflow-x: auto');
+    expect(shellSource).toContain('outline: 2px solid var(--foundation-focus)');
+    expect(body).toContain('Every story lists its sources.');
   });
 });

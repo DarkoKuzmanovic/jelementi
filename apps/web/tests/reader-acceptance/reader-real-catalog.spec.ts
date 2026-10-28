@@ -26,58 +26,44 @@ const expectedHomeShelves = [
   ),
 ];
 
-test('published topic shortcuts keep approved desktop order with compact navigation and fallback recovery', async ({
+test('section navigation, data utility strip, compact current state and fallback recovery', async ({
   page,
   request,
 }) => {
-  const priority = ['science', 'history', 'places', 'nature', 'inventions'];
-  const expected = priority.filter((slug) =>
+  const expected = ['history', 'places', 'science', 'inventions', 'nature'].filter((slug) =>
     canonicalIndex.some((entry) => entry.categorySlug === slug),
   );
   for (const width of [320, 390, 768, 900, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Primary navigation' });
-    const topics = nav.locator('.topic-shortcut');
+    const topics = nav.locator('.nav-sections a');
     expect(await topics.evaluateAll((links) => links.map((a) => a.getAttribute('href')))).toEqual(
       expected.map((slug) => `/categories/${slug}`),
     );
-    for (const topic of await topics.all()) {
-      if (width >= 900) await expect(topic).toBeVisible();
-      else await expect(topic).toBeHidden();
-    }
-    const directory = nav.getByRole('link', { name: 'Categories', exact: true });
-    if (width >= 900 && expected.length) await expect(directory).toBeHidden();
-    else await expect(directory).toBeVisible();
-    for (const name of ['Home', 'Podcast', 'About', 'Search'])
-      await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
-    const boxes = await nav.locator('a:visible').evaluateAll((links) =>
-      links.map((a) => ({
-        text: a.textContent?.trim(),
-        left: a.getBoundingClientRect().left,
-        right: a.getBoundingClientRect().right,
-        top: a.getBoundingClientRect().top,
-      })),
-    );
-    expect(boxes.every((box) => box.left >= 0 && box.right <= width)).toBe(true);
-    if (width >= 900 && expected.length) {
-      const podcast = boxes.find((box) => box.text === 'Podcast')!;
-      const lastTopic = boxes[expected.length]!;
-      expect(podcast.top).toBe(lastTopic.top);
-      expect(podcast.left - lastTopic.right).toBeGreaterThanOrEqual(width >= 1440 ? 100 : 28);
+    for (const topic of await topics.all()) await expect(topic).toBeVisible();
+    if (width > 900) {
+      await expect(nav.getByRole('link', { name: 'Series', exact: true })).toBeVisible();
+      await expect(nav.getByRole('search')).toHaveAttribute('method', 'get');
+      await expect(page.locator('.site-utility')).toContainText(
+        `${canonicalIndex.length} stories in five sections`,
+      );
+      await expect(page.locator('.site-utility')).toContainText('Updated 27 October 2026');
+    } else {
+      expect(await nav.evaluate((el) => getComputedStyle(el).overflowX)).toBe('auto');
+      await expect(page.locator('.mobile-search')).toBeVisible();
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
   }
   for (const slug of expected)
     expect((await request.get(`/categories/${slug}`)).status()).toBe(200);
   await page.goto('/categories/science');
-  await expect(page.locator('.site-header [aria-current="page"]')).toHaveAttribute(
+  await expect(page.locator('.site-header nav [aria-current="page"]')).toHaveAttribute(
     'href',
-    '/categories',
+    '/categories/science',
   );
   const response = await page.goto('/missing-navigation-route');
   expect(response?.status()).toBe(404);
-  await expect(page.locator('.site-header a[href="/categories"]')).toBeVisible();
   await expect(page.locator('.site-footer a[href="/categories"]')).toBeVisible();
 });
 
@@ -113,7 +99,7 @@ test('smokes the complete canonical generated Reader inventory independently of 
   );
 
   await page.goto('/categories');
-  await expect(page.getByRole('heading', { level: 1, name: 'Categories' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Sections' })).toBeVisible();
   await expect(
     page.getByRole('main').getByRole('link', { name: 'History', exact: true }),
   ).toHaveAttribute('href', '/categories/history');

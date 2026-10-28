@@ -5,11 +5,11 @@ const LONG_CATEGORY_SLUG = 'a-deliberately-long-category-name-for-narrow-readers
 const TEXT_SPACING_STRESS =
   'html { font-size: 200%; } * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }';
 
-test('Categories is an illustrated static directory with newest stories and canonical links', async ({
+test('Sections is an illustrated static directory with newest stories and canonical links', async ({
   page,
 }) => {
   await page.goto('/categories');
-  await expect(page.getByRole('heading', { level: 1, name: 'Categories' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Sections' })).toBeVisible();
   await expect(page.locator('main script')).toHaveCount(0);
 
   const rows = page.locator('.category-index > li');
@@ -97,9 +97,9 @@ test('category listings are one newest-first reading sequence with return naviga
   await expect(page.getByRole('heading', { level: 1, name: 'Field Notes' })).toBeVisible();
   await expect(page.getByText('6 articles, newest first.')).toBeVisible();
   await expect(
-    page.locator('.page-intro').getByRole('link', { name: 'Categories', exact: true }),
+    page.locator('.page-intro').getByRole('link', { name: 'Sections', exact: true }),
   ).toHaveAttribute('href', '/categories');
-  await expect(page.getByRole('link', { name: 'All categories' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'All sections' })).toHaveAttribute(
     'href',
     '/categories',
   );
@@ -138,9 +138,11 @@ test('a missing category keeps the normal shell and HTTP 404 truth', async ({ pa
   await expect(page.getByRole('heading', { name: 'This page is not available.' })).toBeVisible();
   await expect(page.getByRole('banner')).toBeVisible();
   await expect(page.getByRole('main')).toBeVisible();
-  for (const name of ['Home', 'Categories', 'Search']) {
+  for (const name of ['Home', 'Sections', 'Search']) {
     await expect(
-      page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name }),
+      page
+        .getByRole('navigation', { name: 'Footer navigation' })
+        .getByRole('link', { name, exact: true }),
     ).toBeVisible();
   }
   if (!testInfo.project.name.includes('no-js')) {
@@ -148,7 +150,7 @@ test('a missing category keeps the normal shell and HTTP 404 truth', async ({ pa
   }
 });
 
-test('Categories reflows at 320px with text spacing, visible focus, themes, and no Axe blockers', async ({
+test('Sections reflows at 320px with text spacing, visible focus, themes, and no Axe blockers', async ({
   page,
 }, testInfo) => {
   if (testInfo.project.name.includes('no-js')) test.skip();
@@ -219,10 +221,13 @@ test('one and many category listings pass the complete responsive and accessibil
   }
 
   await page.goto('/categories/field-notes');
-  for (let tab = 0; tab < 8; tab += 1) await page.keyboard.press('Tab');
   const returnLink = page
     .locator('.page-intro')
-    .getByRole('link', { name: 'Categories', exact: true });
+    .getByRole('link', { name: 'Sections', exact: true });
+  for (let tab = 0; tab < 30; tab += 1) {
+    await page.keyboard.press('Tab');
+    if (await returnLink.evaluate((el) => el === document.activeElement)) break;
+  }
   await expect(returnLink).toBeFocused();
   const focusOutline = await returnLink.evaluate((element) => {
     const style = getComputedStyle(element);

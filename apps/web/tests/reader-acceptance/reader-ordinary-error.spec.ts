@@ -25,7 +25,7 @@ test('ordinary errors use the normal shell and expose Try again only when retry 
     'href',
     '/search',
   );
-  await expect(recovery.getByRole('link', { name: 'Categories', exact: true })).toHaveAttribute(
+  await expect(recovery.getByRole('link', { name: 'Sections', exact: true })).toHaveAttribute(
     'href',
     '/categories',
   );
