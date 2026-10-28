@@ -11,6 +11,7 @@ export const load: LayoutServerLoad = () => {
         .map(({ name, slug }) => ({ name, slug })),
     ),
     storyCount: generatedContent.index.length,
+    categoryCount: categories.length,
     newestPublishedAt: generatedContent.index.reduce<string | undefined>(
       (newest, article) => (!newest || article.publishedAt > newest ? article.publishedAt : newest),
       undefined,

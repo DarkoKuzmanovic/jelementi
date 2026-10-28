@@ -102,8 +102,8 @@ test('Home places the series route between latest stories and listening', async 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
   const band = page.locator('.home-series__band');
-  await expect(band.locator('.home-series__kicker')).toContainText('Field Notes');
-  await expect(band.locator('.home-series__kicker')).toContainText('Series');
+  await expect(band.locator('.reader-kicker')).toContainText('Field Notes');
+  await expect(band.locator('.reader-kicker')).toContainText('Series');
   await expect(band.locator('h2')).toHaveText('Field Notes');
   await expect(band.locator('.home-series__details')).toHaveText(
     /Three\s+parts\s*·\s*9 minutes\s*·\s*read in order or dip in/i,

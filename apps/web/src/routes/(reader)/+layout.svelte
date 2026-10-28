@@ -12,5 +12,6 @@
 <ReaderShell
   topics={data?.topics}
   storyCount={data?.storyCount}
+  categoryCount={data?.categoryCount}
   newestPublishedAt={data?.newestPublishedAt}>{@render children()}</ReaderShell
 >

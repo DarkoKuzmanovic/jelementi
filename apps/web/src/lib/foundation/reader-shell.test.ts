@@ -56,6 +56,7 @@ function renderReaderAt(pathname: string) {
       data: {
         topics: [{ name: 'History', slug: 'history' }],
         storyCount: 1,
+        categoryCount: 1,
         newestPublishedAt: '2026-07-26',
       },
     },

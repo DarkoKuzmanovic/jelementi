@@ -8,11 +8,13 @@
     children,
     topics = [],
     storyCount = 0,
+    categoryCount = 0,
     newestPublishedAt,
   }: {
     children: Snippet;
     topics?: { name: string; slug: string }[];
     storyCount?: number;
+    categoryCount?: number;
     newestPublishedAt?: string;
   } = $props();
   const home = $derived(page.url.pathname === '/');
@@ -45,8 +47,10 @@
             >{#if newestPublishedAt}Updated {formatPublishedDate(newestPublishedAt)}{/if}</span
           >
           <span
-            >{storyCount} stories in {topics.length === 5 ? 'five' : topics.length} sections · read or
-            listen</span
+            >{storyCount} stories in {categoryCount === 5 ? 'five' : categoryCount} section{categoryCount ===
+            1
+              ? ''
+              : 's'} · read or listen</span
           >
         </div>
       </div>

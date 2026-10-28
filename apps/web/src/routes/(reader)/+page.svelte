@@ -62,7 +62,9 @@
     <img src={article.cover.src} alt={article.cover.alt} width="112" height="75" loading="lazy" />
     <div class="home-compact-story__text">
       {#if kicker}<Kicker category={article.category} categorySlug={article.categorySlug} />{/if}
-      <h3 class="title"><a href={`/articles/${article.slug}`}>{article.title}</a></h3>
+      <svelte:element this={kicker ? 'h3' : 'h4'} class="title">
+        <a href={`/articles/${article.slug}`}>{article.title}</a>
+      </svelte:element>
       {#if !kicker}{@render meta(article)}{:else}<span class="home-mobile-minutes"
           >{article.readingTimeMinutes} min</span
         >{/if}
@@ -141,25 +143,17 @@
         aria-label="Series"
       >
         <div class="home-width">
-          <div class="home-series__head">
-            <div class="home-series__intro">
-              <div class="home-series__kicker">
-                <Kicker
-                  category={series.category}
-                  categorySlug={series.categorySlug}
-                  extra="Series"
-                />
-              </div>
-              <h2>{series.title}</h2>
-              <p class="home-series__details">
-                {partCount(series.parts.length)}
-                {series.parts.length === 1 ? 'part' : 'parts'} · {series.totalMinutes} minutes&#32;<span
-                  class="home-desktop"
-                >
-                  · read in order or dip in</span
-                >
-              </p>
-            </div>
+          <div class="home-series__intro">
+            <Kicker category={series.category} categorySlug={series.categorySlug} extra="Series" />
+            <h2>{series.title}</h2>
+            <p class="home-series__details">
+              {partCount(series.parts.length)}
+              {series.parts.length === 1 ? 'part' : 'parts'} · {series.totalMinutes} minutes&#32;<span
+                class="home-desktop"
+              >
+                · read in order or dip in</span
+              >
+            </p>
           </div>
           <ol class="home-series__cards" aria-label={`${series.title} parts`}>
             {#each series.parts as part (part.slug)}
@@ -230,7 +224,10 @@
         <h2 id="more-heading">Browse by section</h2>
         <div>
           <span
-            >{data.storyCount} stories in {data.topics.length === 5 ? 'five' : data.topics.length} sections</span
+            >{data.storyCount} stories in {data.categoryCount === 5 ? 'five' : data.categoryCount} section{data.categoryCount ===
+            1
+              ? ''
+              : 's'}</span
           ><a href="/search">Search the archive →</a>
         </div>
       </div>

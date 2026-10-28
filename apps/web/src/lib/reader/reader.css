@@ -310,7 +310,6 @@
   width: min(1200px, calc(100% - 40px));
   margin-inline: auto;
 }
-.home-catalog,
 .home-catalog * {
   min-width: 0;
 }
@@ -390,7 +389,7 @@
   border-bottom: 1px solid var(--ink);
 }
 .home-section-heading h2 {
-  font: 500 36px/43px var(--font-serif);
+  font: 500 36px/1 var(--font-serif);
   letter-spacing: -0.015em;
 }
 .home-section-heading > div {
@@ -410,6 +409,10 @@
 .home-recent__more {
   display: grid;
   gap: 24px;
+}
+.home-recent .card img,
+.home-shelf .card img {
+  margin-bottom: 12px;
 }
 .home-recent__list {
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -438,7 +441,7 @@
   flex-direction: column;
   gap: 6px;
 }
-.home-compact-story .reader-kicker {
+.home-catalog .home-compact-story .reader-kicker {
   font-size: 11px;
 }
 .home-compact-story .title {
@@ -453,27 +456,18 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 36px;
 }
-.home-series__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 24px;
-}
 .home-series__intro {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.home-series__kicker {
-  color: var(--hue);
-}
 .home-series h2 {
-  font: 500 52px/62px var(--font-serif);
+  font: 500 52px/1 var(--font-serif);
   letter-spacing: -0.02em;
 }
 .home-series__details {
   color: var(--muted);
-  font: 15px/21px var(--font-sans);
+  font: 15px/20px var(--font-sans);
 }
 .home-series__action {
   grid-column: 2;
@@ -497,7 +491,7 @@
   gap: 10px;
   align-items: center;
   color: var(--hue);
-  font: italic 30px/36px var(--font-serif);
+  font: italic 30px/1 var(--font-serif);
 }
 .home-series__line {
   height: 2px;
@@ -517,7 +511,7 @@
 }
 .home-series__minutes {
   color: var(--muted);
-  font: 13px/18px var(--font-sans);
+  font: 13px/17px var(--font-sans);
 }
 .podcast-invitation {
   --foundation-focus: var(--on-band);
@@ -537,7 +531,7 @@
   gap: 12px;
 }
 .podcast-invitation h2 {
-  font: 500 44px/53px var(--font-serif);
+  font: 500 44px/1 var(--font-serif);
   letter-spacing: -0.02em;
 }
 .podcast-invitation p {
@@ -730,7 +724,7 @@
     font-size: 36px;
     line-height: 39px;
   }
-  .home-lead .reader-kicker {
+  .home-catalog .home-lead .reader-kicker {
     font-size: 11px;
   }
   .home-lead__deck {
@@ -755,7 +749,6 @@
   }
   .home-section-heading h2 {
     font-size: 26px;
-    line-height: 31px;
   }
   .home-recent .home-section-heading > div {
     flex-wrap: wrap;
@@ -835,36 +828,36 @@
     align-items: start;
     gap: 16px;
   }
-  .home-series__head,
   .home-series__intro {
-    display: flex;
-    flex-direction: column;
-    align-items: start;
     gap: 16px;
   }
-  .home-series .reader-kicker {
+  .home-catalog .home-series .reader-kicker {
     font-size: 11px;
   }
   .home-series h2 {
     font-size: 36px;
-    line-height: 43px;
   }
   .home-series__details {
     font-size: 14px;
-    line-height: 20px;
+    line-height: 18px;
+  }
+  .home-series__action,
+  .home-listen .reader-button {
+    padding-block: 11px;
   }
   .home-series__action {
     align-self: start;
   }
-  .home-series__cards {
-    width: 100%;
+  .home-catalog .home-series__cards {
+    width: calc(100% + 8px);
     display: grid;
     grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: 150px;
     gap: 10px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding: 4px;
+    margin: -4px;
   }
   .home-series__cards a {
     gap: 8px;
@@ -887,7 +880,6 @@
   }
   .podcast-invitation h2 {
     font-size: 32px;
-    line-height: 38px;
   }
   .podcast-invitation p {
     font-size: 17px;
