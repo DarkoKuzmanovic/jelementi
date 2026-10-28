@@ -87,7 +87,7 @@
                   </li>
                 {/each}
               </ol>
-              <a class="home-series__action" href={`/articles/${firstPart.slug}`}
+              <a class="home-series__action reader-button" href={`/articles/${firstPart.slug}`}
                 >Start with part 1 →</a
               >
             </article>

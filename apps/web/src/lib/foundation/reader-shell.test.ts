@@ -144,7 +144,9 @@ describe('reader shell public contract', () => {
     expect(body).toContain('class="mobile-search');
     const shellSource = readFileSync(new URL('../reader/reader.css', import.meta.url), 'utf8');
     expect(shellSource).toContain('overflow-x: auto');
-    expect(shellSource).toContain('outline: 2px solid var(--foundation-focus)');
+    const foundationSource = readFileSync(new URL('./foundation.css', import.meta.url), 'utf8');
+    expect(foundationSource).toContain('outline: 2px solid var(--foundation-focus)');
+    expect(foundationSource).toContain('outline-offset: 2px');
     expect(body).toContain('Every story lists its sources.');
   });
 });
