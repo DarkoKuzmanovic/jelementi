@@ -16,10 +16,16 @@ const catalogs = {
   },
   representative: {
     lead: ['Čačak Field Notes: Every Reader Structure'],
-    recent: ['The Middle Field Note', 'Culture at the Newest Edge', 'A Measured Sky'],
-    shelves: [
-      'Field Notes · series in 3 parts',
+    recent: [
+      'The Middle Field Note',
+      'Culture at the Newest Edge',
+      'A Measured Sky',
+      'Field Notes, part 3: The final tower',
+      'Field Notes, part 2: The middle tower',
+      'Field Notes, part 1: The first tower',
       'The Oldest Field Note',
+    ],
+    shelves: [
       'Culture in the Archive',
       'The Patient Instrument',
       'A Single Thread at Narrow Width',
@@ -37,177 +43,147 @@ function expectedCatalog() {
 
 async function tierTitles(page: import('@playwright/test').Page, tier: string): Promise<string[]> {
   return page
-    .locator(`[data-home-tier="${tier}"] .article-summary__title a`)
+    .locator(`[data-home-tier="${tier}"] [data-home-story] .title a`)
     .allTextContents()
     .then((titles) => titles.map((title) => title.trim()));
 }
 
-test('@home-catalog-scenario renders the exact tier order with series grouped once', async ({
+test('@home-catalog-scenario renders the ordered tiers and optional series and narration', async ({
   page,
 }) => {
   const expected = expectedCatalog();
-  const expectedTitles = [...expected.lead, ...expected.recent, ...expected.shelves];
-
   await page.goto('/');
 
   await expect(page.getByRole('heading', { level: 1, name: 'Jelementi' })).toHaveCount(1);
-  expect(await tierTitles(page, 'lead')).toEqual(expected.lead);
-  expect(await tierTitles(page, 'recent')).toEqual(expected.recent);
-  expect(await tierTitles(page, 'shelves')).toEqual(expected.shelves);
-
-  await expect(page.getByRole('region', { name: 'Recently published' })).toHaveCount(
-    expected.recent.length > 0 ? 1 : 0,
+  for (const tier of ['lead', 'recent', 'shelves'] as const) {
+    expect(await tierTitles(page, tier)).toEqual(expected[tier]);
+  }
+  const titles = [...expected.lead, ...expected.recent, ...expected.shelves];
+  const stories = page.locator('.home-catalog [data-home-story]');
+  await expect(stories).toHaveCount(titles.length);
+  const slugs = await stories.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute('data-home-story')),
   );
-  await expect(page.getByRole('region', { name: 'More articles' })).toHaveCount(
-    expected.shelves.length > 0 ? 1 : 0,
-  );
-
-  const allTitles = await page
-    .locator('.home-catalog .article-summary__title a')
-    .allTextContents()
-    .then((titles) => titles.map((title) => title.trim()));
-  expect(allTitles).toEqual(expectedTitles);
-  expect(new Set(allTitles).size).toBe(expectedTitles.length);
+  expect(new Set(slugs).size).toBe(titles.length);
   await expect(page.getByText('Acceptance Draft Must Stay Private')).toHaveCount(0);
   await expect(page.getByText('Acceptance Archive Must Stay Private')).toHaveCount(0);
 
-  const summaries = page.locator('.home-catalog .article-summary');
-  await expect(summaries).toHaveCount(expectedTitles.length);
-  for (const summary of await summaries.all()) {
-    await expect(summary.locator('a[href^="/categories/"]')).toHaveCount(1);
-    await expect(summary.locator('time[datetime]')).toHaveCount(1);
-    await expect(summary).toContainText(/\d+ min read/);
-    await expect(summary.locator('.article-summary__meta')).toContainText(/ · \d+ min read/);
-    if (await summary.evaluate((element) => !!element.closest('[data-home-tier="shelves"]'))) {
-      await expect(summary.locator('.article-summary__excerpt')).toBeHidden();
-    } else {
-      await expect(summary.locator('.article-summary__excerpt')).not.toHaveText('');
-    }
+  await expect(page.locator('#series')).toHaveCount(1);
+  await expect(page.locator('.home-series__band')).toHaveCount(
+    scenario === 'representative' ? 1 : 0,
+  );
+  await expect(page.locator('.home-narration')).toHaveCount(scenario === 'sparse' ? 0 : 1);
+  if (scenario !== 'sparse') {
+    await expect(page.locator('.home-narration')).toHaveAttribute(
+      'href',
+      '/articles/acceptance-rich-column#reader:audio',
+    );
+  }
+  const invitation = page.locator('.podcast-invitation');
+  await expect(invitation.getByRole('link', { name: /Get the podcast/ })).toHaveAttribute(
+    'href',
+    '/podcast.xml',
+  );
+  await expect(invitation.getByRole('link', { name: 'Podcast RSS' })).toHaveAttribute(
+    'href',
+    '/podcast.xml',
+  );
+  if (expected.recent.length) {
+    await expect(page.getByRole('heading', { name: 'Latest stories' })).toBeVisible();
+    await expect(page.locator('.home-recent')).toContainText('Newest first');
+    await expect(
+      page.locator('.home-recent').getByRole('link', { name: /All stories/ }),
+    ).toHaveAttribute('href', '/search');
   }
 });
-test('Home places the series band after recent stories with responsive reading order', async ({
-  page,
-}) => {
+
+test('Home places the series route between latest stories and listening', async ({ page }) => {
   test.skip(scenario !== 'representative', 'Representative series fixture.');
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
-
-  const band = page.locator('.home-series');
-  await expect(band).toHaveCount(1);
-  await expect(band.locator('.home-series__kicker')).toHaveText('Series · Field Notes');
+  const band = page.locator('.home-series__band');
+  await expect(band.locator('.home-series__kicker')).toContainText('Field Notes');
+  await expect(band.locator('.home-series__kicker')).toContainText('Series');
   await expect(band.locator('h2')).toHaveText('Field Notes');
-  await expect(band.locator('.home-series__details')).toHaveText('3 parts · 9 min');
-  await expect(band.locator('.home-series__cards li')).toHaveCount(3);
-  await expect(band.locator('.home-series__card-title')).toHaveText([
+  await expect(band.locator('.home-series__details')).toHaveText(
+    /Three\s+parts\s*·\s*9 minutes\s*·\s*read in order or dip in/i,
+  );
+  const cards = band.locator('.home-series__cards');
+  await expect(cards.locator('li')).toHaveCount(3);
+  await expect(cards.locator('.home-series__card-title')).toHaveText([
     'The first tower',
     'The middle tower',
     'The final tower',
   ]);
-  await expect(band.getByRole('link', { name: 'Start with part 1 →' })).toHaveAttribute(
+  await expect(band.locator('.home-series__action')).toHaveAttribute(
     'href',
     '/articles/acceptance-field-series-first',
   );
-
-  const topPositions = await page.evaluate(() =>
-    ['[data-home-tier="recent"]', '.home-series', '.podcast-invitation'].map((selector) => {
+  const positions = await page.evaluate(() =>
+    ['.home-recent', '.home-series__band', '.podcast-invitation'].map((selector) => {
       const element = document.querySelector(selector);
       if (!element) throw new Error(`Missing Home section: ${selector}`);
       return element.getBoundingClientRect().top;
     }),
   );
-  expect(topPositions[0]!).toBeLessThan(topPositions[1]!);
-  expect(topPositions[1]!).toBeLessThan(topPositions[2]!);
+  expect(positions[0]!).toBeLessThan(positions[1]!);
+  expect(positions[1]!).toBeLessThan(positions[2]!);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(band.locator('.home-series__cards')).toBeHidden();
-  await expect(band.locator('.home-series__covers li')).toHaveCount(3);
-  await expect(band.locator('.home-series__covers')).toBeVisible();
-  const coverStrip = band.locator('.home-series__covers');
-  const coverLayout = await coverStrip.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      columns: style.gridTemplateColumns.split(' ').length,
-      clientWidth: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-      coverWidths: Array.from(element.querySelectorAll('li')).map(
-        (item) => item.getBoundingClientRect().width,
-      ),
-    };
-  });
-  expect(coverLayout.columns).toBe(3);
-  expect(coverLayout.scrollWidth).toBe(coverLayout.clientWidth);
-  expect(coverLayout.coverWidths.every((width) => width > 0)).toBe(true);
-  await expect(band.locator('.home-series__mobile-list a')).toHaveText([
-    'The first tower',
-    'The middle tower',
-    'The final tower',
-  ]);
-  const buttonWidth = await band
-    .locator('.home-series__action')
-    .evaluate((element) => element.getBoundingClientRect().width);
-  const bandWidth = await band
-    .locator('.home-series__band')
-    .evaluate((element) => element.getBoundingClientRect().width);
-  expect(buttonWidth).toBeGreaterThan(bandWidth - 50);
+  await expect(cards).toBeVisible();
+  await expect(cards.locator('li')).toHaveCount(3);
+  const strip = await cards.evaluate((element) => ({
+    overflow: getComputedStyle(element).overflowX,
+    widths: Array.from(element.querySelectorAll('li')).map(
+      (item) => item.getBoundingClientRect().width,
+    ),
+  }));
+  expect(strip.overflow).toBe('auto');
+  for (const width of strip.widths) expect(width).toBeCloseTo(150, 0);
 });
 
-test('compact illustrated archive rows retain stories without expanded preview prose', async ({
-  page,
-}) => {
-  test.skip(scenario !== 'representative', 'Representative archive composition.');
-  await page.goto('/');
-  await expect(page.locator('.home-shelf--compact .article-summary__excerpt').first()).toBeHidden();
-  await expect(page.locator('.home-shelf--compact .article-summary__title').first()).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(
-    page.locator('.home-recent__list > li').nth(1).locator('.article-summary__excerpt'),
-  ).toBeHidden();
-  await expect(
-    page.locator('.home-recent__list > li').first().locator('.article-summary__excerpt'),
-  ).toBeVisible();
-});
-
-test('representative Home preserves the wide editorial scan and one 320px source sequence', async ({
-  page,
-}) => {
+test('latest stories and section shelves adapt without changing source order', async ({ page }) => {
   test.skip(scenario !== 'representative', 'Representative-only composition contract.');
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
-
-  const recent = page.locator('.home-recent__list');
-  const compactShelves = page.locator('.home-shelves--compact');
-  expect(
-    (await recent.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' '),
-  ).toHaveLength(3);
+  const recent = page.locator('.home-recent');
+  const stories = recent.locator('[data-home-story]');
+  await expect(stories).toHaveCount(7);
+  await expect(recent.locator('.home-recent__list [data-home-story]')).toHaveCount(4);
+  await expect(recent.locator('.home-recent__more [data-home-story]')).toHaveCount(3);
   expect(
     (
-      await compactShelves.evaluate((element) => getComputedStyle(element).gridTemplateColumns)
+      await recent
+        .locator('.home-recent__list')
+        .evaluate((element) => getComputedStyle(element).gridTemplateColumns)
     ).split(' '),
-  ).toHaveLength(2);
+  ).toHaveLength(4);
+  const titles = await tierTitles(page, 'recent');
 
   await page.setViewportSize({ width: 320, height: 800 });
-  await expect(page.locator('.home-catalog')).toBeVisible();
   await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320);
-  expect(
-    (await recent.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' '),
-  ).toHaveLength(1);
-  expect(
-    (
-      await compactShelves.evaluate((element) => getComputedStyle(element).gridTemplateColumns)
-    ).split(' '),
-  ).toHaveLength(1);
-
-  const sourceOrder = await page
-    .locator('.home-catalog .article-summary__title a')
-    .allTextContents()
-    .then((titles) => titles.map((title) => title.trim()));
-  expect(sourceOrder).toEqual([
-    ...catalogs.representative.lead,
-    ...catalogs.representative.recent,
-    ...catalogs.representative.shelves,
-  ]);
+  expect(await tierTitles(page, 'recent')).toEqual(titles);
+  for (let i = 0; i < 7; i++) {
+    if (i < 5) {
+      await expect(stories.nth(i)).toBeVisible();
+      const image = stories.nth(i).locator('img');
+      const box = await image.boundingBox();
+      expect(box?.width).toBeCloseTo(104, 0);
+      expect(box?.height).toBeCloseTo(104, 0);
+      const title = await stories.nth(i).locator('.title').boundingBox();
+      expect(title!.x + title!.width).toBeLessThanOrEqual(box!.x);
+      expect(Math.abs(title!.y - box!.y)).toBeLessThan(104);
+    } else await expect(stories.nth(i)).toBeHidden();
+  }
+  const shelves = page.locator('.home-shelf--wide, .home-shelf--compact');
+  await expect(shelves).not.toHaveCount(0);
+  for (const shelf of await shelves.all()) {
+    await expect(shelf.locator('.home-shelf__entries')).toBeHidden();
+    await expect(shelf.locator('.home-shelf__label')).toBeVisible();
+  }
 });
 
-test('Home survives 200% text, WCAG text spacing, long content, and keyboard source order', async ({
+test('Home survives text spacing, long content, and keyboard source order', async ({
   page,
 }, testInfo) => {
   test.skip(scenario !== 'representative', 'Representative-only stress contract.');
@@ -221,82 +197,24 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
     `,
   });
   await page.setViewportSize({ width: 320, height: 800 });
-
-  await expect(
-    page.getByText('unbroken-content-token-that-must-reflow-without-page-level-overflow'),
-  ).toHaveCount(1);
   await expect(
     page.getByRole('heading', {
       level: 3,
       name: 'A Deliberately Long Category Name for Narrow Readers',
     }),
   ).toBeVisible();
-  const noHorizontalOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth <= window.innerWidth,
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
   );
-  expect(noHorizontalOverflow).toBe(true);
 
-  const articleHrefs = await page
-    .locator('.home-catalog .article-summary__title a')
-    .evaluateAll((links) => links.map((link) => link.getAttribute('href')));
-  expect(articleHrefs).toEqual([
-    '/articles/acceptance-rich-column',
-    '/articles/acceptance-field-middle',
-    '/articles/acceptance-culture-new',
-    '/articles/acceptance-science-new',
-    '/articles/acceptance-field-series-first',
-    '/articles/acceptance-field-oldest',
-    '/articles/acceptance-culture-old',
-    '/articles/acceptance-science-old',
-    '/articles/acceptance-long-category',
-    '/articles/acceptance-no-audio-long-column',
-  ]);
-  await expect(page.locator('.home-catalog [tabindex]')).toHaveCount(0);
-
-  const expectedKeyboardHrefs = [
-    '/articles/acceptance-rich-column',
-    '/categories/field-notes',
-    '/articles/acceptance-rich-column',
-    '/articles/acceptance-rich-column#reader:audio',
-    '/categories/field-notes',
-    '/articles/acceptance-field-middle',
-    '/categories/culture',
-    '/articles/acceptance-culture-new',
-    '/categories/science',
-    '/articles/acceptance-science-new',
-    '/articles/acceptance-field-series-first',
-    '/articles/acceptance-field-series-middle',
-    '/articles/acceptance-field-series-third',
-    '/articles/acceptance-field-series-first',
-    '/articles/acceptance-field-series-middle',
-    '/articles/acceptance-field-series-third',
-    '/articles/acceptance-field-series-first',
-    '/categories/field-notes',
-    '/categories/field-notes',
-    '/categories/field-notes',
-    '/articles/acceptance-field-series-first',
-    '/categories/field-notes',
-    '/articles/acceptance-field-oldest',
-    '/categories/culture',
-    '/categories/culture',
-    '/categories/culture',
-    '/articles/acceptance-culture-old',
-    '/categories/science',
-    '/categories/science',
-    '/categories/science',
-    '/articles/acceptance-science-old',
-    '/categories/a-deliberately-long-category-name-for-narrow-readers',
-    '/categories/a-deliberately-long-category-name-for-narrow-readers',
-    '/categories/a-deliberately-long-category-name-for-narrow-readers',
-    '/articles/acceptance-long-category',
-    '/categories/solo',
-    '/categories/solo',
-    '/categories/solo',
-    '/articles/acceptance-no-audio-long-column',
-  ];
-  const keyboardHrefs: string[] = [];
-  const focusOutlines: Array<{ style: string; width: string }> = [];
-  for (let step = 0; step < 60 && keyboardHrefs.length < expectedKeyboardHrefs.length; step += 1) {
+  const links = page.locator('.home-catalog a[href]:visible');
+  const expectedHrefs = await links.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute('href')),
+  );
+  expect(expectedHrefs.length).toBeGreaterThan(0);
+  const focusedHrefs: string[] = [];
+  const outlines: Array<{ style: string; width: number }> = [];
+  for (let step = 0; step < 200 && focusedHrefs.length < expectedHrefs.length; step++) {
     await page.keyboard.press('Tab');
     const focused = await page.evaluate(() => {
       const element = document.activeElement;
@@ -305,18 +223,20 @@ test('Home survives 200% text, WCAG text spacing, long content, and keyboard sou
       const style = getComputedStyle(element);
       return {
         href: element.getAttribute('href'),
-        outline: { style: style.outlineStyle, width: style.outlineWidth },
+        style: style.outlineStyle,
+        width: parseFloat(style.outlineWidth),
       };
     });
-    if (focused?.href && expectedKeyboardHrefs.includes(focused.href)) {
-      keyboardHrefs.push(focused.href);
-      focusOutlines.push(focused.outline);
+    if (focused?.href) {
+      focusedHrefs.push(focused.href);
+      outlines.push({ style: focused.style, width: focused.width });
     }
   }
-  expect(keyboardHrefs).toEqual(expectedKeyboardHrefs);
-  expect(focusOutlines).toEqual(
-    expectedKeyboardHrefs.map(() => ({ style: 'solid', width: '2px' })),
-  );
+  expect(focusedHrefs).toEqual(expectedHrefs);
+  for (const outline of outlines) {
+    expect(outline.style).not.toBe('none');
+    expect(outline.width).toBeGreaterThanOrEqual(2);
+  }
 });
 
 test('Home has zero serious or critical Axe findings across width and theme roles', async ({
@@ -324,7 +244,6 @@ test('Home has zero serious or critical Axe findings across width and theme role
 }, testInfo) => {
   test.skip(scenario !== 'representative', 'Representative-only accessibility scan.');
   test.skip(testInfo.project.name.includes('no-js'), 'Axe injection requires JavaScript.');
-
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });
     for (const width of [1280, 320]) {

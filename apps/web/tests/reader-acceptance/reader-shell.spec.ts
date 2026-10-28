@@ -64,7 +64,7 @@ test('podcast invitation keyboard focus contrasts with its panel in both themes'
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });
     await page.goto('/');
-    const invitation = page.locator('.podcast-invitation a');
+    const invitation = page.locator('.podcast-invitation a').first();
     for (let tab = 0; tab < 100; tab++) {
       await page.keyboard.press('Tab');
       if (await invitation.evaluate((el) => el === document.activeElement)) break;
@@ -84,7 +84,7 @@ test('podcast invitation keyboard focus contrasts with its panel in both themes'
         return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
       };
       const outline = luminance(style.outlineColor);
-      const panelColor = getComputedStyle(el.parentElement!).backgroundColor;
+      const panelColor = getComputedStyle(el.closest('.podcast-invitation')!).backgroundColor;
       return {
         visible: el.matches(':focus-visible'),
         width: parseFloat(style.outlineWidth),
@@ -100,7 +100,7 @@ test('podcast invitation keyboard focus contrasts with its panel in both themes'
     expect(focus.contrast).toBeGreaterThanOrEqual(3);
     expect(focus.panelColor).toBe(colorScheme === 'light' ? 'rgb(40, 76, 153)' : 'rgb(40, 54, 78)');
     expect(focus.actionBackground).toBe(
-      colorScheme === 'light' ? 'rgb(248, 246, 240)' : 'rgb(241, 239, 231)',
+      colorScheme === 'light' ? 'rgb(248, 246, 240)' : 'rgb(168, 194, 255)',
     );
   }
 });
@@ -133,7 +133,7 @@ test('series band uses a distinct surface with legible text in both themes', asy
         );
       };
       const details = element.querySelector('.home-series__details')!;
-      const kicker = element.querySelector('.home-series__kicker')!;
+      const kicker = element.querySelector('.home-series__kicker .reader-kicker')!;
       const action = element.querySelector('.home-series__action')!;
       const actionStyle = getComputedStyle(action);
       return {

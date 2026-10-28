@@ -1,14 +1,5 @@
 import { render } from 'svelte/server';
 import { expect, it, vi } from 'vitest';
-vi.mock(
-  '$lib/article/ArticleSummary.svelte',
-  async () => import('../lib/article/ArticleSummary.svelte'),
-);
-vi.mock(
-  '$lib/series/SeriesSummary.svelte',
-  async () => import('../lib/series/SeriesSummary.svelte'),
-);
-vi.mock('$lib/series/series-projection', async () => import('../lib/series/series-projection'));
 import HomePage from './(reader)/+page.svelte';
 
 vi.mock('../lib/generated-content.server', async () => {
@@ -101,8 +92,8 @@ it('keeps authored prose numbers even when a reference has the same number', asy
         storyCount: 0,
         newestPublishedAt: undefined,
         catalog: data.catalog,
-        series: data.series,
-        hasLeadAudio: data.hasLeadAudio,
+        leadAudio: data.leadAudio,
+        narration: data.narration,
       },
     },
   });

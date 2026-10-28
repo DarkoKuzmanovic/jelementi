@@ -1,8 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { svelteTestPlugin } from './apps/web/vitest.config';
 
 export default defineConfig({
   plugins: [svelteTestPlugin],
+  resolve: { alias: { $lib: fileURLToPath(new URL('./apps/web/src/lib', import.meta.url)) } },
   test: {
     environment: 'node',
     include: [

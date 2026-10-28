@@ -1,65 +1,54 @@
 import type { ArticleIndexEntry } from '@jelementi/article-model';
 import { projectCategoryDirectory } from '../category-projection';
-import {
-  collapseSeriesEntries,
-  projectSeries,
-  type SeriesAwareCatalogEntry,
-  type SeriesProjection,
-} from '../series/series-projection';
+import { projectSeries, type SeriesProjection } from '../series/series-projection';
 
 export interface HomeCategoryShelf {
   category: string;
   categorySlug: string;
   total: number;
-  entries: readonly SeriesAwareCatalogEntry[];
+  compact: boolean;
+  entries: readonly ArticleIndexEntry[];
 }
 
 export interface HomeCatalog {
   lead: ArticleIndexEntry | undefined;
   recent: readonly ArticleIndexEntry[];
+  series: SeriesProjection | undefined;
   shelves: readonly HomeCategoryShelf[];
 }
 
-function compareSlug(left: string, right: string): number {
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
-
-/**
- * Projects the validated published index into the fixed editorial tiers and
- * category shelves. Publication date is the only ranking signal; slug provides
- * a deterministic tie-break for articles published on the same calendar date.
- */
+/** Publication date ranks stories; category totals decide the three full shelves. */
 export function projectHomeCatalog(
   index: readonly ArticleIndexEntry[],
   series: readonly SeriesProjection[] = projectSeries(index),
 ): HomeCatalog {
   const ordered = [...index].sort(
     (left, right) =>
-      right.publishedAt.localeCompare(left.publishedAt) || compareSlug(left.slug, right.slug),
+      right.publishedAt.localeCompare(left.publishedAt) || left.slug.localeCompare(right.slug),
   );
   const lead = ordered[0];
-  const recent = ordered.slice(1, 4);
-  const remaining = ordered.slice(4);
-  const remainingByCategory = new Map<string, ArticleIndexEntry[]>();
-  for (const article of remaining) {
-    const entries = remainingByCategory.get(article.categorySlug) ?? [];
-    entries.push(article);
-    remainingByCategory.set(article.categorySlug, entries);
-  }
-  const shelves = projectCategoryDirectory(index, series).flatMap((category) => {
-    const entries = remainingByCategory.get(category.slug);
-    if (!entries || entries.length === 0) return [];
-    return [
-      {
-        category: category.name,
-        categorySlug: category.slug,
-        total: category.count,
-        entries: collapseSeriesEntries(entries, series).slice(0, 3),
-      },
-    ];
+  const recent = ordered.slice(1, 8);
+  const featuredSeries = series[0];
+  const shown = new Set(
+    [...ordered.slice(0, 8), ...(featuredSeries?.parts ?? [])].map((a) => a.slug),
+  );
+  const remaining = ordered.filter((article) => !shown.has(article.slug));
+  const shelves = projectCategoryDirectory(index, series).flatMap((category, rank) => {
+    const compact = rank >= 3;
+    const entries = remaining
+      .filter((article) => article.categorySlug === category.slug)
+      .slice(0, compact ? 2 : 3);
+    return entries.length
+      ? [
+          {
+            category: category.name,
+            categorySlug: category.slug,
+            total: category.count,
+            compact,
+            entries,
+          },
+        ]
+      : [];
   });
-
-  return { lead, recent, shelves };
+  return { lead, recent, series: featuredSeries, shelves };
 }
