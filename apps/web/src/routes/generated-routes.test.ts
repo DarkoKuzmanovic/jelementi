@@ -100,6 +100,8 @@ function renderFragmentArticle(article: ArticleDocument): string {
     props: {
       data: {
         topics: [],
+        storyCount: 0,
+        newestPublishedAt: undefined,
         article,
         contentVersion: 'version',
         seriesHasDates: false,
@@ -212,6 +214,8 @@ describe('generated reader routes', () => {
       props: {
         data: {
           topics: [],
+          storyCount: 0,
+          newestPublishedAt: undefined,
           article,
           contentVersion: 'version',
           seriesHasDates: false,
@@ -260,6 +264,8 @@ describe('generated reader routes', () => {
       props: {
         data: {
           topics: [],
+          storyCount: 0,
+          newestPublishedAt: undefined,
           article,
           contentVersion: 'version',
           seriesHasDates: false,
@@ -318,6 +324,8 @@ describe('generated reader routes', () => {
       props: {
         data: {
           topics: [],
+          storyCount: 0,
+          newestPublishedAt: undefined,
           article,
           contentVersion,
           seriesHasDates: false,
@@ -336,6 +344,8 @@ describe('generated reader routes', () => {
       props: {
         data: {
           topics: [],
+          storyCount: 0,
+          newestPublishedAt: undefined,
           article,
           contentVersion,
           seriesHasDates: false,

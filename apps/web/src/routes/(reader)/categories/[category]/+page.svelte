@@ -15,7 +15,7 @@
 >
 <section class="category-listing" aria-labelledby="category-heading">
   <header class="page-intro">
-    <p class="kicker"><a href="/categories">Categories</a></p>
+    <p class="kicker"><a href="/categories">Sections</a></p>
     <h1 id="category-heading">{data.category}</h1>
     <p>
       {data.articles.length}
@@ -29,5 +29,5 @@
       </li>
     {/each}
   </ul>
-  <p class="return-link"><a href="/categories">← All categories</a></p>
+  <p class="return-link"><a href="/categories">← All sections</a></p>
 </section>

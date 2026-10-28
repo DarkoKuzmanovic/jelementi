@@ -11,6 +11,8 @@
   let searchInput: HTMLInputElement;
 
   onMount(() => {
+    query = new URL(window.location.href).searchParams.get('query') ?? '';
+    hasInteracted = query.trim().length > 0;
     enhanced = true;
   });
 
@@ -85,10 +87,10 @@
     <section class="empty-state" aria-labelledby="empty-search-heading">
       <div>
         <h2 id="empty-search-heading">No articles found</h2>
-        <p>Try a different search, clear the query, or browse all categories.</p>
+        <p>Try a different search, clear the query, or browse all sections.</p>
         <div class="recovery-links">
           <button type="button" onclick={clearSearch}>Clear search</button>
-          <a href="/categories">Browse Categories</a>
+          <a href="/categories">Browse Sections</a>
         </div>
       </div>
     </section>

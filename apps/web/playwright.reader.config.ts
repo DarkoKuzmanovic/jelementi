@@ -59,14 +59,15 @@ export default defineConfig({
     {
       command: `pnpm exec vite dev --config vite.reader-acceptance.config.ts --host 127.0.0.1 --port ${ORDINARY_ERROR_PORT}`,
       env: { READER_ACCEPTANCE_SCENARIO: 'ordinary-error' },
-      url: `${ordinaryErrorBaseUrl}/about`,
+      // Catalog-backed navigation also fails in this error scenario; wait for Vite itself.
+      url: `${ordinaryErrorBaseUrl}/@vite/client`,
       reuseExistingServer: false,
       timeout: 60_000,
     },
     {
       command: `pnpm exec vite dev --config vite.reader-acceptance.config.ts --host 127.0.0.1 --port ${RETRYABLE_ERROR_PORT}`,
       env: { READER_ACCEPTANCE_SCENARIO: 'retryable-error' },
-      url: `${retryableErrorBaseUrl}/about`,
+      url: `${retryableErrorBaseUrl}/@vite/client`,
       reuseExistingServer: false,
       timeout: 60_000,
     },

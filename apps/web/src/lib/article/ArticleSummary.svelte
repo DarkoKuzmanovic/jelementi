@@ -46,7 +46,8 @@
     {#if lead}{@render metadata()}{/if}
     {#if lead}
       <p class="article-summary__actions">
-        <a href={`/articles/${article.slug}`}>Read article <span aria-hidden="true">→</span></a
+        <a class="reader-button" href={`/articles/${article.slug}`}
+          >Read article <span aria-hidden="true">→</span></a
         >{#if audioAvailable}<a href={`/articles/${article.slug}#${articleAudioAnchor}`}>Listen</a
           >{/if}
       </p>

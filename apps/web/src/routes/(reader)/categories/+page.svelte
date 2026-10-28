@@ -6,21 +6,21 @@
 </script>
 
 <svelte:head
-  ><title>Categories — Jelementi</title><meta
+  ><title>Sections — Jelementi</title><meta
     name="description"
-    content="Browse Jelementi categories — every published category ordered by article count."
+    content="Browse Jelementi sections — every published category ordered by article count."
   /></svelte:head
 >
 <section class="category-directory" aria-labelledby="categories-heading">
   <header class="page-intro">
     <p class="kicker">Browse the publication</p>
-    <h1 id="categories-heading">Categories</h1>
+    <h1 id="categories-heading">Sections</h1>
     <p>
       Every thread, ordered by the number of published articles. Each opens on its newest
       illustration.
     </p>
   </header>
-  <ol class="category-index" aria-label="Categories">
+  <ol class="category-index" aria-label="Sections">
     {#each data.categories as category (category.slug)}
       <li class="category-entry" class:category-entry--illustrated={category.count >= 3}>
         <a class="category-entry__cover" href={`/categories/${category.slug}`}>

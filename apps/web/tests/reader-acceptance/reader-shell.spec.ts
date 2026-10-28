@@ -33,19 +33,25 @@ test('shell landmarks and navigation persist across every public route', async (
     await expect(page.getByRole('navigation', { name: 'Footer navigation' })).toBeVisible();
     // Exactly one main
     await expect(page.getByRole('main')).toHaveCount(1);
-    // Visible nav links in both header and footer
-    for (const name of ['Home', 'Categories', 'Search', 'About']) {
-      const primaryLink = page
-        .getByRole('navigation', { name: 'Primary navigation' })
-        .getByRole('link', { name });
-      if (route === '/' && name === 'Categories') await expect(primaryLink).toBeHidden();
-      else await expect(primaryLink).toBeVisible();
+    const primary = page.getByRole('navigation', { name: 'Primary navigation' });
+    await expect(primary.getByRole('link', { name: 'Series', exact: true })).toHaveAttribute(
+      'href',
+      '/#series',
+    );
+    await expect(primary.getByRole('link', { name: 'Podcast', exact: true })).toBeVisible();
+    await expect(primary.getByRole('link', { name: 'About', exact: true })).toBeVisible();
+    const search = primary.getByRole('search', { name: 'Navigation search' });
+    await expect(search).toHaveAttribute('action', '/search');
+    await expect(search).toHaveAttribute('method', 'get');
+    await expect(search.getByRole('searchbox')).toHaveAttribute('name', 'query');
+    for (const name of ['Home', 'Sections', 'Search', 'About']) {
       await expect(
-        page.getByRole('navigation', { name: 'Footer navigation' }).getByRole('link', { name }),
+        page
+          .getByRole('navigation', { name: 'Footer navigation' })
+          .getByRole('link', { name, exact: true }),
       ).toBeVisible();
     }
-    // Jelementi wordmark identity present in header and footer
-    await expect(page.locator('.jelementi-wordmark').first()).toBeVisible();
+    await expect(page.locator('.jelementi-wordmark:visible').first()).toBeVisible();
     // Studio shell must not leak into reader routes
     await expect(page.locator('.studio-shell')).toHaveCount(0);
     await expect(page.locator('.skip-link')).toHaveCount(1);
@@ -141,7 +147,7 @@ test('series band uses a distinct surface with legible text in both themes', asy
       };
     });
     expect(palette.background).toBe(
-      colorScheme === 'light' ? 'rgb(233, 237, 244)' : 'rgb(34, 40, 36)',
+      colorScheme === 'light' ? 'rgb(239, 235, 225)' : 'rgb(34, 40, 36)',
     );
     expect(palette.background).not.toBe(palette.podcastBackground);
     expect(palette.inkContrast).toBeGreaterThanOrEqual(4.5);
@@ -164,23 +170,31 @@ test('skip link is keyboard-operable and focuses main', async ({ page }, testInf
   await expect(page).toHaveURL(/#reader:main/);
 });
 
-test('320px has no horizontal overflow and nav wraps conventionally', async ({ page }) => {
+test('320px has no page overflow, a mobile search target, and scrollable home chips', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 320, height: 800 });
   for (const route of ['/', '/search']) {
     await page.goto(route);
-    // No two-dimensional scrolling at narrow width
     await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 320);
-    // Header inner and nav use wrapping flex, never a hidden menu
-    const headerInner = page.locator('.site-header__inner').first();
-    await expect(headerInner).toBeVisible();
-    const flexWrap = await headerInner.evaluate((el) => getComputedStyle(el).flexWrap);
-    expect(flexWrap).toBe('wrap');
-    const nav = page.getByRole('navigation', { name: 'Primary navigation' });
-    const navWrap = await nav.evaluate((el) => getComputedStyle(el).flexWrap);
-    expect(navWrap).toBe('wrap');
-    // All nav links remain visible at 320px (no burger)
-    for (const name of ['Home', 'Categories', 'Search', 'About']) {
-      await expect(nav.getByRole('link', { name })).toBeVisible();
+    const mobile = page.locator('.mobile-masthead');
+    await expect(mobile).toBeVisible();
+    const search = mobile.getByRole('link', { name: 'Search', exact: true });
+    await expect(search).toBeVisible();
+    const box = await search.boundingBox();
+    expect(box?.width).toBe(44);
+    expect(box?.height).toBe(44);
+    const nav = page.getByRole('navigation', { name: 'Primary navigation', includeHidden: true });
+    if (route === '/') {
+      await expect(nav).toBeVisible();
+      expect(await nav.evaluate((el) => getComputedStyle(el).overflowX)).toBe('auto');
+    } else await expect(nav).toBeHidden();
+    for (const name of ['Home', 'Sections', 'Search', 'About']) {
+      await expect(
+        page
+          .getByRole('navigation', { name: 'Footer navigation' })
+          .getByRole('link', { name, exact: true }),
+      ).toBeVisible();
     }
     await expect(page.locator('button', { hasText: /menu/i })).toHaveCount(0);
   }

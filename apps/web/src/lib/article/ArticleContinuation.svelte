@@ -65,8 +65,9 @@
             >
           </h2>
           <p class="article-series-continuation__excerpt">{nextSeriesPart.excerpt}</p>
-          <a class="article-series-continuation__action" href={`/articles/${nextSeriesPart.slug}`}
-            >Continue to part {nextSeriesPart.part} →</a
+          <a
+            class="article-series-continuation__action reader-button"
+            href={`/articles/${nextSeriesPart.slug}`}>Continue to part {nextSeriesPart.part} →</a
           >
         </div>
       </article>

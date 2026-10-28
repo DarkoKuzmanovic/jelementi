@@ -35,65 +35,67 @@
       </ol>
     </section>
   {/if}
-  {#if data.series.length > 0}
-    <section class="home-series" aria-label="Series" data-home-tier="series">
-      {#each data.series as series (series.slug)}
-        {@const firstPart = series.parts[0]}
-        {#if firstPart}
-          <article class="home-series__band">
-            <div class="home-series__intro">
-              <p class="home-series__kicker">Series · {series.category}</p>
-              <h2>{series.title}</h2>
-              <p class="home-series__details">
-                {series.parts.length} parts · {series.totalMinutes} min
-              </p>
-            </div>
-            <ol class="home-series__cards" aria-label={`${series.title} parts`}>
-              {#each series.parts as part (part.slug)}
-                <li>
-                  <a href={`/articles/${part.slug}`}>
-                    <img src={part.cover.src} alt="" width="1600" height="900" loading="lazy" />
-                    <span class="home-series__card-meta"
-                      >Part {part.part} · {part.readingTimeMinutes} min</span
+  <div id="series">
+    {#if data.series.length > 0}
+      <section class="home-series" aria-label="Series" data-home-tier="series">
+        {#each data.series as series (series.slug)}
+          {@const firstPart = series.parts[0]}
+          {#if firstPart}
+            <article class="home-series__band">
+              <div class="home-series__intro">
+                <p class="home-series__kicker">Series · {series.category}</p>
+                <h2>{series.title}</h2>
+                <p class="home-series__details">
+                  {series.parts.length} parts · {series.totalMinutes} min
+                </p>
+              </div>
+              <ol class="home-series__cards" aria-label={`${series.title} parts`}>
+                {#each series.parts as part (part.slug)}
+                  <li>
+                    <a href={`/articles/${part.slug}`}>
+                      <img src={part.cover.src} alt="" width="1600" height="900" loading="lazy" />
+                      <span class="home-series__card-meta"
+                        >Part {part.part} · {part.readingTimeMinutes} min</span
+                      >
+                      <span class="home-series__card-title">{seriesPartTitle(series, part)}</span>
+                    </a>
+                  </li>
+                {/each}
+              </ol>
+              <ol
+                class="home-series__covers"
+                aria-label={`${series.title} part covers`}
+                style={`--series-part-count: ${series.parts.length}`}
+              >
+                {#each series.parts as part (part.slug)}
+                  <li>
+                    <a
+                      href={`/articles/${part.slug}`}
+                      aria-label={`Part ${part.part}: ${seriesPartTitle(series, part)}`}
                     >
-                    <span class="home-series__card-title">{seriesPartTitle(series, part)}</span>
-                  </a>
-                </li>
-              {/each}
-            </ol>
-            <ol
-              class="home-series__covers"
-              aria-label={`${series.title} part covers`}
-              style={`--series-part-count: ${series.parts.length}`}
-            >
-              {#each series.parts as part (part.slug)}
-                <li>
-                  <a
-                    href={`/articles/${part.slug}`}
-                    aria-label={`Part ${part.part}: ${seriesPartTitle(series, part)}`}
-                  >
-                    <img src={part.cover.src} alt="" width="1600" height="900" loading="lazy" />
-                  </a>
-                </li>
-              {/each}
-            </ol>
-            <ol class="home-series__mobile-list" aria-label={`${series.title} reading order`}>
-              {#each series.parts as part (part.slug)}
-                <li>
-                  <span class="home-series__part-number">{part.part}</span>
-                  <a href={`/articles/${part.slug}`}>{seriesPartTitle(series, part)}</a>
-                  <span class="home-series__minutes">{part.readingTimeMinutes} min</span>
-                </li>
-              {/each}
-            </ol>
-            <a class="home-series__action" href={`/articles/${firstPart.slug}`}
-              >Start with part 1 →</a
-            >
-          </article>
-        {/if}
-      {/each}
-    </section>
-  {/if}
+                      <img src={part.cover.src} alt="" width="1600" height="900" loading="lazy" />
+                    </a>
+                  </li>
+                {/each}
+              </ol>
+              <ol class="home-series__mobile-list" aria-label={`${series.title} reading order`}>
+                {#each series.parts as part (part.slug)}
+                  <li>
+                    <span class="home-series__part-number">{part.part}</span>
+                    <a href={`/articles/${part.slug}`}>{seriesPartTitle(series, part)}</a>
+                    <span class="home-series__minutes">{part.readingTimeMinutes} min</span>
+                  </li>
+                {/each}
+              </ol>
+              <a class="home-series__action reader-button" href={`/articles/${firstPart.slug}`}
+                >Start with part 1 →</a
+              >
+            </article>
+          {/if}
+        {/each}
+      </section>
+    {/if}
+  </div>
   <aside class="podcast-invitation" aria-labelledby="podcast-heading">
     <div>
       <h2 id="podcast-heading">Prefer to listen?</h2>

@@ -3,6 +3,21 @@ import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
 const representativeCatalogSize = 12;
 
+test('URL query pre-fills and filters after enhancement, with the full no-JS catalog intact', async ({
+  page,
+}, testInfo) => {
+  await page.goto('/search?query=ČAČAK');
+  if (testInfo.project.name.includes('no-js')) {
+    await expect(page.getByRole('article')).toHaveCount(representativeCatalogSize);
+  } else {
+    await expect(page.getByRole('searchbox', { name: 'Search published articles' })).toHaveValue(
+      'ČAČAK',
+    );
+    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(page.getByRole('status')).toHaveText('1 result for “ČAČAK”.');
+  }
+});
+
 test('Search has no serious or critical accessibility violations with or without enhancement', async ({
   browser,
   page,
@@ -102,7 +117,7 @@ test('submission and zero-result recovery keep control with the Search input', a
   await page.goto('/search');
   await expect(page.locator('[data-search-enhanced="true"]')).toBeVisible();
 
-  const search = page.getByRole('search');
+  const search = page.locator('.search-form');
   const input = page.getByRole('searchbox', { name: 'Search published articles' });
   await expect(search.getByRole('button', { name: 'Search' })).toBeVisible();
   await input.fill('no such acceptance article');
@@ -112,7 +127,7 @@ test('submission and zero-result recovery keep control with the Search input', a
   await expect(page.getByRole('article')).toHaveCount(0);
   await expect(page.getByRole('heading', { level: 2, name: 'No articles found' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('0 results for “no such acceptance article”.');
-  await expect(page.getByRole('link', { name: 'Browse Categories' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Browse Sections' })).toHaveAttribute(
     'href',
     '/categories',
   );
