@@ -67,6 +67,43 @@ test('section navigation, data utility strip, compact current state and fallback
   await expect(page.locator('.site-footer a[href="/categories"]')).toBeVisible();
 });
 
+test('compact masthead fits interior routes at the mobile breakpoint boundary', async ({
+  page,
+}) => {
+  for (const width of [901, 960, 961, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/categories/history');
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
+    if (width <= 960) {
+      await expect(page.locator('.mobile-masthead')).toBeVisible();
+      await expect(page.locator('.site-header__inner')).toBeHidden();
+    } else {
+      const search = page.getByRole('search', { name: 'Navigation search' });
+      await expect(search).toBeVisible();
+      const bounds = await search.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    }
+  }
+});
+
+test('masthead search replaces an already hydrated search query', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/search?query=blue');
+  const input = page.getByRole('searchbox', { name: 'Search published articles' });
+  await expect(input).toHaveValue('blue');
+  await expect(page.getByRole('status')).toContainText('“blue”');
+
+  const masthead = page.getByRole('search', { name: 'Navigation search' });
+  await masthead.getByRole('searchbox').fill('history');
+  await masthead.getByRole('button', { name: 'Find stories' }).click();
+  await expect(page).toHaveURL(/\/search\?query=history$/);
+  await expect(input).toHaveValue('history');
+  await expect(page.getByRole('status')).toContainText('“history”');
+  await expect(page.getByRole('article')).not.toHaveCount(0);
+});
+
 test('smokes the complete canonical generated Reader inventory independently of fixtures', async ({
   page,
 }) => {

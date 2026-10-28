@@ -218,7 +218,7 @@
 .reader-button:hover {
   text-decoration: underline;
 }
-@media (max-width: 1250px) and (min-width: 901px) {
+@media (max-width: 1250px) and (min-width: 961px) {
   .site-header__inner,
   .nav-sections,
   .nav-tools {
@@ -231,7 +231,7 @@
     width: 150px;
   }
 }
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .site-utility,
   .home-masthead,
   .compact-brand,

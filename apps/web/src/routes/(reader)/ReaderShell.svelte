@@ -88,6 +88,7 @@
           aria-label="Navigation search"
           action="/search"
           method="get"
+          data-sveltekit-reload
         >
           <button type="submit" aria-label="Find stories">{@render searchIcon()}</button>
           <input
