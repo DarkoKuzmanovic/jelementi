@@ -7,13 +7,7 @@
   --type-article-title: 72px/76px;
   --type-lead-title: 56px/60px;
   --type-page-title: 72px;
-  --type-section-heading: 36px;
-  --type-card-title: 22px/26px;
-  --type-shelf-title: 20px/24px;
-  --type-list-title: 26px/31px;
   --type-body: 20px/33px;
-  --type-article-deck: 22px/33px;
-  --type-lead-deck: 19px/29px;
   --type-pull-quote: 32px/41px;
   --type-story-heading: 34px/40px;
 }
@@ -301,6 +295,72 @@
   }
 }
 
+/* List rows share the card's text, metadata and interaction styles. */
+@media (min-width: 601px) {
+  .list-item:not(.list-item--card) > article.card {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    column-gap: 32px;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .list-item:not(.list-item--card) article img {
+    grid-row: 1 / 5;
+    width: 220px;
+    height: 147px;
+  }
+  .list-item:not(.list-item--card) article .title {
+    font-size: 26px;
+    line-height: 31px;
+  }
+}
+@media (max-width: 600px) {
+  .list-item > article.card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    gap: 6px 16px;
+    align-content: center;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .list-item article img {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    width: 96px;
+    height: 96px;
+    margin: 0;
+    border-radius: 3px;
+    align-self: center;
+  }
+  .list-item article .title {
+    font-size: 20px;
+    line-height: 24px;
+  }
+  .list-item article :is(.deck, time, .meta > span),
+  .list-item--card article .reader-kicker {
+    display: none;
+  }
+  .list-item--card > article.card {
+    grid-template-columns: minmax(0, 1fr) 104px;
+    column-gap: 14px;
+    padding: 0;
+    border: 0;
+  }
+  .list-item--card article img {
+    grid-row: 1 / 3;
+    width: 104px;
+    height: 104px;
+  }
+  .list-item--card article .meta {
+    align-self: start;
+  }
+  .list-item--card article .title {
+    align-self: end;
+    font-size: 21px;
+    line-height: 25px;
+  }
+}
+
 /* Home body: second-edition boards 01 / 03. */
 .reader-home .layout {
   width: 100%;
@@ -380,7 +440,8 @@
   gap: 32px;
   padding-block: 24px 72px;
 }
-.home-section-heading {
+.home-section-heading,
+.article-keep-reading__heading {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -951,7 +1012,7 @@
 
 .article-summary {
   display: flex;
-  flex-direction: var(--summary-flow, row-reverse);
+  flex-direction: row-reverse;
   align-items: flex-start;
   gap: var(--summary-gap, 2rem);
   min-width: 0;
@@ -982,34 +1043,13 @@
   font-size: 1rem;
   line-height: 1.55;
 }
-.article-summary__meta,
-.article-summary__eyebrow,
-.article-summary__date {
+.article-summary__meta {
   margin: 0 0 0.75rem;
   color: var(--muted);
   font-size: 0.8125rem;
 }
-.article-summary__category,
-.article-summary__eyebrow {
+.article-summary__category {
   color: var(--blue);
-}
-.article-summary--lead {
-  --summary-flow: row;
-  --summary-image: 58%;
-  --summary-gap: 3rem;
-  --summary-title: clamp(2.25rem, 4vw, 3.5rem);
-}
-.article-summary--lead .article-summary__excerpt {
-  font-family: var(--font-serif);
-  font-size: 1.125rem;
-}
-.article-summary__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: center;
-  margin: 1rem 0;
-  font-size: 0.875rem;
 }
 .search .search__intro {
   margin-bottom: 32px;
@@ -1211,20 +1251,12 @@
   .category-entry--illustrated {
     grid-template-columns: minmax(0, 1fr);
   }
-  .article-summary--lead {
-    --summary-flow: column;
-    --summary-image: 100%;
-    --summary-title: 40px;
-    --summary-gap: 24px;
-  }
 }
 @media (max-width: 600px) {
   .reader-surface {
     --type-article-title: 40px/42px;
     --type-lead-title: 36px/39px;
     --type-page-title: 44px;
-    --type-section-heading: 26px;
-    --type-list-title: 20px/24px;
     --type-body: 18px/30px;
     --type-pull-quote: 24px/31px;
     --type-story-heading: 26px/31px;

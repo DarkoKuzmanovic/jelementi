@@ -72,6 +72,30 @@ test('reader-owned fragments resolve to exact targets beside colliding authored 
   }
 });
 
+test('narrow rich headings keep emphasis and links in one sentence flow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/articles/acceptance-rich-column');
+  const heading = page.locator('#rich-inline-heading');
+  await expect(heading.locator('em')).toHaveText('an emphasized phrase');
+  await expect(heading.getByRole('link')).toHaveAttribute('href', 'https://example.com/heading');
+  const layout = await heading.evaluate((node) => {
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    let first: Node | null;
+    while ((first = walker.nextNode()) && !first.textContent?.startsWith('Before')) {}
+    const range = document.createRange();
+    range.setStart(first!, 0);
+    range.setEnd(first!, 6);
+    const before = [...range.getClientRects()];
+    const em = node.querySelector('em')!.getClientRects()[0]!;
+    return {
+      beforeLines: before.length,
+      sameLine: Math.abs(before[0]!.top - em.top) < 3,
+      overflow: node.scrollWidth > node.clientWidth,
+    };
+  });
+  expect(layout).toEqual({ beforeLines: 1, sameLine: true, overflow: false });
+});
+
 test('sources expose authored numbers and domains, then reveal later references natively', async ({
   page,
 }) => {
@@ -107,6 +131,9 @@ test('sources expose authored numbers and domains, then reveal later references 
     fontWeight: '500',
   });
   await summary.click();
+  expect(
+    await details.locator('.article-sources').evaluate((el) => getComputedStyle(el).marginTop),
+  ).toBe('28px');
   await expect(sources.locator('.article-source__number').last()).toHaveText('11');
   await expect(sources.getByRole('link', { name: 'Reader acceptance source 11' })).toBeVisible();
 });
@@ -208,7 +235,7 @@ test('continuation offers three next-older category cards and never wraps', asyn
   const nav = page.getByRole('navigation', { name: 'Continue reading' });
   await page.goto('/articles/acceptance-rich-column');
   await expect(nav.getByRole('heading', { name: 'Keep reading in Field Notes' })).toBeVisible();
-  await expect(nav.locator('.article-keep-reading__cards > article')).toHaveCount(3);
+  await expect(nav.locator('.article-keep-reading__cards article')).toHaveCount(3);
   await expect(nav.getByRole('link', { name: 'The Middle Field Note' })).toHaveAttribute(
     'href',
     '/articles/acceptance-field-middle',
@@ -219,8 +246,34 @@ test('continuation offers three next-older category cards and never wraps', asyn
   );
   await page.goto('/articles/acceptance-field-oldest');
   await expect(nav.getByRole('link', { name: 'All Field Notes →' })).toBeVisible();
-  await expect(nav.locator('.article-keep-reading__cards > article')).toHaveCount(0);
+  await expect(nav.locator('.article-keep-reading__cards article')).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(nav.getByRole('link', { name: 'All Field Notes →' })).toBeVisible();
 });
+test('mobile Keep reading uses compact rows with read time and right-hand square covers', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/articles/acceptance-rich-column');
+  const section = page.locator('.article-keep-reading');
+  await expect(section.getByRole('link', { name: 'All Field Notes →' })).toBeHidden();
+  const row = section.locator('article').first();
+  const image = await row.locator('img').boundingBox();
+  const title = await row.getByRole('heading').boundingBox();
+  expect(image!.width).toBe(104);
+  expect(image!.height).toBe(104);
+  expect(image!.x).toBeGreaterThan(title!.x + title!.width);
+  await expect(row.locator('.deck')).toBeHidden();
+  await expect(row.locator('.meta')).toContainText('min read');
+  const meta = await row.locator('.meta').boundingBox();
+  expect(
+    Math.abs((title!.y + meta!.y + meta!.height) / 2 - (image!.y + image!.height / 2)),
+  ).toBeLessThan(1);
+  expect(await section.locator('h2').evaluate((el) => getComputedStyle(el).textTransform)).toBe(
+    'uppercase',
+  );
+});
+
 test('series articles show linked route discs, adjacent cards and complete endings', async ({
   page,
 }) => {

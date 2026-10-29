@@ -3,7 +3,7 @@
   import { categorySlug } from '@jelementi/article-model';
   import { categoryHue } from '../reader/category-hues';
   import Kicker from '../reader/Kicker.svelte';
-  import Card from '../reader/Card.svelte';
+  import ListItem from '../reader/ListItem.svelte';
   import { seriesPartTitle, type SeriesProjection } from '../series/series-projection';
   let {
     article,
@@ -102,7 +102,11 @@
       <a href={`/categories/${categorySlug(article.category)}`}>All {article.category} →</a>
     </div>
     <div class="article-keep-reading__cards">
-      {#each stories as story (story.slug)}<Card article={story} showDeck headingLevel={3} />{/each}
+      {#each stories as story (story.slug)}<ListItem
+          article={story}
+          cardDesktop
+          headingLevel={3}
+        />{/each}
     </div>
   </section>
 </nav>

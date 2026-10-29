@@ -42,7 +42,16 @@
     <li class="article-source" id={`reader:source:${index + 1}`}>
       <span class="article-source__number">{number}</span>
       <div class="article-source__content">
-        <a class="article-source__title" href={reference.url} aria-label={title}>{title}</a>
+        <!-- shortcut: source titles use paired single-asterisk emphasis only; extend if authored titles add other Markdown. -->
+        <a
+          class="article-source__title"
+          href={reference.url}
+          aria-label={title.replace(/\*([^*]+)\*/g, '$1')}
+        >
+          {#each title.split(/(\*[^*]+\*)/g) as part, partIndex (partIndex)}{#if partIndex % 2 === 1}<em
+                >{part.slice(1, -1)}</em
+              >{:else}{part}{/if}{/each}
+        </a>
         <p class="article-source__domain">
           <span>{domain}</span>
           {#if reference.publisher}<span> · {reference.publisher}</span>{/if}

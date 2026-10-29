@@ -45,11 +45,7 @@
   {#if article.audio}
     <a class="article-listen" href={`#${articleAudioAnchor}`}>
       <span class="article-listen__play" aria-hidden="true">▶</span>
-      <span>{current ? `Listen to part ${current.part}` : 'Listen to this story'}</span><span
-        aria-hidden="true"
-      >
-        ·
-      </span>
+      <span>{current ? `Listen to part ${current.part}` : 'Listen to this story'}</span>
       {#if article.audio.durationSeconds !== undefined}<span class="article-listen__duration"
           >{Math.floor(article.audio.durationSeconds / 60)}:{String(
             article.audio.durationSeconds % 60,

@@ -127,7 +127,10 @@ describe('generated reader routes', () => {
     }
   });
   it('renders scannable source numbering and cleaned domains in the generated article route', () => {
-    const body = renderFragmentArticle(compileFragmentArticle('A source-backed passage.'));
+    const body = renderFragmentArticle(compileFragmentArticle('A source-backed passage.')).replace(
+      /<!--.*?-->/g,
+      '',
+    );
 
     expect(body).toContain('<span class="article-source__number">7</span>');
     expect(body).toContain(
@@ -169,7 +172,7 @@ describe('generated reader routes', () => {
     expect(mainId).toBeTruthy();
     expect(body).toContain(`href="#${mainId}"`);
     expect(body.match(new RegExp(`id="${mainId}"`, 'g'))).toHaveLength(1);
-    expect(body).toMatch(/<h2 id="main-content">(?:<!--[\s\S]*?-->)*Main content/);
+    expect(body).toMatch(/<h2 id="main-content"><span>(?:<!--[\s\S]*?-->)*Main content/);
   });
   it('separates compiled footnote definitions, references, and heading targets', () => {
     const article =

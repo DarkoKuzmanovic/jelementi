@@ -6,6 +6,33 @@ import ArticleRenderer from './ArticleRenderer.svelte';
 const article = loadReaderAcceptanceContent('representative').articles['acceptance-rich-column']!;
 
 describe('second edition article', () => {
+  it('preserves unmatched star runs between source-title emphasis', () => {
+    const document = {
+      ...article,
+      references: [{ title: '*a*****b*', url: 'https://example.com' }],
+    };
+    const html = render(ArticleRenderer, { props: { document } }).body.replace(/<!--.*?-->/g, '');
+    expect(html).toContain('<em>a</em>***<em>b</em>');
+    expect(html).toContain('aria-label="a***b"');
+  });
+  it('renders source-title emphasis as text-safe inline emphasis without changing metadata', () => {
+    const document = {
+      ...article,
+      references: [
+        {
+          title: '[3] An author, *Journal & <script>*, 2020',
+          url: 'https://example.com/paper',
+          publisher: 'Publisher',
+        },
+        { title: 'A plain title with an unmatched *', url: 'https://example.com/plain' },
+      ],
+    };
+    const html = render(ArticleRenderer, { props: { document } }).body.replace(/<!--.*?-->/g, '');
+    expect(html).toContain('An author, <em>Journal &amp; &lt;script></em>, 2020</a>');
+    expect(html).not.toContain('aria-label="An author, *');
+    expect(html).toContain('A plain title with an unmatched *');
+    expect(html).toContain('Publisher');
+  });
   it('links a timed listen pill to native audio, omitting it without audio', () => {
     const html = render(ArticleRenderer, { props: { document: article } }).body;
     expect(html).toMatch(/href="#reader:audio"[^>]*>[\s\S]*?Listen to this story/);

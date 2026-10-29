@@ -133,7 +133,7 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('<code>code</code>');
     expect(body).toContain('<s>struck</s>');
     expect(body).toContain('href="#reader:footnote:quiet-note"');
-    expect(body).toContain('<h2 id="quiet-heading">A heading</h2>');
+    expect(body).toContain('<h2 id="quiet-heading"><span>A heading</span></h2>');
     expect(body).toContain('alt="A wide fixture landscape"');
     expect(body).toContain('A caption with');
     expect(body).toContain('<ol>');
@@ -165,7 +165,7 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     }));
     const body = render(ArticleRenderer, {
       props: { document: { ...document, references } },
-    }).body;
+    }).body.replace(/<!--.*?-->/g, '');
     const initialSources = body.match(
       /<ol class="article-sources" role="list">([\s\S]*?)<\/ol>/,
     )?.[1];

@@ -62,6 +62,21 @@ const richDocument = ArticleDocumentSchema.parse({
       children: [text('A representative heading')],
     },
     {
+      type: 'heading',
+      level: 2,
+      id: 'rich-inline-heading',
+      children: [
+        text('Before '),
+        { type: 'text', value: 'an emphasized phrase', marks: ['emphasis'] },
+        text(' after '),
+        {
+          type: 'link',
+          href: 'https://example.com/heading',
+          children: [text('the linked phrase')],
+        },
+      ],
+    },
+    {
       type: 'image',
       src: `${mediaOrigin}wide-image.webp`,
       alt: 'A wide deterministic fixture landscape',
