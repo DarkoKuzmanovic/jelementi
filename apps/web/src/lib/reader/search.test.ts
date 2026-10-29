@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SearchTextSchema } from '@jelementi/article-model';
+import { normalizeSearchText, SearchTextSchema } from '@jelementi/article-model';
+import { filterArticles } from '../generated-content';
 import { highlightText, storySnippet, popularTags, validateSearchText } from './search';
 
 describe('search text boundary', () => {
@@ -28,6 +29,37 @@ describe('text-node search highlighting', () => {
       { text: '.', match: false },
     ]);
   });
+  it.each([
+    ['ΛΟΓΟΣ', 'λογος'],
+    ['ΟΣ ΟΣΑ', 'ος οσα'],
+    ['İ', 'i'],
+    ['𐐀', '𐐨'],
+    ['C\u030cačak', 'cacak'],
+  ])('agrees with filtering and snippets for %s', (word, query) => {
+    const body = `A stone says ${word}.`;
+    const article = {
+      slug: 'inscription',
+      title: 'A stone',
+      excerpt: 'A rock.',
+      category: 'History',
+      categorySlug: 'history',
+      tags: [],
+      author: 'Jelementi',
+      publishedAt: '2026-07-26',
+      updatedAt: '2026-07-26',
+      cover: { src: 'https://media.example.test/cover.webp', alt: 'Stone' },
+      readingTimeMinutes: 1,
+      searchText: normalizeSearchText(body),
+    };
+    expect(filterArticles([article], query)).toEqual([article]);
+    expect(
+      highlightText(body, query)
+        .filter((run) => run.match)
+        .map((run) => run.text)
+        .join(' '),
+    ).toBe(word);
+    expect(storySnippet(article, body, query)).toBe(body);
+  });
   it('merges overlaps and preserves literal markup as text', () => {
     expect(highlightText('<script>banana</script>', 'ana banana')).toEqual([
       { text: '<script>', match: false },
@@ -52,6 +84,17 @@ describe('story snippets', () => {
     expect(snippet!.length).toBeGreaterThan(85);
     expect(snippet!.length).toBeLessThan(125);
   });
+  it('keeps ordinary context inside its character budget at complete word boundaries', () => {
+    const body =
+      'Opening words '.repeat(9) +
+      'The Vinča settlement has a Blue river. ' +
+      'Closing words '.repeat(9);
+    const snippet = storySnippet(article, body, 'vinca')!;
+    expect(snippet.length).toBeLessThanOrEqual(112);
+    expect(snippet).toContain('Vinča');
+    expect(snippet).toMatch(/^…(?:Opening|words|The)/);
+    expect(snippet).toMatch(/(?:Closing|words|river\.)…$/);
+  });
   it('uses the shorter mobile context without splitting words', () => {
     const body =
       'Opening words '.repeat(9) +
@@ -73,6 +116,8 @@ describe('story snippets', () => {
       'Vinča is beside the river.',
     );
     expect(storySnippet(article, 'x'.repeat(130), 'x'.repeat(120))).toBe('x'.repeat(130));
+    const longWord = `${'x'.repeat(70)}Vinča`;
+    expect(storySnippet(article, `${longWord} ends.`, 'vinca')).toBe(`${longWord} ends.`);
   });
 });
 

@@ -34,16 +34,15 @@ export function highlightText(text: string, query: string): HighlightRun[] {
   const positions: { start: number; end: number }[] = [];
   let offset = 0;
   for (const char of text) {
-    const value = char
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
+    const value = char.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     for (let i = 0; i < value.length; i++)
       positions.push({ start: offset, end: offset + char.length });
     if (!value && positions.length) positions[positions.length - 1]!.end = offset + char.length;
     folded += value;
     offset += char.length;
   }
+  // Whole-string casing preserves contextual sigma; NFD stripping removes expanding İ first.
+  folded = folded.toLowerCase();
   const ranges: { start: number; end: number }[] = [];
   for (const term of terms) {
     for (let i = folded.indexOf(term); i !== -1; i = folded.indexOf(term, i + 1)) {
@@ -85,8 +84,11 @@ export function storySnippet(
   const hit = runs.slice(0, match).reduce((length, run) => length + run.text.length, 0);
   const before = Math.round(length * 0.47);
   let start = Math.max(0, hit - before);
-  while (start > 0 && !/\s/.test(body[start - 1]!)) start--;
-  let end = Math.min(body.length, Math.max(hit + length - before, hit + runs[match]!.text.length));
+  while (start < hit && start > 0 && !/\s/.test(body[start - 1]!)) start++;
+  if (start === hit) while (start > 0 && !/\s/.test(body[start - 1]!)) start--;
+  const matchEnd = hit + runs[match]!.text.length;
+  let end = Math.min(body.length, Math.max(hit + length - before, matchEnd));
+  while (end > matchEnd && end < body.length && !/\s/.test(body[end]!)) end--;
   while (end < body.length && !/\s/.test(body[end]!)) end++;
   return `${start ? '…' : ''}${body.slice(start, end).trim()}${end < body.length ? '…' : ''}`;
 }

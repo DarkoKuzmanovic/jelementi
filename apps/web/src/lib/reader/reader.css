@@ -305,7 +305,7 @@
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
     column-gap: 32px;
-    padding: 28px 0;
+    padding: 29px 0;
     border-bottom: 1px solid var(--rule);
   }
   .list-item:not(.list-item--card, .list-item--grid) article img {
