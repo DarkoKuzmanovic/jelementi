@@ -67,6 +67,8 @@ export interface UploadMediaOptions {
 
 export interface VerifyMediaOptions {
   fetch: MediaFetch;
+  // A transient network error (fetch throws) is retried; any HTTP response is not.
+  retryDelayMs?: number;
 }
 
 export interface VerifyPublishedMediaOptions extends VerifyMediaOptions {
@@ -75,6 +77,29 @@ export interface VerifyPublishedMediaOptions extends VerifyMediaOptions {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+const mediaRequestAttempts = 3;
+const defaultRetryDelayMs = 500;
+
+async function fetchWithRetry(
+  fetch: MediaFetch,
+  url: string,
+  options: MediaFetchOptions,
+  retryDelayMs: number,
+): Promise<MediaResponse> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await fetch(url, options);
+    } catch (error: unknown) {
+      // Only a thrown error is a network failure; an HTTP response, however
+      // wrong, is a real failure and must not be retried.
+      if (attempt >= mediaRequestAttempts) throw error;
+      if (retryDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs * attempt));
+      }
+    }
+  }
 }
 
 function mediaError(url: string, invariant: string): Error {
@@ -239,12 +264,15 @@ async function assertSingleByteRangeBody(url: string, response: MediaResponse): 
   if (failure !== undefined) throw failure;
 }
 
-export async function verifyMediaUrl(url: string, { fetch }: VerifyMediaOptions): Promise<void> {
+export async function verifyMediaUrl(
+  url: string,
+  { fetch, retryDelayMs = defaultRetryDelayMs }: VerifyMediaOptions,
+): Promise<void> {
   const parsedUrl = assertProductionMediaUrl(url);
   const mimeType = expectedMimeType(parsedUrl);
   let head: MediaResponse;
   try {
-    head = await fetch(url, { method: 'HEAD', redirect: 'manual' });
+    head = await fetchWithRetry(fetch, url, { method: 'HEAD', redirect: 'manual' }, retryDelayMs);
   } catch (error: unknown) {
     throw mediaError(url, `HEAD request failed: ${errorMessage(error)}`);
   }
@@ -260,11 +288,12 @@ export async function verifyMediaUrl(url: string, { fetch }: VerifyMediaOptions)
   // support with a single-byte probe instead of downloading the whole object.
   let range: MediaResponse;
   try {
-    range = await fetch(url, {
-      method: 'GET',
-      headers: { Range: 'bytes=0-0' },
-      redirect: 'manual',
-    });
+    range = await fetchWithRetry(
+      fetch,
+      url,
+      { method: 'GET', headers: { Range: 'bytes=0-0' }, redirect: 'manual' },
+      retryDelayMs,
+    );
   } catch (error: unknown) {
     throw mediaError(url, `byte-range request failed: ${errorMessage(error)}`);
   }
@@ -367,8 +396,9 @@ export function collectMediaUrls(batch: ContentBatch): string[] {
 export async function verifyPublishedMedia({
   batch,
   fetch,
+  retryDelayMs,
 }: VerifyPublishedMediaOptions): Promise<void> {
   for (const url of collectMediaUrls(batch)) {
-    await verifyMediaUrl(url, { fetch });
+    await verifyMediaUrl(url, { fetch, ...(retryDelayMs === undefined ? {} : { retryDelayMs }) });
   }
 }
