@@ -101,6 +101,7 @@ function renderFragmentArticle(article: ArticleDocument): string {
       data: {
         topics: [],
         storyCount: 0,
+        categoryCount: 0,
         newestPublishedAt: undefined,
         article,
         contentVersion: 'version',
@@ -215,6 +216,7 @@ describe('generated reader routes', () => {
         data: {
           topics: [],
           storyCount: 0,
+          categoryCount: 0,
           newestPublishedAt: undefined,
           article,
           contentVersion: 'version',
@@ -265,6 +267,7 @@ describe('generated reader routes', () => {
         data: {
           topics: [],
           storyCount: 0,
+          categoryCount: 0,
           newestPublishedAt: undefined,
           article,
           contentVersion: 'version',
@@ -325,6 +328,7 @@ describe('generated reader routes', () => {
         data: {
           topics: [],
           storyCount: 0,
+          categoryCount: 0,
           newestPublishedAt: undefined,
           article,
           contentVersion,
@@ -345,6 +349,7 @@ describe('generated reader routes', () => {
         data: {
           topics: [],
           storyCount: 0,
+          categoryCount: 0,
           newestPublishedAt: undefined,
           article,
           contentVersion,

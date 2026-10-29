@@ -4,7 +4,7 @@ test('loads the representative fixture through the real static Reader routes', a
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Jelementi' })).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Čačak Field Notes: Every Reader Structure' }),
+    page.getByRole('link', { name: 'Čačak Field Notes: Every Reader Structure', exact: true }),
   ).toBeVisible();
 
   await page.goto('/categories/field-notes');

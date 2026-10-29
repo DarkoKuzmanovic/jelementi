@@ -2,158 +2,94 @@ import { describe, expect, it } from 'vitest';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
 import { projectHomeCatalog } from './home-catalog';
 
-function article(
-  slug: string,
-  publishedAt: string,
-  category = 'Field Notes',
-  categorySlug = 'field-notes',
-): ArticleIndexEntry {
+function article(n: number, category = 'History'): ArticleIndexEntry {
   return {
-    slug,
-    title: `Title ${slug}`,
-    excerpt: `Excerpt ${slug}`,
-    publishedAt,
-    updatedAt: publishedAt,
+    slug: `story-${String(n).padStart(2, '0')}`,
+    title: `Story ${n}`,
+    excerpt: `Excerpt ${n}`,
+    publishedAt: `2026-08-${String(28 - n).padStart(2, '0')}`,
+    updatedAt: '2026-08-28',
     category,
-    categorySlug,
+    categorySlug: category.toLowerCase(),
     tags: [],
     author: 'Jelementi',
-    cover: { src: `https://example.test/${slug}.webp`, alt: `Cover ${slug}` },
+    cover: { src: `https://example.test/${n}.webp`, alt: `Cover ${n}` },
     readingTimeMinutes: 3,
-    searchText: slug,
+    searchText: `${n}`,
   };
 }
 
 describe('Home catalog projection', () => {
-  it('orders the lead and recent tiers by publication date with deterministic slug ties', () => {
-    const input = [
-      article('older-b', '2026-08-01'),
-      article('recent-c', '2026-08-15'),
-      article('newest', '2026-08-18'),
-      article('older-a', '2026-08-01'),
-      article('recent-a', '2026-08-16'),
-      article('recent-b', '2026-08-15'),
-    ];
-
-    const projected = projectHomeCatalog(input);
-
-    expect(projected.lead?.slug).toBe('newest');
-    expect(projected.recent.map(({ slug }) => slug)).toEqual(['recent-a', 'recent-b', 'recent-c']);
-    expect(
-      projected.shelves.map(({ category, categorySlug, total, entries }) => ({
-        category,
-        categorySlug,
-        total,
-        entries: entries.map((entry) =>
-          entry.kind === 'article' ? entry.article.slug : entry.title,
-        ),
-      })),
-    ).toEqual([
-      {
-        category: 'Field Notes',
-        categorySlug: 'field-notes',
-        total: 6,
-        entries: ['older-a', 'older-b'],
-      },
-    ]);
-    expect(input.map(({ slug }) => slug)).toEqual([
-      'older-b',
-      'recent-c',
-      'newest',
-      'older-a',
-      'recent-a',
-      'recent-b',
-    ]);
-  });
-
-  it('excludes lead and recent, follows directory ordering, caps shelves, and omits empty categories', () => {
-    const input = [
-      article('history-old', '2026-08-11', 'History', 'history'),
-      article('place-old', '2026-08-14', 'Places', 'places'),
-      article('lead-place', '2026-08-18', 'Places', 'places'),
-      article('science-fourth', '2026-08-08', 'Science', 'science'),
-      article('science-new', '2026-08-13', 'Science', 'science'),
-      article('recent-solo', '2026-08-15', 'Solo', 'solo'),
-      article('place-older', '2026-08-09', 'Places', 'places'),
-      article('recent-history', '2026-08-17', 'History', 'history'),
-      article('science-third', '2026-08-10', 'Science', 'science'),
-      article('recent-place', '2026-08-16', 'Places', 'places'),
-      article('science-middle', '2026-08-12', 'Science', 'science'),
-    ];
-
-    const projected = projectHomeCatalog(input);
-
-    expect(projected.lead?.slug).toBe('lead-place');
-    expect(projected.recent.map(({ slug }) => slug)).toEqual([
-      'recent-history',
-      'recent-place',
-      'recent-solo',
-    ]);
-    expect(
-      projected.shelves.map(({ category, total, entries }) => [
-        category,
-        total,
-        entries.map((entry) => (entry.kind === 'article' ? entry.article.slug : entry.title)),
-      ]),
-    ).toEqual([
-      ['Places', 4, ['place-old', 'place-older']],
-      ['Science', 4, ['science-new', 'science-middle', 'science-third']],
-      ['History', 2, ['history-old']],
-    ]);
-    expect(
-      projected.shelves.flatMap(({ entries }) =>
-        entries.map((entry) => (entry.kind === 'article' ? entry.article.slug : entry.title)),
-      ),
-    ).not.toContain('lead-place');
-    expect(
-      projected.shelves.flatMap(({ entries }) =>
-        entries.map((entry) => (entry.kind === 'article' ? entry.article.slug : entry.title)),
-      ),
-    ).not.toContain('recent-place');
-  });
-
-  it('collapses remaining series parts to one shelf entry without changing article counts', () => {
-    const seriesPart = (slug: string, publishedAt: string, part: number) => ({
-      ...article(slug, publishedAt),
-      series: { slug: 'ridge', title: 'Ridge', part },
+  it('selects the newest lead, next seven stories, and non-repeating shelves without mutating input', () => {
+    const input = Array.from({ length: 15 }, (_, n) => article(n));
+    const reversed = [...input].reverse();
+    const home = projectHomeCatalog(reversed);
+    expect(home.lead).toEqual(input[0]);
+    expect(home.recent).toEqual(input.slice(1, 8));
+    expect(home.shelves[0]).toMatchObject({
+      total: 15,
+      compact: false,
+      entries: input.slice(8, 11),
     });
-    const projected = projectHomeCatalog([
-      article('lead', '2026-08-18'),
-      article('recent-a', '2026-08-17'),
-      article('recent-b', '2026-08-16'),
-      article('recent-c', '2026-08-15'),
-      seriesPart('ridge-1', '2026-08-12', 1),
-      seriesPart('ridge-2', '2026-08-13', 2),
-      seriesPart('ridge-3', '2026-08-14', 3),
-    ]);
-
-    expect(projected.shelves[0]?.total).toBe(7);
-    expect(projected.shelves[0]?.entries).toMatchObject([
-      {
-        kind: 'series',
-        href: 'ridge-1',
-        title: 'Ridge · series in 3 parts',
-        cover: { src: 'https://example.test/ridge-3.webp' },
-        readingTimeMinutes: 9,
-      },
-    ]);
+    const slugs = [
+      home.lead!,
+      ...home.recent,
+      ...home.shelves.flatMap((shelf) => shelf.entries),
+    ].map((a) => a.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+    expect(reversed).toEqual([...input].reverse());
   });
 
-  it('omits empty lead/recent and shelf tiers for sparse catalogs', () => {
-    const sparse = projectHomeCatalog([article('only', '2026-08-18')]);
-    expect(sparse.lead?.slug).toBe('only');
-    expect(sparse.recent).toEqual([]);
-    expect(sparse.shelves).toEqual([]);
+  it('breaks date ties by slug, independent of updatedAt', () => {
+    const a = article(0),
+      b = { ...article(1), publishedAt: a.publishedAt, updatedAt: '2030-01-01' };
+    expect(projectHomeCatalog([b, a]).lead).toEqual(a);
+  });
 
-    const intermediateInput = [
-      article('second', '2026-08-17'),
-      article('fourth', '2026-08-15'),
-      article('first', '2026-08-18'),
-      article('third', '2026-08-16'),
-    ];
-    const intermediate = projectHomeCatalog(intermediateInput);
-    expect(intermediate.lead?.slug).toBe('first');
-    expect(intermediate.recent.map(({ slug }) => slug)).toEqual(['second', 'third', 'fourth']);
-    expect(intermediate.shelves).toEqual([]);
+  it('uses category totals for the big three/small split, caps small shelves at two and omits exhausted categories', () => {
+    const newest = Array.from({ length: 8 }, (_, n) => article(n, 'Exhausted'));
+    const rest = ['Places', 'Science', 'History', 'Nature'].flatMap((cat, i) =>
+      Array.from({ length: 4 - i }, (_, n) => ({ ...article(8 + n, cat), slug: `${cat}-${n}` })),
+    );
+    const home = projectHomeCatalog([...newest, ...rest]);
+    expect(home.shelves.map((s) => [s.category, s.compact, s.entries.length])).toEqual([
+      ['Places', false, 3],
+      ['Science', false, 3],
+      ['History', true, 2],
+      ['Nature', true, 1],
+    ]);
+    expect(home.shelves.some((s) => s.category === 'Exhausted')).toBe(false);
+  });
+
+  it('features only the newest series and excludes its parts from shelves', () => {
+    const parts = [article(10, 'Places'), article(11, 'Places')].map((a, i) => ({
+      ...a,
+      series: { slug: 'ridge', title: 'Ridge', part: i + 1 },
+    }));
+    const older = [article(12, 'Places'), article(13, 'Places')].map((a, i) => ({
+      ...a,
+      series: { slug: 'valley', title: 'Valley', part: i + 1 },
+    }));
+    const home = projectHomeCatalog([
+      ...Array.from({ length: 8 }, (_, n) => article(n)),
+      ...parts,
+      ...older,
+    ]);
+    expect(home.series?.slug).toBe('ridge');
+    expect(home.series?.totalMinutes).toBe(6);
+    expect(home.shelves.flatMap((s) => s.entries).map((a) => a.slug)).not.toEqual(
+      expect.arrayContaining(parts.map((a) => a.slug)),
+    );
+    expect(home.shelves.flatMap((s) => s.entries)).toEqual(older);
+  });
+
+  it('leaves no empty tiers for empty, sparse or intermediate catalogs', () => {
+    for (const count of [0, 1, 4]) {
+      const home = projectHomeCatalog(Array.from({ length: count }, (_, n) => article(n)));
+      expect(home.lead?.slug).toBe(count ? 'story-00' : undefined);
+      expect(home.recent).toHaveLength(Math.max(0, count - 1));
+      expect(home.shelves).toEqual([]);
+      expect(home.series).toBeUndefined();
+    }
   });
 });
