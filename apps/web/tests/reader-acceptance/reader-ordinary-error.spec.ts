@@ -16,6 +16,8 @@ test('ordinary errors use the normal shell and expose Try again only when retry 
   ).toBeVisible();
   await expect(page.getByText(/ReaderAcceptanceInternalUnbroken/)).toHaveCount(0);
 
+  await expect(page.getByRole('main').getByRole('search')).toHaveCount(0);
+  await expect(page.getByText('Something went wrong', { exact: true })).toBeVisible();
   const recovery = page.getByRole('navigation', { name: 'Error recovery' });
   await expect(recovery.getByRole('link', { name: 'Home', exact: true })).toHaveAttribute(
     'href',

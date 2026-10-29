@@ -14,6 +14,16 @@ describe('AboutContent', () => {
     expect(body).not.toMatch(/mailto:|tel:|@jelementi/i);
   });
 
+  it('renders publication facts from the supplied catalog counts and real feed routes', () => {
+    const { body } = render(AboutContent, { props: { storyCount: 37, categoryCount: 5 } });
+    expect(body).toContain('37 in five sections');
+    expect(body).toContain('Stories');
+    expect(body).toContain('Listen');
+    expect(body).toContain('Follow');
+    expect(body).toContain('href="/podcast.xml"');
+    expect(body).toContain('href="/feed.xml"');
+  });
+
   it('renders optional ownership and contact facts only when verified values are supplied', () => {
     const { body } = render(AboutContent, {
       props: {
