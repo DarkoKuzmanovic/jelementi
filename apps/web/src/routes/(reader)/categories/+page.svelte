@@ -50,7 +50,11 @@
             >
           </p>
         </div>
-        <a class="sec-cover" href={`/categories/${category.slug}`}>
+        <a
+          class="sec-cover"
+          href={`/categories/${category.slug}`}
+          aria-label={`Browse ${category.name}`}
+        >
           <img
             src={category.newest.cover.src}
             alt={category.newest.cover.alt}

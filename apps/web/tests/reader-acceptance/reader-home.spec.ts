@@ -3,6 +3,21 @@ import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
 const scenario = process.env.READER_ACCEPTANCE_SCENARIO ?? 'representative';
 
+test('podcast invitation describes optional narration at desktop and mobile widths', async ({
+  page,
+}) => {
+  await page.goto('/');
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator('.home-listen__copy p')).toHaveText(
+      /Listen to narrated stories\. Subscribe once and new episodes arrive in your podcast app\.\s*Listen to narrated stories\. Subscribe once in your podcast app\./,
+    );
+    await expect(
+      page.locator(`.home-listen__copy .home-${width === 1440 ? 'desktop' : 'mobile'}`),
+    ).toBeVisible();
+  }
+});
+
 const catalogs = {
   sparse: {
     lead: ['One Article Is Still a Catalog'],

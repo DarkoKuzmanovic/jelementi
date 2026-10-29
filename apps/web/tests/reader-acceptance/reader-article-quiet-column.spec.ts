@@ -1,6 +1,19 @@
 import { expect, test } from '@playwright/test';
 import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
+test('tablet contents remain available without the desktop rail', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.goto('/articles/acceptance-rich-column');
+  await expect(page.locator('.article-margin')).toBeHidden();
+  const contents = page.locator('.article-mobile-contents');
+  await expect(contents).toBeVisible();
+  await contents.locator('summary').click();
+  const link = contents.locator('a[href="#rich-inline-heading"]');
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect(page.locator('#rich-inline-heading')).toBeInViewport();
+});
+
 /**
  * #101 Quiet Column public article acceptance. Runs under both
  * reader-js-enabled and reader-no-js projects against the deterministic

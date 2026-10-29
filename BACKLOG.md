@@ -10,4 +10,4 @@ Proposed work, not scheduled or authorized for implementation. Selected engineer
 
 ## Scope notes
 
-The podcast feed is active work, not a deferred idea. Directory submission (Apple Podcasts, Spotify, etc.) is separate from publishing a subscribable RSS feed and requires an explicit choice before any account or submission action.
+The subscribable podcast RSS feed is shipped. Directory submission (Apple Podcasts, Spotify, etc.) is separate and requires an explicit choice before any account or submission action.

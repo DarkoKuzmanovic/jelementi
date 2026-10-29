@@ -16,23 +16,6 @@ export interface SeriesProjection {
   totalMinutes: number;
 }
 
-export interface ArticleCatalogEntry {
-  kind: 'article';
-  article: ArticleIndexEntry;
-}
-
-export interface SeriesCatalogEntry {
-  kind: 'series';
-  series: SeriesProjection;
-  href: string;
-  title: string;
-  cover: SeriesPart['cover'];
-  readingTimeMinutes: number;
-  publishedAt: string;
-}
-
-export type SeriesAwareCatalogEntry = ArticleCatalogEntry | SeriesCatalogEntry;
-
 function newestPart(series: SeriesProjection): SeriesPart {
   const newest = series.parts.reduce<SeriesPart | undefined>(
     (current, part) =>
@@ -41,22 +24,6 @@ function newestPart(series: SeriesProjection): SeriesPart {
   );
   if (newest === undefined) throw new Error(`Series projection is empty: ${series.slug}.`);
   return newest;
-}
-
-function seriesDisplayEntry(series: SeriesProjection): SeriesCatalogEntry {
-  const firstPart = series.parts[0];
-  if (firstPart === undefined) throw new Error(`Series projection is empty: ${series.slug}.`);
-  const newest = newestPart(series);
-  const partLabel = series.parts.length === 1 ? 'part' : 'parts';
-  return {
-    kind: 'series',
-    series,
-    href: firstPart.slug,
-    title: `${series.title} · series in ${series.parts.length} ${partLabel}`,
-    cover: newest.cover,
-    readingTimeMinutes: series.totalMinutes,
-    publishedAt: newest.publishedAt,
-  };
 }
 
 /** Projects the published index into deterministic, part-ordered series. */
@@ -114,28 +81,4 @@ export function seriesPartTitle(series: SeriesProjection, part: SeriesPart): str
   return part.title.toLowerCase().startsWith(prefix.toLowerCase())
     ? part.title.slice(prefix.length)
     : part.title;
-}
-
-/** Collapses each represented series to its first part's link and newest part's cover. */
-export function collapseSeriesEntries(
-  entries: readonly ArticleIndexEntry[],
-  series: readonly SeriesProjection[],
-): SeriesAwareCatalogEntry[] {
-  const seriesByPart = new Map<string, SeriesProjection>();
-  for (const item of series) {
-    for (const part of item.parts) seriesByPart.set(part.slug, item);
-  }
-
-  const seenSeries = new Set<string>();
-  const projected: SeriesAwareCatalogEntry[] = [];
-  for (const article of entries) {
-    const item = article.series === undefined ? undefined : seriesByPart.get(article.slug);
-    if (item === undefined) {
-      projected.push({ kind: 'article', article });
-    } else if (!seenSeries.has(item.slug)) {
-      seenSeries.add(item.slug);
-      projected.push(seriesDisplayEntry(item));
-    }
-  }
-  return projected;
 }

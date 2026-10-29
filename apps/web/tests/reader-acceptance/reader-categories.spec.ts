@@ -13,6 +13,19 @@ const titles = [
   'The Oldest Field Note',
 ];
 
+test('section cover links name the destination and preserve illustration alt text', async ({
+  page,
+}) => {
+  await page.goto('/categories');
+  for (const section of await page.locator('.sec-block').all()) {
+    const name = await section.locator('h2').innerText();
+    const cover = section.locator('.sec-cover');
+    await expect(cover).toHaveAccessibleName(`Browse ${name}`);
+    await expect(cover).toHaveAttribute('href', `/categories/${await section.getAttribute('id')}`);
+    await expect(cover.locator('img')).toHaveAttribute('alt', /.+/);
+  }
+});
+
 test('Sections counts every category and its jump strip reaches the matching section', async ({
   page,
 }) => {
