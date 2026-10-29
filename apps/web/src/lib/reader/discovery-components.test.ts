@@ -42,7 +42,7 @@ describe('Card', () => {
   });
 
   it('crops covers and limits the optional deck while preserving focus', () => {
-    const source = readFileSync(new URL('./Card.svelte', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('./components.css', import.meta.url), 'utf8');
     expect(source).toContain('aspect-ratio: 3 / 2');
     expect(source).toContain('line-clamp: 3');
     expect(source).toContain('a:focus-visible');
