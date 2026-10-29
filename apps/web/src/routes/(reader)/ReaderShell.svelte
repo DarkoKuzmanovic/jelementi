@@ -28,7 +28,7 @@
     aria-hidden="true"
     width="16"
     height="16"
-    viewBox="0 0 18 18"
+    viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
     stroke-width="1.6"><circle cx="7" cy="7" r="6" /><path d="m11.5 11.5 4.5 4.5" /></svg

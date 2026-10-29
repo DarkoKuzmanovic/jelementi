@@ -112,7 +112,7 @@
   align-items: center;
   gap: 8px;
   width: 162px;
-  padding: 7px 12px;
+  padding: 7px 6px;
   border: 1px solid var(--rule);
   border-radius: 4px;
 }
@@ -231,11 +231,11 @@
   .compact-brand {
     padding-right: 16px;
   }
-  .nav-search {
-    width: 150px;
-  }
 }
 @media (max-width: 960px) {
+  .site-header:not(.reader-home .site-header) {
+    border-color: var(--rule);
+  }
   .site-utility,
   .home-masthead,
   .compact-brand,
@@ -700,6 +700,11 @@
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     gap: 32px;
   }
+  .home-lead,
+  .sec-page .sec-lead,
+  .home-recent .home-compact-story {
+    align-items: start;
+  }
   .home-lead .title {
     font-size: 44px;
     line-height: 48px;
@@ -732,7 +737,7 @@
   .home-mobile {
     display: inline;
   }
-  .home-lead {
+  .home-lead.home-width {
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -1125,7 +1130,7 @@
 }
 .search-empty h2 {
   margin: 0;
-  font: 500 34px/1.2 var(--font-serif);
+  font: 500 34px/1 var(--font-serif);
   letter-spacing: -0.015em;
 }
 .search-empty p {
@@ -1177,7 +1182,12 @@
   .search-results__heading p {
     font-size: 14px;
   }
+  .search .list-item > .card {
+    grid-template-rows: 13px auto;
+    row-gap: 8px;
+  }
   .search .card .reader-kicker {
+    line-height: 13px;
     font-size: 10px;
   }
   .search .card:has(.search-snippet) img {
@@ -1614,7 +1624,7 @@ span.jump-name {
 .study summary {
   list-style: none;
   cursor: pointer;
-  font: 500 18px/23px var(--font-serif);
+  font: 400 18px/23px var(--font-serif);
 }
 .study summary::-webkit-details-marker {
   display: none;
