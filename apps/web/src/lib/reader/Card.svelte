@@ -8,8 +8,10 @@
     showDeck = false,
     showKicker = true,
     headingLevel = 2,
+    kickerExtra,
   }: {
     article: ArticleIndexEntry;
+    kickerExtra?: string;
     showDeck?: boolean;
     showKicker?: boolean;
     headingLevel?: 2 | 3 | 4;
@@ -18,7 +20,11 @@
 
 <article class="card">
   <img src={article.cover.src} alt={article.cover.alt} width="600" height="400" loading="lazy" />
-  {#if showKicker}<Kicker category={article.category} categorySlug={article.categorySlug} />{/if}
+  {#if showKicker}<Kicker
+      category={article.category}
+      categorySlug={article.categorySlug}
+      extra={kickerExtra}
+    />{/if}
   <svelte:element this={`h${headingLevel}`} class="title">
     <a href={`/articles/${article.slug}`}>{article.title}</a>
   </svelte:element>
@@ -33,14 +39,11 @@
 <style>
   .card {
     display: flex;
-    min-width: 0;
     flex-direction: column;
     gap: 10px;
   }
   img {
-    display: block;
     width: 100%;
-    height: auto;
     aspect-ratio: 3 / 2;
     object-fit: cover;
     margin-bottom: 2px;
