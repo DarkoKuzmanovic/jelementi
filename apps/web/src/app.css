@@ -2,19 +2,11 @@
 @import './lib/foundation/reader-fonts.css';
 @import './lib/reader/reader.css';
 @import './lib/article/article.css';
+@import './lib/reader/components.css';
 
 /* Reader roles are local to the reader stylesheet. */
 .reader-surface {
-  --foundation-canvas: #f8f6f0;
-  --foundation-paper: #f8f6f0;
-  --foundation-ink: #202522;
-  --foundation-muted: #60645f;
-  --foundation-rule: #cfd0c8;
-  --foundation-link: #284c99;
-  --foundation-accent: #284c99;
-  --foundation-accent-soft: #e9edf4;
   --deep-paper: #efebe1;
-  --foundation-focus: #284c99;
   --band: #284c99;
   --on-band: #f8f6f0;
   --on-accent: #f8f6f0;
@@ -32,11 +24,6 @@
   --hue-science: #284c99;
   --hue-inventions: #85580f;
   --hue-nature: #2c6a6c;
-  --foundation-control-surface: #f8f6f0;
-  --foundation-control-text: #202522;
-  --foundation-control-border: #60645f;
-  --font-sans: 'Geist', sans-serif;
-  --font-serif: 'Newsreader', Georgia, serif;
   min-height: 100vh;
   background: var(--foundation-canvas);
   color: var(--foundation-ink);
@@ -44,16 +31,7 @@
 }
 @media (prefers-color-scheme: dark) {
   .reader-surface {
-    --foundation-canvas: #191d1b;
-    --foundation-paper: #191d1b;
-    --foundation-ink: #f1efe7;
-    --foundation-muted: #b7bdb6;
-    --foundation-rule: #484f49;
-    --foundation-link: #a8c2ff;
-    --foundation-accent: #a8c2ff;
-    --foundation-accent-soft: #28364e;
     --deep-paper: #222824;
-    --foundation-focus: #a8c2ff;
     --band: #28364e;
     --on-band: #f1efe7;
     --on-accent: #191d1b;
@@ -71,9 +49,6 @@
     --hue-science: #a8c2ff;
     --hue-inventions: #cd9d51;
     --hue-nature: #5cbabd;
-    --foundation-control-surface: #191d1b;
-    --foundation-control-text: #f1efe7;
-    --foundation-control-border: #b7bdb6;
   }
 }
 .layout {

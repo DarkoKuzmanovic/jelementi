@@ -1,7 +1,7 @@
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
-import ArticleSummary from './ArticleSummary.svelte';
+import ListItem from '../reader/ListItem.svelte';
 import ArticleContinuation from './ArticleContinuation.svelte';
 
 const article: ArticleIndexEntry = {
@@ -47,7 +47,7 @@ describe('illustrated discovery', () => {
   });
 
   it('preserves the complete authored excerpt in discovery', () => {
-    const { body } = render(ArticleSummary, {
+    const { body } = render(ListItem, {
       props: { article },
     });
     expect(body).toContain(article.excerpt);
@@ -56,16 +56,16 @@ describe('illustrated discovery', () => {
   });
 
   it('supports deeper title levels for category shelves without changing the default card heading', () => {
-    const compact = render(ArticleSummary, {
+    const compact = render(ListItem, {
       props: { article, headingLevel: 4 },
     }).body;
-    const regular = render(ArticleSummary, { props: { article } }).body;
+    const regular = render(ListItem, { props: { article } }).body;
 
-    expect(compact).toContain('<h4 class="article-summary__title">');
-    expect(regular).toContain('<h2 class="article-summary__title">');
+    expect(compact).toContain('<h4 class="title">');
+    expect(regular).toContain('<h2 class="title">');
   });
   it('retains bracketed prose numbers that are not authored citation markers', () => {
-    const { body } = render(ArticleSummary, {
+    const { body } = render(ListItem, {
       props: {
         article: { ...article, excerpt: 'Year [1940]. Evidence.[1]' },
       },
@@ -73,10 +73,10 @@ describe('illustrated discovery', () => {
     expect(body).toContain('Year [1940]. Evidence.[1]');
   });
   it('renders the real cover with stable dimensions and lazy offscreen loading', () => {
-    const { body } = render(ArticleSummary, { props: { article } });
+    const { body } = render(ListItem, { props: { article } });
     expect(body).toMatch(/<img[^>]*src="https:\/\/example.org\/cover.webp"/);
     expect(body).toContain('alt="A meaningful illustration"');
     expect(body).toContain('loading="lazy"');
-    expect(body).toContain('width="1600" height="900"');
+    expect(body).toContain('width="600" height="400"');
   });
 });

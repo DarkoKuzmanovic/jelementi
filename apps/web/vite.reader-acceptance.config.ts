@@ -38,6 +38,8 @@ export function readerAcceptanceContentPlugin(scenario: ReaderAcceptanceScenario
     name: 'jelementi-reader-acceptance-content',
     enforce: 'pre',
     resolveId(source, importer) {
+      if (source.endsWith('/generated-search-text.server'))
+        return '\0jelementi-reader-acceptance-search-text';
       if (source === virtualModule) return virtualModule;
       if (importer === undefined) return undefined;
       const candidate = candidateProductionPath(source, importer);
@@ -50,6 +52,12 @@ export function readerAcceptanceContentPlugin(scenario: ReaderAcceptanceScenario
       return virtualModule;
     },
     load(id) {
+      if (id === '\0jelementi-reader-acceptance-search-text')
+        return [
+          `import { generatedContent } from ${JSON.stringify(virtualModule)};`,
+          `import { buildSearchText } from ${JSON.stringify(fileURLToPath(new URL('../../scripts/content.ts', import.meta.url)))};`,
+          `export const searchText = buildSearchText(Object.values(generatedContent.articles));`,
+        ].join('\n');
       if (id !== virtualModule) return undefined;
       if (scenario === 'ordinary-error') {
         return `export const generatedContent = new Proxy({}, { get() { throw new Error('ReaderAcceptanceInternalUnbroken'.repeat(20)); } });`;

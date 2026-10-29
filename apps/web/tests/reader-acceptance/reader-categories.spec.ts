@@ -67,6 +67,26 @@ test('Sections counts every category and its jump strip reaches the matching sec
 });
 
 for (const width of [1440, 390]) {
+  test(`section typography follows the board corrections at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/categories');
+    for (const heading of await page.locator('.sec-block h2').all()) {
+      const fontSize = await heading.evaluate((el) => getComputedStyle(el).fontSize);
+      await expect(heading).toHaveCSS('line-height', fontSize);
+    }
+    await expect(page.locator('.sections .kicker')).toHaveCSS(
+      'font-weight',
+      width === 390 ? '500' : '600',
+    );
+    if (width === 390) {
+      await page.goto('/categories/field-notes');
+      await expect(page.locator('.sec-cards .reader-kicker').first()).toHaveCSS(
+        'font-weight',
+        '500',
+      );
+    }
+  });
+
   test(`section pages list every story once, newest first at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/categories/field-notes');

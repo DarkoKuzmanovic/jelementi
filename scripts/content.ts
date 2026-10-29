@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, watch as watchDirectory } from 'node:fs';
 import { readdir, readFile, rename, rm, stat, mkdir, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import { ArticleIndexSchema, categorySlug, type ArticleIndexEntry } from '@jelementi/article-model';
+import {
+  ArticleIndexSchema,
+  SearchTextSchema,
+  categorySlug,
+  type ArticleDocument,
+  type InlineNode,
+  type ArticleIndexEntry,
+} from '@jelementi/article-model';
 import {
   ContentCompileError,
   compileArticle,
@@ -194,6 +201,55 @@ export async function validateContent(paths: ContentPaths): Promise<ContentBatch
   return validateCompiledBatch(await compileSources(paths));
 }
 
+/** Case-preserved search projection; never includes unpublished bodies or footnotes. */
+export function buildSearchText(documents: ArticleDocument[]): Record<string, string> {
+  function inline(nodes: InlineNode[], references: ArticleDocument['references']): string {
+    return nodes
+      .map((node) => {
+        if (node.type === 'text') return node.value;
+        if (node.type === 'footnoteReference') return '';
+        const label = inline(node.children, references);
+        const marker =
+          node.children.length === 1 && node.children[0]?.type === 'text'
+            ? /^\[(\d+)\]$/.exec(label)
+            : null;
+        const citation =
+          marker &&
+          references.some(
+            (ref, index) =>
+              ref.url === node.href &&
+              (/^\[(\d+)\] /.exec(ref.title)?.[1] ?? String(index + 1)) === marker[1],
+          );
+        return citation ? '' : label;
+      })
+      .join('');
+  }
+  return SearchTextSchema.parse(
+    Object.fromEntries(
+      documents
+        .filter((doc) => doc.status === 'published')
+        .map((doc) => [
+          doc.slug,
+          doc.blocks
+            .flatMap((block) => {
+              if (block.type === 'image' || block.type === 'divider') return [];
+              if (block.type === 'list')
+                return block.items.map((item) => inline(item, doc.references));
+              return [
+                block.type === 'callout'
+                  ? [block.title, inline(block.children, doc.references)].filter(Boolean).join(' ')
+                  : inline(block.children, doc.references),
+              ];
+            })
+            .join(' ')
+            .replace(/\s+([.,;:!?])/g, '$1')
+            .replace(/\s+/g, ' ')
+            .trim(),
+        ]),
+    ),
+  );
+}
+
 function stableJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
@@ -364,6 +420,10 @@ export async function buildContent(options: BuildContentOptions): Promise<Conten
       ),
     );
     await writeFile(join(temporaryDir, 'index.json'), stableJson(batch.index));
+    await writeFile(
+      join(temporaryDir, 'search-text.json'),
+      stableJson(buildSearchText(batch.published.map(({ compiled }) => compiled.document))),
+    );
     await writeFile(join(temporaryDir, audioByteLengthsFilename), stableJson(audioByteLengths));
     await replaceGeneratedDirectory(temporaryDir, generatedDir, options.renameDirectory ?? rename);
   } catch (error) {
