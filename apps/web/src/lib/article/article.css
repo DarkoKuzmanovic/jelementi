@@ -135,6 +135,7 @@
   border-radius: 4px;
   background: var(--deep-paper);
   font-size: 13px;
+  line-height: 17px;
 }
 .article-facts__note {
   border-top: 1px solid var(--rule);
@@ -179,7 +180,6 @@
   font: 500 88px/80px var(--font-serif);
 }
 .article-citation {
-  vertical-align: super;
   color: var(--link);
   font: 500 62%/0 var(--font-sans);
   white-space: nowrap;
@@ -380,10 +380,11 @@
     margin-bottom: 20px;
   }
   .article-body h2 {
-    gap: 10px;
+    display: block;
     margin: 30px 0 20px;
   }
   .article-body h2::before {
+    margin-right: 10px;
     font-size: 24px;
     line-height: 31px;
   }
@@ -459,13 +460,15 @@
   width: clamp(8px, 5vw, 40px);
   height: 2px;
   background: var(--article-hue);
+  opacity: 0.35;
 }
 .article-series-position__segments :is(a, span) {
   display: grid;
   place-items: center;
   width: 30px;
   height: 30px;
-  border: 1.5px solid var(--article-hue);
+  /* Preserve the board’s fractional ring width at 1x; borders snap to whole pixels. */
+  box-shadow: inset 0 0 0 1.5px var(--article-hue);
   border-radius: 50%;
   color: var(--article-hue);
   text-decoration: none;

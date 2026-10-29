@@ -1130,7 +1130,7 @@
 }
 .search-empty h2 {
   margin: 0;
-  font: 500 34px/1.2 var(--font-serif);
+  font: 500 34px/1 var(--font-serif);
   letter-spacing: -0.015em;
 }
 .search-empty p {
@@ -1624,7 +1624,7 @@ span.jump-name {
 .study summary {
   list-style: none;
   cursor: pointer;
-  font: 500 18px/23px var(--font-serif);
+  font: 400 18px/23px var(--font-serif);
 }
 .study summary::-webkit-details-marker {
   display: none;
