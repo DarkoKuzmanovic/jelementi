@@ -1,8 +1,39 @@
 <script lang="ts">
   import type { InlineNode, Mark } from '@jelementi/article-model';
+  import { getContext } from 'svelte';
+  import type { ArticleDocument } from '@jelementi/article-model';
   import { footnoteReferenceId } from './footnotes';
 
-  let { nodes, scope }: { nodes: InlineNode[]; scope: string } = $props();
+  let {
+    nodes,
+    scope,
+    opening = false,
+  }: { nodes: InlineNode[]; scope: string; opening?: boolean } = $props();
+  const references = getContext<() => ArticleDocument['references']>('article-references');
+  function citation(node: InlineNode | undefined) {
+    if (node?.type !== 'link' || node.children.length !== 1 || node.children[0]?.type !== 'text')
+      return undefined;
+    const marker = /^\[(\d+)\]$/.exec(node.children[0].value);
+    const index = marker
+      ? (references?.().findIndex(
+          (ref, index) =>
+            ref.url === node.href &&
+            (/^\[(\d+)\] /.exec(ref.title)?.[1] ?? String(index + 1)) === marker[1],
+        ) ?? -1)
+      : -1;
+    return marker && index >= 0
+      ? { number: marker[1], target: `#reader:source:${index + 1}` }
+      : undefined;
+  }
+  function citationRun(start: number) {
+    const run = [];
+    for (let index = start; index < nodes.length; index++) {
+      const item = citation(nodes[index]);
+      if (!item) break;
+      run.push(item);
+    }
+    return run;
+  }
 
   function assertExhaustive(node: never | undefined): never {
     throw new Error(`Unsupported inline node type: ${JSON.stringify(node)}`);
@@ -45,7 +76,26 @@
 {/snippet}
 
 {#each nodes as node, index (index)}
-  {@render renderNode(node, `${index}`)}
+  {@const text =
+    node.type === 'text' ? (citation(nodes[index + 1]) ? node.value.trimEnd() : node.value) : ''}
+  {#if citation(node)}
+    {#if !citation(nodes[index - 1])}
+      <span class="article-citation"
+        >&#8201;{#each citationRun(index) as item, offset (offset)}{#if offset > 0},&#8201;{/if}<a
+            href={item.target}
+            aria-label={`Source ${item.number}`}>{item.number}</a
+          >{/each}</span
+      >
+    {/if}
+  {:else if opening && index === 0 && node.type === 'text'}
+    {@const phrase = text.match(/^.*?[,;:]|^\S+(?:\s+\S+){0,4}/)?.[0] ?? text}
+    <span class="article-opening-phrase">{@render renderText(phrase, node.marks ?? [])}</span
+    >{@render renderText(text.slice(phrase.length), node.marks ?? [])}
+  {:else if node.type === 'text'}
+    {@render renderText(text, node.marks ?? [])}
+  {:else}
+    {@render renderNode(node, `${index}`)}
+  {/if}
 {/each}
 
 <style>

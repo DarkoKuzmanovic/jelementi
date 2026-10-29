@@ -1,11 +1,15 @@
 <script lang="ts">
   import type { PageData } from './$types';
-  import type { InlineNode } from '@jelementi/article-model';
+  import type { InlineNode, HeadingBlock } from '@jelementi/article-model';
   import ArticleRenderer from '$lib/article/ArticleRenderer.svelte';
   import ArticleContinuation from '$lib/article/ArticleContinuation.svelte';
   import { siteOrigin } from '../../../../lib/routes';
   let { data }: { data: PageData } = $props();
-  const headings = $derived(data.article.blocks.filter((block) => block.type === 'heading'));
+  const headings = $derived(
+    data.article.blocks.filter(
+      (block): block is HeadingBlock => block.type === 'heading' && block.level === 2,
+    ),
+  );
 
   // Contents labels are plain text: nested links and reference IDs belong only in the body.
   function headingText(nodes: InlineNode[]): string {
@@ -31,16 +35,19 @@
   <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 {#snippet contents()}
-  <nav class="article-contents" aria-label="In this article">
-    <p>In this article</p>
+  <nav class="article-contents" aria-label="In this story">
+    <p class="article-rail-label">In this story</p>
     <ol>
       {#each headings as heading, index (heading.id)}<li>
           <a href={`#${heading.id}`}
-            >{headingText(heading.children).trim() || `Section ${index + 1}`}</a
+            ><span aria-hidden="true">{index + 1}</span>{headingText(heading.children).trim() ||
+              `Section ${index + 1}`}</a
           >
         </li>{/each}
     </ol>
-    {#if data.article.references.length > 0}<a href="#reader:sources">Sources →</a>{/if}
+    {#if data.article.references.length > 0}<a href="#reader:sources"
+        ><span aria-hidden="true">§</span>Sources ({data.article.references.length})</a
+      >{/if}
   </nav>
 {/snippet}
 <div class="article-page">
@@ -52,6 +59,7 @@
   <ArticleContinuation
     article={data.article}
     nextOlder={data.continuation.nextOlder}
+    stories={data.continuation.stories}
     series={data.series}
     studyDates={data.seriesHasDates}
   />

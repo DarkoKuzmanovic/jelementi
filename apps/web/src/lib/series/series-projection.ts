@@ -108,10 +108,12 @@ export function projectSeries(index: readonly ArticleIndexEntry[]): SeriesProjec
     });
 }
 
-/** Removes only the exact, case-sensitive series title prefix from a part title. */
+/** Removes only the matching series title and part prefix, ignoring case. */
 export function seriesPartTitle(series: SeriesProjection, part: SeriesPart): string {
   const prefix = `${series.title}, part ${part.part}: `;
-  return part.title.startsWith(prefix) ? part.title.slice(prefix.length) : part.title;
+  return part.title.toLowerCase().startsWith(prefix.toLowerCase())
+    ? part.title.slice(prefix.length)
+    : part.title;
 }
 
 /** Collapses each represented series to its first part's link and newest part's cover. */

@@ -106,7 +106,7 @@ function renderFragmentArticle(article: ArticleDocument): string {
         article,
         contentVersion: 'version',
         seriesHasDates: false,
-        continuation: { nextOlder: null },
+        continuation: { nextOlder: null, stories: [] },
         series: undefined,
       },
     },
@@ -127,7 +127,10 @@ describe('generated reader routes', () => {
     }
   });
   it('renders scannable source numbering and cleaned domains in the generated article route', () => {
-    const body = renderFragmentArticle(compileFragmentArticle('A source-backed passage.'));
+    const body = renderFragmentArticle(compileFragmentArticle('A source-backed passage.')).replace(
+      /<!--.*?-->/g,
+      '',
+    );
 
     expect(body).toContain('<span class="article-source__number">7</span>');
     expect(body).toContain(
@@ -169,7 +172,7 @@ describe('generated reader routes', () => {
     expect(mainId).toBeTruthy();
     expect(body).toContain(`href="#${mainId}"`);
     expect(body.match(new RegExp(`id="${mainId}"`, 'g'))).toHaveLength(1);
-    expect(body).toMatch(/<h2 id="main-content">(?:<!--[\s\S]*?-->)*Main content/);
+    expect(body).toMatch(/<h2 id="main-content"><span>(?:<!--[\s\S]*?-->)*Main content/);
   });
   it('separates compiled footnote definitions, references, and heading targets', () => {
     const article =
@@ -221,7 +224,7 @@ describe('generated reader routes', () => {
           article,
           contentVersion: 'version',
           seriesHasDates: false,
-          continuation: { nextOlder: null },
+          continuation: { nextOlder: null, stories: [] },
           series: undefined,
         },
       },
@@ -272,17 +275,18 @@ describe('generated reader routes', () => {
           article,
           contentVersion: 'version',
           seriesHasDates: false,
-          continuation: { nextOlder: null },
+          continuation: { nextOlder: null, stories: [] },
           series: undefined,
         },
       },
     });
-    expect(body).toContain('aria-label="In this article"');
+    expect(body).toContain('aria-label="In this story"');
     for (const id of ['article-audio', 'same-heading-2', 'long-unusual-č-heading']) {
-      expect(body).toContain(`href="#${id}"`);
+      if (id !== 'long-unusual-č-heading') expect(body).toContain(`href="#${id}"`);
+      else expect(body).not.toContain(`href="#${id}"`);
       expect(body.match(new RegExp(`id="${id}"`, 'g'))).toHaveLength(1);
     }
-    const toc = body.match(/<nav[^>]*aria-label="In this article"[\s\S]*?<\/nav>/)?.[0] ?? '';
+    const toc = body.match(/<nav[^>]*aria-label="In this story"[\s\S]*?<\/nav>/)?.[0] ?? '';
     expect(toc).not.toContain('<sup');
     expect(toc).not.toContain('https://example.org/source');
     expect(toc).not.toMatch(/<a[^>]*>[^<]*<a/);
@@ -333,7 +337,7 @@ describe('generated reader routes', () => {
           article,
           contentVersion,
           seriesHasDates: false,
-          continuation: { nextOlder: null },
+          continuation: { nextOlder: null, stories: [] },
           series: undefined,
         },
       },
@@ -354,11 +358,11 @@ describe('generated reader routes', () => {
           article,
           contentVersion,
           seriesHasDates: false,
-          continuation: { nextOlder: null },
+          continuation: { nextOlder: null, stories: [] },
           series: undefined,
         },
       },
     });
-    expect(body).not.toContain('aria-label="In this article"');
+    expect(body).not.toContain('aria-label="In this story"');
   });
 });

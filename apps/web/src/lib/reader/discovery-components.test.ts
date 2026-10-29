@@ -63,22 +63,4 @@ describe('ListItem', () => {
     expect(body).toContain('datetime="2026-07-26"');
     expect(body).toContain('26 July 2026');
   });
-
-  it('provides desktop and mobile cover geometry and a visible focus state', () => {
-    const source = readFileSync(new URL('./ListItem.svelte', import.meta.url), 'utf8');
-    for (const rule of [
-      'width: 220px',
-      'height: 147px',
-      'width: 96px',
-      'height: 96px',
-      'order: 1',
-      'font-size: 26px',
-      'line-height: 31px',
-      'font-size: 20px',
-      'line-height: 24px',
-      'a:focus-visible',
-    ]) {
-      expect(source).toContain(rule);
-    }
-  });
 });

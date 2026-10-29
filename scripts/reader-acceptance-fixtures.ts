@@ -47,6 +47,12 @@ const richDocument = ArticleDocumentSchema.parse({
           'strikethrough',
         ]),
         { type: 'footnoteReference', id: 'locked-seam' },
+        text(' Evidence from later sources.'),
+        ...[5, 6].map((number) => ({
+          type: 'link',
+          href: `https://www.example.com/reader-acceptance-${number}`,
+          children: [text(`[${number}]`)],
+        })),
       ],
     },
     {
@@ -54,6 +60,21 @@ const richDocument = ArticleDocumentSchema.parse({
       level: 2,
       id: 'representative-heading',
       children: [text('A representative heading')],
+    },
+    {
+      type: 'heading',
+      level: 2,
+      id: 'rich-inline-heading',
+      children: [
+        text('Before '),
+        { type: 'text', value: 'an emphasized phrase', marks: ['emphasis'] },
+        text(' after '),
+        {
+          type: 'link',
+          href: 'https://example.com/heading',
+          children: [text('the linked phrase')],
+        },
+      ],
     },
     {
       type: 'image',

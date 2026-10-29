@@ -3,42 +3,68 @@
   import { categorySlug } from '@jelementi/article-model';
   import { formatPublishedDate } from './format-date';
   import ArticleSeriesPosition from './ArticleSeriesPosition.svelte';
-  import type { SeriesProjection } from '../series/series-projection';
-
+  import { seriesPartTitle, type SeriesProjection } from '../series/series-projection';
+  import Kicker from '../reader/Kicker.svelte';
+  import { articleAudioAnchor } from './audio-anchor';
   let { article, series }: { article: ArticleDocument; series?: SeriesProjection } = $props();
+  const currentIndex = $derived(
+    series?.parts.findIndex((part) => part.slug === article.slug) ?? -1,
+  );
+  const current = $derived(series?.parts[currentIndex]);
+  const previous = $derived(series?.parts[currentIndex - 1]);
+  const next = $derived(series && currentIndex >= 0 ? series.parts[currentIndex + 1] : undefined);
 </script>
 
-<!--
-  Article opening — the compact Quiet Column opening hierarchy (Variant A,
-  c548b7e): category, title, dek, author, publication date, reading time,
-  then tags. The canonical category link uses the shared category slug so
-  every article connects to discovery. Rendered through ArticleRenderer.
--->
-<header class="article-opening">
-  <p class="article-opening__category">
-    <a href={`/categories/${categorySlug(article.category)}`}>{article.category}</a>
-  </p>
-  <h1 class="article-opening__title">{article.title}</h1>
+<header class="article-opening" class:article-opening--series={!!current}>
+  {#if series && current}<ArticleSeriesPosition {series} currentSlug={article.slug} />{/if}
+  <a class="article-opening__category" href={`/categories/${categorySlug(article.category)}`}>
+    <Kicker
+      category={article.category}
+      categorySlug={categorySlug(article.category)}
+      extra={series && current
+        ? `${series.title} · Part ${current.part} of ${series.parts.length}`
+        : `${article.readingTimeMinutes} min read`}
+    />
+  </a>
+  <h1 class="article-opening__title">
+    {series && current
+      ? seriesPartTitle(series, { ...current, title: article.title })
+      : article.title}
+  </h1>
   <p class="article-opening__excerpt">{article.excerpt}</p>
   <p class="article-opening__meta">
-    <span>By <strong>{article.author}</strong></span>
-    <span aria-hidden="true"> · </span>
-    {#if article.publishedAt}
-      <time datetime={article.publishedAt}>
-        {formatPublishedDate(article.publishedAt)}
-      </time>
-    {/if}
-    {#if article.publishedAt}
-      <span aria-hidden="true"> · </span>
-    {/if}
-    <span>{article.readingTimeMinutes} min read</span>
+    <span>By {article.author}</span>
+    {#if article.publishedAt}<span aria-hidden="true"> · </span><time datetime={article.publishedAt}
+        >{formatPublishedDate(article.publishedAt)}</time
+      >{/if}
+    {#if current}<span aria-hidden="true"> · </span><span
+        >{article.readingTimeMinutes} min read</span
+      >{/if}
+    <span aria-hidden="true"> · </span><span>Sources: {article.references.length}</span>
   </p>
-  {#if series}<ArticleSeriesPosition {series} currentSlug={article.slug} />{/if}
-  {#if article.tags.length > 0}
-    <ul class="article-opening__tags" aria-label="Tags">
-      {#each article.tags as tag (tag)}
-        <li>{tag}</li>
-      {/each}
-    </ul>
+  {#if article.audio}
+    <a class="article-listen" href={`#${articleAudioAnchor}`}>
+      <span class="article-listen__play" aria-hidden="true">▶</span>
+      <span>{current ? `Listen to part ${current.part}` : 'Listen to this story'}</span>
+      {#if article.audio.durationSeconds !== undefined}<span class="article-listen__duration"
+          >{Math.floor(article.audio.durationSeconds / 60)}:{String(
+            article.audio.durationSeconds % 60,
+          ).padStart(2, '0')}</span
+        >{/if}
+    </a>
+  {/if}
+  {#if series && current}
+    <nav class="article-series-position__navigation" aria-label="Series parts">
+      {#if previous}
+        <a class="article-series-position__previous" href={`/articles/${previous.slug}`}>
+          <span>← Part {previous.part}</span><strong>{seriesPartTitle(series, previous)}</strong>
+        </a>
+      {/if}
+      {#if next}
+        <a class="article-series-position__next" href={`/articles/${next.slug}`}>
+          <span>Part {next.part} →</span><strong>{seriesPartTitle(series, next)}</strong>
+        </a>
+      {/if}
+    </nav>
   {/if}
 </header>

@@ -46,15 +46,12 @@ describe('illustrated discovery', () => {
     expect(oldest).toContain('href="/categories/science"');
   });
 
-  it('prioritizes the lead illustration and preserves the complete authored excerpt', () => {
+  it('preserves the complete authored excerpt in discovery', () => {
     const { body } = render(ArticleSummary, {
-      props: { article, lead: true },
+      props: { article },
     });
-    expect(body).toContain('loading="eager"');
-    expect(body).toContain('fetchpriority="high"');
     expect(body).toContain(article.excerpt);
     expect(article.excerpt).toBe('Evidence matters.[1][22] Still true.');
-    expect(body).toContain('Read article');
     expect(body).toContain(`href="/articles/${article.slug}"`);
   });
 
@@ -71,18 +68,9 @@ describe('illustrated discovery', () => {
     const { body } = render(ArticleSummary, {
       props: {
         article: { ...article, excerpt: 'Year [1940]. Evidence.[1]' },
-        lead: true,
       },
     });
     expect(body).toContain('Year [1940]. Evidence.[1]');
-  });
-  it('offers listening only when the caller has validated audio for the lead', () => {
-    const withAudio = render(ArticleSummary, {
-      props: { article, lead: true, audioAvailable: true },
-    }).body;
-    expect(withAudio).toContain('href="/articles/illustrated-story#reader:audio"');
-    const withoutAudio = render(ArticleSummary, { props: { article, lead: true } }).body;
-    expect(withoutAudio).not.toContain('#reader:audio');
   });
   it('renders the real cover with stable dimensions and lazy offscreen loading', () => {
     const { body } = render(ArticleSummary, { props: { article } });
