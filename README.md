@@ -6,10 +6,10 @@ Jelementi is a custom-built digital magazine. The Phase 1 reader is a generated,
 
 - `@jelementi/article-model` owns the framework-neutral document/index schemas, category slug, and shared search normalizer.
 - `@jelementi/content-compiler` transforms explicit Markdown input into the model without filesystem or environment access.
-- Root content scripts discover canonical Markdown, validate every source, and atomically generate gitignored `generated/index.json` plus `generated/articles/<slug>.json`.
+- Root content scripts discover canonical Markdown, validate every source, and atomically generate gitignored `generated/index.json`, `generated/search-text.json`, `generated/audio-byte-lengths.json`, and `generated/articles/<slug>.json`.
 - The web app statically imports and validates those JSON artifacts at its build/server boundary. It never imports the compiler or reads generated data with runtime filesystem/fetch APIs.
 
-Only published documents appear in the generated index and all reader routes/prerender entries derive from that validated index. The reader provides `/`, `/articles/[slug]`, `/categories/[category]`, `/search`, and `/about`; unknown article/category values return the shared error experience. Multi-part series are featured on Home and grouped once in its category shelves and the Categories directory; category pages continue to list every part individually.
+Only published documents appear in the generated index and all reader routes/prerender entries derive from that validated index. The reader provides `/`, `/articles/[slug]`, `/categories` (Sections), `/categories/[category]`, `/search`, `/about`, `/podcast.xml`, `/feed.xml`, `/series/[series].epub`, and `/series/[series]/dates`; unknown article/category values return the shared error experience. Home features the newest multi-part series; Home shelves, the Sections directory, and section pages list individual articles.
 
 ## Local development
 

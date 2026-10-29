@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
-import { collapseSeriesEntries, projectSeries, seriesPartTitle } from './series-projection';
+import { projectSeries, seriesPartTitle } from './series-projection';
 
 function article(
   slug: string,
@@ -78,32 +78,11 @@ describe('series projection', () => {
     );
   });
 
-  it('collapses a represented series once, links to part one, and uses the newest cover', () => {
-    const projected = collapseSeriesEntries(articles, projectSeries(articles));
-
-    expect(projected).toHaveLength(2);
-    expect(projected[0]).toMatchObject({
-      kind: 'series',
-      href: 'fortress-1',
-      title: 'Fortress · series in 3 parts',
-      cover: articles[0]?.cover,
-      readingTimeMinutes: 6,
-    });
-    expect(projected[1]).toEqual({ kind: 'article', article: articles[1] });
-  });
-
-  it('leaves articles outside declared series intact', () => {
-    const projected = collapseSeriesEntries([articles[1]!], projectSeries(articles));
-    expect(projected).toEqual([{ kind: 'article', article: articles[1] }]);
-  });
   it('keeps one published part ordinary while the other parts remain drafts', () => {
     const publishedPart = article('fortress-1', '2026-03-01', 1);
     // Drafts are absent from the validated published index used by this projection.
     const series = projectSeries([publishedPart]);
 
     expect(series).toEqual([]);
-    expect(collapseSeriesEntries([publishedPart], series)).toEqual([
-      { kind: 'article', article: publishedPart },
-    ]);
   });
 });

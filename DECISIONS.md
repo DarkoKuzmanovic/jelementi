@@ -90,3 +90,10 @@ Not authorization to implement; pick up when related surface is next touched or 
 - **One-command publishing.** After Darko approves a story, `pnpm ship` validates content and live media, opens a PR, waits for `verify`, and squash-merges; the merge deploys. Numbered approval plans, per-batch publish scripts, and post-merge browser playback probes are retired.
 - **Slim gate.** `verify:deploy` (CI on PRs and Workers Builds) is format, lint, typecheck, content validation, unit tests, build, and live media verification. Browser acceptance, bundle checks, and the asset budget moved to manual `verify:full`. The local Worker smoke, Wrangler dry-run, remote probe, playback probe, Lighthouse, and acceptance-evidence scripts are deleted. CI no longer runs on pushes to `main`, because Workers Builds runs the same gate before deploying.
 - **Docs pruned.** Checkpoint runbooks, crew-era plans, past design specs, and the 3 MB reader evidence archive are deleted; `docs/runbooks/podcast-feed.md` and ADR-0009 remain.
+
+## 2026-10-29 — Second-edition reader
+
+- Newsreader headlines and Geist navigation replace the prior headline treatment. The `/categories` directory is labelled Sections; routes and the model keep `category`. Home shelves and section listings show individual articles, including series parts. Category counts and the three full shelves derive from the complete category list.
+- "Series" in the navigation links to the Home series band (`/#series`); a `/series` index waits for a second series.
+- Search remains the only normal hydrated reader page; case-preserved snippets use the validated generated search-text map (ADR-0010).
+- Owner-approved `uniqueReaderCss` ceilings increased from 29_440 to 40_960 and then 43_008 bytes. All other reader asset ceilings remain unchanged.

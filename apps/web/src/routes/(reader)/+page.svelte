@@ -194,9 +194,9 @@
         <h2 id="podcast-heading">Prefer to listen?</h2>
         <p>
           <span class="home-desktop"
-            >Every story is read aloud. Subscribe once and new ones arrive in your podcast app.</span
+            >Listen to narrated stories. Subscribe once and new episodes arrive in your podcast app.</span
           ><span class="home-mobile"
-            >Every story is read aloud. Subscribe once in your podcast app.</span
+            >Listen to narrated stories. Subscribe once in your podcast app.</span
           >
         </p>
         <div class="home-actions">
