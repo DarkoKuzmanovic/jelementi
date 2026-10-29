@@ -1527,9 +1527,14 @@ span.jump-name {
 .about__facts {
   display: grid;
   gap: 18px;
-  border-top: 1px solid var(--ink);
+  border-top: 1px solid var(--rule);
   padding-top: 18px;
   font: 14px/18px var(--font-sans);
+}
+@media (prefers-color-scheme: dark) {
+  .about__facts {
+    border-top-color: var(--ink);
+  }
 }
 .about__facts > div {
   display: flex;
