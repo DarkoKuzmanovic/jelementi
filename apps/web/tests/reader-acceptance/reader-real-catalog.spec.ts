@@ -154,14 +154,14 @@ test('smokes the complete canonical generated Reader inventory independently of 
   await expect(opening.getByText('26 July 2026')).toBeVisible();
   await expect(opening.getByText('1 min read')).toBeVisible();
   await expect(opening.getByText(/min read/)).toBeVisible();
-  await expect(opening.getByRole('list', { name: 'Tags' })).toBeVisible();
+  await expect(page.locator('.article-facts').getByRole('list', { name: 'Tags' })).toBeVisible();
   await expect(
     page.locator('figure.article-cover').getByRole('img', { name: /Tristan da Cunha/ }),
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Footnotes' })).toBeVisible();
   const continuation = page.getByRole('navigation', { name: 'Continue reading' });
-  await expect(continuation.getByRole('link', { name: /Return to/ })).toBeVisible();
+  await expect(continuation.getByRole('link', { name: /All History/ })).toBeVisible();
   const measures = await page.evaluate(() => {
     const page = document.querySelector('.article-page');
     const body = document.querySelector('.article-body');
@@ -179,7 +179,7 @@ test('smokes the complete canonical generated Reader inventory independently of 
       prose: prose.getBoundingClientRect().width,
     };
   });
-  expect(measures.page).toBe(71.25 * 16);
+  expect(measures.page).toBe(await page.evaluate(() => window.innerWidth));
   expect(measures.prose).toBeLessThanOrEqual(42.5 * 16);
   expect(measures.body).toBeLessThanOrEqual(50 * 16);
   await expect(page.locator('meta[name="jelementi-content-version"]')).toHaveCount(1);

@@ -96,3 +96,13 @@ describe('articleContinuation', () => {
     ).toBeNull();
   });
 });
+
+it('offers up to three next-older cards without wrapping or crossing categories', () => {
+  expect(
+    articleContinuation(index, documentSummary('newest')).stories.map(({ slug }) => slug),
+  ).toEqual(['middle', 'oldest']);
+  expect(articleContinuation(index, documentSummary('oldest')).stories).toEqual([]);
+  expect(articleContinuation(index, { slug: 'ghost', category: 'Field Notes' }).stories).toEqual(
+    [],
+  );
+});

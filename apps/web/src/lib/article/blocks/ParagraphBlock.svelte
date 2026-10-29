@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { ParagraphBlock } from '@jelementi/article-model';
   import InlineContent from '../InlineContent.svelte';
-  let { block, scope }: { block: ParagraphBlock; scope: string } = $props();
+  let {
+    block,
+    scope,
+    opening = false,
+  }: { block: ParagraphBlock; scope: string; opening?: boolean } = $props();
 </script>
 
-<p><InlineContent nodes={block.children} {scope} /></p>
+<p class:article-lede={opening}><InlineContent nodes={block.children} {scope} {opening} /></p>

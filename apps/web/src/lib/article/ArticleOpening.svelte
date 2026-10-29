@@ -4,41 +4,38 @@
   import { formatPublishedDate } from './format-date';
   import ArticleSeriesPosition from './ArticleSeriesPosition.svelte';
   import type { SeriesProjection } from '../series/series-projection';
-
+  import Kicker from '../reader/Kicker.svelte';
+  import { articleAudioAnchor } from './audio-anchor';
   let { article, series }: { article: ArticleDocument; series?: SeriesProjection } = $props();
 </script>
 
-<!--
-  Article opening — the compact Quiet Column opening hierarchy (Variant A,
-  c548b7e): category, title, dek, author, publication date, reading time,
-  then tags. The canonical category link uses the shared category slug so
-  every article connects to discovery. Rendered through ArticleRenderer.
--->
 <header class="article-opening">
-  <p class="article-opening__category">
-    <a href={`/categories/${categorySlug(article.category)}`}>{article.category}</a>
-  </p>
+  <a class="article-opening__category" href={`/categories/${categorySlug(article.category)}`}>
+    <Kicker
+      category={article.category}
+      categorySlug={categorySlug(article.category)}
+      extra={`${article.readingTimeMinutes} min read`}
+    />
+  </a>
   <h1 class="article-opening__title">{article.title}</h1>
   <p class="article-opening__excerpt">{article.excerpt}</p>
   <p class="article-opening__meta">
-    <span>By <strong>{article.author}</strong></span>
-    <span aria-hidden="true"> · </span>
-    {#if article.publishedAt}
-      <time datetime={article.publishedAt}>
-        {formatPublishedDate(article.publishedAt)}
-      </time>
-    {/if}
-    {#if article.publishedAt}
-      <span aria-hidden="true"> · </span>
-    {/if}
-    <span>{article.readingTimeMinutes} min read</span>
+    <span>By {article.author}</span>
+    {#if article.publishedAt}<span aria-hidden="true"> · </span><time datetime={article.publishedAt}
+        >{formatPublishedDate(article.publishedAt)}</time
+      >{/if}
+    <span aria-hidden="true"> · </span><span>Sources: {article.references.length}</span>
   </p>
-  {#if series}<ArticleSeriesPosition {series} currentSlug={article.slug} />{/if}
-  {#if article.tags.length > 0}
-    <ul class="article-opening__tags" aria-label="Tags">
-      {#each article.tags as tag (tag)}
-        <li>{tag}</li>
-      {/each}
-    </ul>
+  {#if article.audio}
+    <a class="article-listen" href={`#${articleAudioAnchor}`}>
+      <span class="article-listen__play" aria-hidden="true">▶</span>
+      <span>Listen to this story</span><span aria-hidden="true"> · </span>
+      {#if article.audio.durationSeconds !== undefined}<span class="article-listen__duration"
+          >{Math.floor(article.audio.durationSeconds / 60)}:{String(
+            article.audio.durationSeconds % 60,
+          ).padStart(2, '0')}</span
+        >{/if}
+    </a>
   {/if}
+  {#if series}<ArticleSeriesPosition {series} currentSlug={article.slug} />{/if}
 </header>

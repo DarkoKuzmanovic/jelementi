@@ -47,6 +47,12 @@ const richDocument = ArticleDocumentSchema.parse({
           'strikethrough',
         ]),
         { type: 'footnoteReference', id: 'locked-seam' },
+        text(' Evidence from later sources.'),
+        ...[5, 6].map((number) => ({
+          type: 'link',
+          href: `https://www.example.com/reader-acceptance-${number}`,
+          children: [text(`[${number}]`)],
+        })),
       ],
     },
     {

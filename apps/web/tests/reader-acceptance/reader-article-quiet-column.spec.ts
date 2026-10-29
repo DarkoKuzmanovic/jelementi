@@ -24,12 +24,12 @@ test('reader-owned fragments resolve to exact targets beside colliding authored 
 
   const ids = await page.locator('[id]').evaluateAll((nodes) => nodes.map((node) => node.id));
   expect(new Set(ids).size).toBe(ids.length);
-  for (const link of await page.locator('.article-contents a').all()) {
+  for (const link of await page.locator('.article-margin .article-contents a').all()) {
     await link.click();
     expect(
       await link.evaluate((node) => {
         const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
-        if (node.textContent === 'Sources →')
+        if (node.getAttribute('href') === '#reader:sources')
           return target === document.querySelector('.article-endmatter > h2');
         return [...document.querySelectorAll('.article-body h2')].some(
           (heading) => heading === target && `#${heading.id}` === node.getAttribute('href'),
@@ -80,8 +80,8 @@ test('sources expose authored numbers and domains, then reveal later references 
   const sourceLists = sources.locator('.article-sources');
 
   await expect(sourceLists).toHaveCount(2);
-  await expect(sourceLists.nth(0).locator('li')).toHaveCount(8);
-  await expect(sourceLists.nth(1).locator('li')).toHaveCount(3);
+  await expect(sourceLists.nth(0).locator('li')).toHaveCount(4);
+  await expect(sourceLists.nth(1).locator('li')).toHaveCount(7);
   await expect(sources.locator('.article-source__number').first()).toHaveText('4');
   await expect(sources.locator('.article-source__domain').first()).toContainText('example.com');
   await expect(sources.locator('.article-source__domain').first()).toContainText(
@@ -101,7 +101,7 @@ test('sources expose authored numbers and domains, then reveal later references 
     })),
   ).toEqual({
     color: await sources
-      .locator('.article-source__title')
+      .locator('.endmatter-heading')
       .first()
       .evaluate((element) => getComputedStyle(element).color),
     fontWeight: '500',
@@ -117,15 +117,17 @@ test('rich article opening presents the complete compact hierarchy', async ({ pa
   await expect(
     page.getByRole('heading', { level: 1, name: /Every Reader Structure/ }),
   ).toBeVisible();
-  await expect(opening.getByRole('link', { name: 'Field Notes' })).toHaveAttribute(
+  await expect(opening.getByRole('link', { name: /Field Notes/ })).toHaveAttribute(
     'href',
     '/categories/field-notes',
   );
   await expect(opening.getByText('By Jelementi')).toBeVisible();
-  await expect(opening.getByText('7 min read')).toBeVisible();
+  await expect(opening.getByText('· 7 min read')).toBeVisible();
   await expect(opening.getByText('18 August 2026')).toBeVisible();
-  await expect(opening.getByRole('list', { name: 'Tags' })).toBeVisible();
-  await expect(opening.getByRole('list', { name: 'Tags' }).getByText('Čačak')).toBeVisible();
+  await expect(page.locator('.article-facts').getByRole('list', { name: 'Tags' })).toBeVisible();
+  await expect(
+    page.locator('.article-facts').getByRole('list', { name: 'Tags' }).getByText('Čačak'),
+  ).toBeVisible();
 });
 
 test('illustration precedes native audio and all seven blocks in one complete flow', async ({
@@ -138,7 +140,7 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   await expect(page.locator('figure.article-cover img')).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-  // DOM order: opening → cover → audio → first block → endmatter.
+  // The header pill targets the native player at the ending; the body follows the cover.
   const order = await page.evaluate(() => {
     const article = document.querySelector('article:has(> .article-opening)');
     if (!article) throw new Error('Article root missing.');
@@ -159,7 +161,7 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   });
   expect(order.cover).toBeGreaterThan(order.opening);
   expect(order.audio).toBeGreaterThan(order.cover);
-  expect(order.body).toBeGreaterThan(order.audio);
+  expect(order.audio).toBeGreaterThan(order.body);
   expect(order.endmatter).toBeGreaterThan(order.body);
 
   // All seven block discriminants in the flow.
@@ -192,6 +194,8 @@ test('illustration precedes native audio and all seven blocks in one complete fl
 test('no-audio sparse article leaves no empty treatment', async ({ page }) => {
   await page.goto('/articles/acceptance-no-audio-long-column');
   await expect(page.locator('audio')).toHaveCount(0);
+  await expect(page.locator('.article-listen')).toHaveCount(0);
+  await expect(page.locator('.article-body blockquote')).toHaveCount(0);
   await expect(page.locator('div.article-body p').first()).toBeVisible();
   // Long unbroken content stays inside the bounded column at wide width.
   const overflow = await page.evaluate(
@@ -200,29 +204,22 @@ test('no-audio sparse article leaves no empty treatment', async ({ page }) => {
   expect(overflow).toBe(false);
 });
 
-test('continuation: exactly one next-older in the category and no wrapped continuation for the oldest', async ({
-  page,
-}) => {
+test('continuation offers three next-older category cards and never wraps', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: 'Continue reading' });
-
   await page.goto('/articles/acceptance-rich-column');
-  await expect(nav.getByRole('link', { name: /Return to Field Notes/ })).toBeVisible();
-  await expect(nav.getByRole('link', { name: /Next older article in Field Notes/ })).toHaveCount(1);
-  await expect(nav.getByRole('link', { name: /The Middle Field Note/ })).toHaveAttribute(
+  await expect(nav.getByRole('heading', { name: 'Keep reading in Field Notes' })).toBeVisible();
+  await expect(nav.locator('.article-keep-reading__cards > article')).toHaveCount(3);
+  await expect(nav.getByRole('link', { name: 'The Middle Field Note' })).toHaveAttribute(
     'href',
     '/articles/acceptance-field-middle',
   );
-
-  // The middle page's next older article is part three of the series.
   await page.goto('/articles/acceptance-field-middle');
   await expect(nav.getByRole('link', { name: /Field Notes, part 3: The final tower/ })).toHaveCount(
     1,
   );
-
-  // Oldest article in the category: no wrapped continuation.
   await page.goto('/articles/acceptance-field-oldest');
-  await expect(nav.getByRole('link', { name: /Return to Field Notes/ })).toBeVisible();
-  await expect(nav.getByRole('link', { name: /Next older article/ })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'All Field Notes →' })).toBeVisible();
+  await expect(nav.locator('.article-keep-reading__cards > article')).toHaveCount(0);
 });
 test('series articles show their position, part links, margin list, and next-series ending', async ({
   page,
@@ -276,10 +273,11 @@ test('series articles show their position, part links, margin list, and next-ser
     partTwo,
   );
   await expect(nav.locator('.article-series-continuation')).toHaveCount(0);
-  await expect(nav.getByText('Next in Field Notes')).toBeVisible();
-  await expect(
-    nav.getByRole('link', { name: /Next older article in Field Notes/ }),
-  ).toHaveAttribute('href', partTwo);
+  await expect(nav.getByText('Keep reading in Field Notes')).toBeVisible();
+  await expect(nav.getByRole('link', { name: /Field Notes, part 2/ })).toHaveAttribute(
+    'href',
+    partTwo,
+  );
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(partTwo);
@@ -343,6 +341,7 @@ test('text resize, 400% zoom equivalent, and WCAG text spacing preserve one cont
     .evaluateAll((elements) =>
       elements
         .filter((element) => {
+          if (element.getClientRects().length === 0) return false;
           const box = element.getBoundingClientRect();
           return box.left < 0 || box.right > window.innerWidth || box.width === 0;
         })
@@ -362,7 +361,7 @@ test('text resize, 400% zoom equivalent, and WCAG text spacing preserve one cont
 
 test('article links retain visible keyboard focus treatment', async ({ page }) => {
   await page.goto('/articles/acceptance-rich-column');
-  const category = page.locator('.article-opening').getByRole('link', { name: 'Field Notes' });
+  const category = page.locator('.article-opening').getByRole('link', { name: /Field Notes/ });
   await category.focus();
   await expect(category).toBeFocused();
   expect(await category.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe(
@@ -443,4 +442,31 @@ test('article has zero serious or critical accessibility findings', async ({ pag
   if (testInfo.project.name.includes('no-js')) test.skip();
   await page.goto('/articles/acceptance-rich-column');
   await expectNoBlockingAccessibilityViolations(page);
+});
+
+test('citation navigation reveals a collapsed source without hydration', async ({ page }) => {
+  await page.goto('/articles/acceptance-rich-column');
+  const source = page.locator('[id="reader:source:5"]');
+  await expect(source).toBeHidden();
+  await page.getByRole('link', { name: 'Source 5', exact: true }).click();
+  await expect(source).toBeVisible();
+  await expect(source).toBeInViewport();
+  await page.goto('/articles/acceptance-rich-column#reader:source:6');
+  await expect(page.locator('[id="reader:source:6"]')).toBeVisible();
+});
+
+test('mobile contents use native details and tablet rails disappear', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/articles/acceptance-rich-column');
+  const details = page.locator('.article-mobile-contents');
+  await expect(details.locator('nav')).toBeHidden();
+  await details.locator('summary').click();
+  const first = details.getByRole('link').first();
+  await expect(first).toBeVisible();
+  const target = await first.getAttribute('href');
+  await first.click();
+  expect(new URL(page.url()).hash).toBe(target);
+  await page.setViewportSize({ width: 1000, height: 844 });
+  await expect(page.locator('.article-margin')).toBeHidden();
+  await expect(page.locator('.article-facts')).toBeHidden();
 });

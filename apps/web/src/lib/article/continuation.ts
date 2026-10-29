@@ -10,12 +10,12 @@ function newestFirst(entries: readonly ArticleIndexEntry[]): ArticleIndexEntry[]
 export interface ArticleContinuation {
   /** The oldest article in its category has no wrapped continuation. */
   nextOlder: ArticleIndexEntry | null;
+  stories: ArticleIndexEntry[];
 }
 
 /**
- * Reader-only continuation projection (#101): exactly one next-older article
- * from the canonical newest-first category sequence, or none for the oldest
- * article. The shared ArticleRenderer stays content-only.
+ * Continue through the canonical newest-first category sequence without wrapping.
+ * Keep the first next-older entry for series endings and up to three for cards.
  */
 export function articleContinuation(
   index: ArticleIndex,
@@ -25,6 +25,9 @@ export function articleContinuation(
     index.filter((entry) => entry.categorySlug === categorySlug(article.category)),
   );
   const position = sequence.findIndex((entry) => entry.slug === article.slug);
-  if (position === -1) return { nextOlder: null };
-  return { nextOlder: sequence[position + 1] ?? null };
+  if (position === -1) return { nextOlder: null, stories: [] };
+  return {
+    nextOlder: sequence[position + 1] ?? null,
+    stories: sequence.slice(position + 1, position + 4),
+  };
 }

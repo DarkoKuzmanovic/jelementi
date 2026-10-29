@@ -100,10 +100,11 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
   it('renders the compact opening hierarchy: category link, title, excerpt, author, date, reading time, tags', () => {
     const body = stripClasses(strip(render(ArticleRenderer, { props: { document } }).body));
 
-    expect(body).toContain('<a href="/categories/history">History</a>');
+    expect(body).toContain('href="/categories/history"');
+    expect(body).toContain('History');
     expect(body).toContain('<h1>The Quiet Column</h1>');
     expect(body).toContain('A deterministic opening excerpt.');
-    expect(body).toContain('By <strong>Jelementi</strong>');
+    expect(body).toContain('By Jelementi');
     expect(body).toContain('<time datetime="2026-07-26">26 July 2026</time>');
     expect(body).toContain('4 min read');
     expect(body).toContain('remote places');
@@ -116,11 +117,11 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     const opening = body.indexOf('<h1');
     const audio = body.indexOf('<audio');
     const cover = body.indexOf('article-cover');
-    const firstBlock = body.indexOf('<p>Locked marks');
+    const firstBlock = body.indexOf('article-lede');
     expect(opening).toBeGreaterThanOrEqual(0);
     expect(cover).toBeGreaterThan(opening);
     expect(audio).toBeGreaterThan(cover);
-    expect(firstBlock).toBeGreaterThan(audio);
+    expect(audio).toBeGreaterThan(firstBlock);
   });
 
   it('renders all seven block discriminants, inline marks/nodes, wide image caption, sources, footnotes, and backlinks', () => {
@@ -151,7 +152,7 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
     expect(body).toContain('↩');
   });
 
-  it('numbers and scans sources, strips citation prefixes, and collapses references after ten', () => {
+  it('numbers and scans sources, strips citation prefixes, and collapses references after four', () => {
     const references = Array.from({ length: 11 }, (_, index) => ({
       title:
         index === 0
@@ -169,12 +170,12 @@ describe('authoritative article renderer (#101 Quiet Column)', () => {
       /<ol class="article-sources" role="list">([\s\S]*?)<\/ol>/,
     )?.[1];
     const expandedSources = body.match(
-      /<details class="article-sources__details">[\s\S]*?<ol class="article-sources" role="list" start="9">([\s\S]*?)<\/ol>/,
+      /<details class="article-sources__details">[\s\S]*?<ol class="article-sources" role="list" start="5">([\s\S]*?)<\/ol>/,
     )?.[1];
 
     expect(body).toContain('<summary>Show all 11 sources</summary>');
-    expect(initialSources?.match(/class="article-source"/g)).toHaveLength(8);
-    expect(expandedSources?.match(/class="article-source"/g)).toHaveLength(3);
+    expect(initialSources?.match(/class="article-source"/g)).toHaveLength(4);
+    expect(expandedSources?.match(/class="article-source"/g)).toHaveLength(7);
     expect(body).toContain('<span class="article-source__number">42</span>');
     expect(body).toContain(
       '<a class="article-source__title" href="https://www.example.com/source-1" aria-label="First source">First source</a>',
