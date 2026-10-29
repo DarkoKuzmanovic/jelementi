@@ -66,12 +66,16 @@ describe('series projection', () => {
     ]);
   });
 
-  it('strips only the exact case-sensitive series title and part prefix', () => {
+  it('strips the case-insensitive series title and matching part prefix', () => {
     const series = projectSeries(articles)[0];
     if (series === undefined) throw new Error('Expected a series projection.');
 
     expect(seriesPartTitle(series, series.parts[0]!)).toBe('The first wall');
-    expect(seriesPartTitle(series, series.parts[1]!)).toBe('fortress, part 2: The next wall');
+    expect(seriesPartTitle(series, series.parts[1]!)).toBe('The next wall');
+    expect(seriesPartTitle(series, series.parts[2]!)).toBe('Title fortress-3');
+    expect(seriesPartTitle(series, { ...series.parts[0]!, title: 'Fortress, part 2: Other' })).toBe(
+      'Fortress, part 2: Other',
+    );
   });
 
   it('collapses a represented series once, links to part one, and uses the newest cover', () => {

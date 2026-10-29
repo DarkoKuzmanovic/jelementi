@@ -221,72 +221,70 @@ test('continuation offers three next-older category cards and never wraps', asyn
   await expect(nav.getByRole('link', { name: 'All Field Notes →' })).toBeVisible();
   await expect(nav.locator('.article-keep-reading__cards > article')).toHaveCount(0);
 });
-test('series articles show their position, part links, margin list, and next-series ending', async ({
+test('series articles show linked route discs, adjacent cards and complete endings', async ({
   page,
 }) => {
-  const nav = page.getByRole('navigation', { name: 'Continue reading' });
+  const ending = page.locator('.article-series-continuation');
   const partOne = '/articles/acceptance-field-series-first';
   const partTwo = '/articles/acceptance-field-series-middle';
   const partThree = '/articles/acceptance-field-series-third';
+  const route = page.getByRole('navigation', { name: 'Field Notes parts' });
+  const adjacent = page.getByRole('navigation', { name: 'Series parts', exact: true });
 
   await page.goto(partOne);
-  const position = page.locator('.article-series-position');
-  await expect(position).toContainText('Part 1 of 3');
-  await expect(position.locator('.article-series-position__segments li')).toHaveCount(3);
-  await expect(position.locator('[aria-current=step]')).toHaveText('Part 1, current');
-  await expect(position.locator('.article-series-position__previous')).toHaveCount(0);
-  await expect(position.locator('.article-series-position__next')).toHaveAttribute('href', partTwo);
-
-  const margin = page.locator('.article-series-margin');
-  await expect(margin).toBeVisible();
-  await expect(margin.locator('li')).toHaveCount(3);
-  const currentMarginPart = margin.locator('[aria-current=page]');
-  await expect(currentMarginPart).toHaveText('The first tower');
-  await expect(currentMarginPart.locator('a')).toHaveCount(0);
-
-  await expect(nav.locator('.article-series-continuation__kicker')).toContainText(
-    'Continue the series',
-  );
-  await expect(nav.getByRole('link', { name: 'Continue to part 2 →' })).toHaveAttribute(
+  await expect(page.locator('.article-opening__category')).toContainText('Part 1 of 3');
+  await expect(route.locator('li')).toHaveCount(3);
+  await expect(route.locator('[aria-current=step]')).toHaveText('1');
+  await expect(route.getByRole('link', { name: 'Part 2', exact: true })).toHaveAttribute(
     'href',
     partTwo,
   );
-  await expect(nav.locator('.article-series-continuation__list')).toContainText('You are here');
-  await expect(nav.locator('.article-series-continuation__list')).toContainText('Up next');
+  await expect(adjacent.locator('.article-series-position__previous')).toHaveCount(0);
+  await expect(adjacent.locator('.article-series-position__next')).toHaveAttribute('href', partTwo);
+  await expect(page.locator('h1')).toHaveText('The first tower');
+  await expect(ending.getByRole('link', { name: 'Read part 2 →' })).toHaveAttribute(
+    'href',
+    partTwo,
+  );
+  await expect(ending.locator('.article-series-continuation__part')).toHaveCount(3);
+  await expect(ending.locator('[aria-current=page]')).toContainText('You are here');
+  await expect(ending).not.toContainText('Up next');
+  await expect(page.locator('.article-keep-reading')).toBeVisible();
 
   await page.goto(partTwo);
-  await expect(position).toContainText('Part 2 of 3');
-  await expect(position.locator('.article-series-position__previous')).toHaveAttribute(
+  await expect(route.locator('[aria-current=step]')).toHaveText('2');
+  await expect(adjacent.locator('.article-series-position__previous')).toHaveAttribute(
     'href',
     partOne,
   );
-  await expect(position.locator('.article-series-position__next')).toHaveAttribute(
+  await expect(adjacent.locator('.article-series-position__next')).toHaveAttribute(
     'href',
     partThree,
   );
 
   await page.goto(partThree);
-  await expect(position).toContainText('Part 3 of 3');
-  await expect(position.locator('.article-series-position__next')).toHaveCount(0);
-  await expect(position.locator('.article-series-position__previous')).toHaveAttribute(
+  await expect(route.locator('[aria-current=step]')).toHaveText('3');
+  await expect(adjacent.locator('.article-series-position__next')).toHaveCount(0);
+  await expect(adjacent.locator('.article-series-position__previous')).toHaveAttribute(
     'href',
     partTwo,
   );
-  await expect(nav.locator('.article-series-continuation')).toHaveCount(0);
-  await expect(nav.getByText('Keep reading in Field Notes')).toBeVisible();
-  await expect(nav.getByRole('link', { name: /Field Notes, part 2/ })).toHaveAttribute(
+  await expect(ending.getByRole('link', { name: 'Back to part 1' })).toHaveAttribute(
     'href',
-    partTwo,
+    partOne,
   );
+  await expect(ending.getByRole('link', { name: /^Read part/ })).toHaveCount(0);
+  await expect(ending.locator('.article-series-continuation__part')).toHaveCount(3);
+  await expect(page.getByText('Keep reading in Field Notes')).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(partTwo);
-  await expect(position).toBeVisible();
+  await expect(route).toBeVisible();
   await expect(page.locator('.article-margin')).toBeHidden();
-  const endingColumns = await nav
-    .locator('.article-series-continuation')
-    .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
-  expect(endingColumns.trim().split(/\s+/)).toHaveLength(1);
+  await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 390);
+  const band = await ending.boundingBox();
+  const keep = await page.locator('.article-keep-reading').boundingBox();
+  expect(band!.y + band!.height).toBeLessThanOrEqual(keep!.y);
 });
 
 test('320px reflow has no page-level horizontal overflow on the rich article', async ({ page }) => {
