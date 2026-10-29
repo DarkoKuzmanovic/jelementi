@@ -13,7 +13,8 @@
 }
 /* Shell measurements follow the second-edition boards. */
 .shell-width,
-.home-width {
+.home-width,
+.layout:has(.small-page) {
   width: min(1200px, calc(100% - 40px));
   margin-inline: auto;
 }
@@ -1501,38 +1502,131 @@ span.jump-name {
     font-weight: 500;
   }
 }
-.about,
-.recovery {
-  max-width: 42.5rem;
+.layout:has(.small-page) {
+  padding-block: 48px;
 }
-.about h1,
-.recovery h1 {
-  margin: 0 0 2rem;
-  font: 500 clamp(2.5rem, 5vw, 4rem)/1.1 var(--font-serif);
-  letter-spacing: -0.045em;
+.small-page {
+  display: grid;
+  gap: 18px;
+  width: min(360px, 100%);
+  margin-inline: auto;
 }
-.about__statement {
-  font: 1.5rem/1.6 var(--font-serif);
+.small-page :is(h1, h2, p, dl, ul) {
+  margin: 0;
 }
-.about section {
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--rule);
+.small-page h1 {
+  font: 500 44px/48px var(--font-serif);
+  letter-spacing: -0.02em;
 }
-.recovery__context {
-  color: var(--muted);
-  font-size: 0.875rem;
+.about > p:not(.reader-kicker) {
+  font: 20px/31px var(--font-serif);
 }
-.recovery nav {
+.about > .reader-kicker {
+  color: var(--blue);
+}
+.about__facts {
+  display: grid;
+  gap: 18px;
+  border-top: 1px solid var(--ink);
+  padding-top: 18px;
+  font: 14px/18px var(--font-sans);
+}
+.about__facts > div {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
-  margin-top: 1.5rem;
+  justify-content: space-between;
+  gap: 12px;
 }
-
-@media (max-width: 760px) {
-  .reader-surface {
-  }
+.about__facts dt {
+  font-weight: 500;
+}
+.about__facts dd {
+  margin: 0;
+  color: var(--muted);
+  text-align: right;
+}
+.about__facts a {
+  text-decoration: none;
+}
+.recovery h1 {
+  font-size: 36px;
+  line-height: 40px;
+  letter-spacing: -0.015em;
+}
+.recovery__number {
+  color: var(--hue-history);
+  font: italic 96px/96px var(--font-serif);
+}
+.small-page__deck {
+  color: var(--muted);
+  font: 19px/28px var(--font-serif);
+}
+.recovery .search-form__row {
+  min-height: 52px;
+  padding: 0 14px;
+}
+.recovery .search-form input {
+  font-size: 18px;
+}
+.recovery button {
+  display: flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.recovery .home-actions {
+  gap: 10px;
+}
+.study {
+  gap: 16px;
+}
+.study h1 {
+  font-size: 40px;
+}
+.study .small-page__deck {
+  font-size: 18px;
+  line-height: 26px;
+}
+.study h2 {
+  font: 500 20px/26px var(--font-serif);
+  margin-bottom: 16px;
+}
+.study ul {
+  display: grid;
+  gap: 16px;
+  padding: 0;
+  list-style: none;
+}
+.study details {
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 16px 18px;
+}
+.study details[open] {
+  border-color: var(--blue);
+  background: var(--foundation-accent-soft);
+}
+.study summary {
+  list-style: none;
+  cursor: pointer;
+  font: 500 18px/23px var(--font-serif);
+}
+.study summary::-webkit-details-marker {
+  display: none;
+}
+.study summary span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font: 13px/17px var(--font-sans);
+}
+.study [open] summary span {
+  display: none;
+}
+.study details p {
+  margin-top: 8px;
+  color: var(--blue);
+  font: italic 22px/26px var(--font-serif);
 }
 @media (max-width: 600px) {
   .reader-surface {

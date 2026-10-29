@@ -3,7 +3,6 @@ import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
 const recoveryDestinations = [
   { name: 'Home', href: '/' },
-  { name: 'Search', href: '/search' },
   { name: 'Sections', href: '/categories' },
 ] as const;
 const recoveryRoutes = [
@@ -20,7 +19,11 @@ async function expectRecovery(page: Page): Promise<void> {
       recovery.getByRole('link', { name: destination.name, exact: true }),
     ).toHaveAttribute('href', destination.href);
   }
-  await expect(recovery.getByRole('link')).toHaveCount(3);
+  await expect(recovery.getByRole('link')).toHaveCount(2);
+  const search = page.getByRole('search', { name: 'Page search' });
+  await expect(search).toHaveAttribute('action', '/search');
+  await expect(search).toHaveAttribute('method', 'get');
+  await expect(search.getByRole('searchbox')).toHaveAttribute('name', 'query');
   await expect(page.getByRole('link', { name: 'Try again' })).toHaveCount(0);
 }
 
@@ -31,7 +34,7 @@ async function expectAccessibleInLightAndDark(page: Page): Promise<void> {
   }
 }
 
-test('secondary reader pages share the publication heading scale', async ({ page }) => {
+test('secondary reader pages use their board typography', async ({ page }) => {
   for (const path of ['/about', '/categories', '/articles/missing-reader-acceptance-article']) {
     await page.goto(path);
     const heading = page.getByRole('heading', { level: 1 });
@@ -39,7 +42,7 @@ test('secondary reader pages share the publication heading scale', async ({ page
       size: parseFloat(getComputedStyle(element).fontSize),
       family: getComputedStyle(element).fontFamily,
     }));
-    expect(type.size).toBeGreaterThanOrEqual(40);
+    expect(type.size).toBe(path.includes('missing') ? 36 : path === '/about' ? 44 : 72);
     expect(type.family).toContain('Newsreader');
   }
 });

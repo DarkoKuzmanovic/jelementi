@@ -19,5 +19,13 @@ export const load: PageServerLoad = ({ params }) => {
     title: seriesPartTitle(series, part),
     cards,
   }));
-  return { series: { slug: series.slug, title: series.title }, parts };
+  return {
+    series: {
+      slug: series.slug,
+      title: series.title,
+      category: series.category,
+      categorySlug: series.categorySlug,
+    },
+    parts,
+  };
 };

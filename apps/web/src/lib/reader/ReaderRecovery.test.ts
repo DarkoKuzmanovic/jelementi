@@ -14,14 +14,18 @@ describe('ReaderRecovery', () => {
     expect(recoveryRetryHref(500, url)).toBeUndefined();
   });
 
-  it('renders exact plain 404 recovery with the three canonical destinations', () => {
+  it('renders plain 404 recovery with a GET search form and Home / Sections links', () => {
     const { body } = render(ReaderRecovery, { props: { status: 404 } });
 
     expect(body).toContain('This page is not available.');
     expect(body).toContain('The address may be incorrect, or the page may have moved.');
     expect(body).toContain('aria-label="Page recovery"');
     expect(body).toContain('href="/"');
-    expect(body).toContain('href="/search"');
+    expect(body).toContain('404');
+    expect(body).toContain('action="/search"');
+    expect(body).toContain('method="get"');
+    expect(body).toContain('name="query"');
+    expect(body).toContain('type="search"');
     expect(body).toContain('href="/categories"');
     expect(body).not.toContain('Try again');
   });

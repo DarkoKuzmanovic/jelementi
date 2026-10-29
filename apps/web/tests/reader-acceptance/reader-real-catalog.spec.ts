@@ -196,11 +196,44 @@ test('smokes the complete canonical generated Reader inventory independently of 
 
   await page.goto('/about');
   await expect(page.getByRole('heading', { level: 1, name: 'About Jelementi' })).toBeVisible();
+  await expect(page.locator('.about__facts')).toContainText(
+    `${canonicalIndex.length} in five sections`,
+  );
+  await expect(
+    page.getByRole('main').getByRole('link', { name: 'Podcast', exact: true }),
+  ).toHaveAttribute('href', '/podcast.xml');
+  await expect(
+    page.getByRole('main').getByRole('link', { name: 'Article feed (RSS)' }),
+  ).toHaveAttribute('href', '/feed.xml');
+
+  await page.goto('/series/kalemegdan/dates');
+  await expect(page.getByRole('heading', { level: 1, name: 'Dates to remember' })).toBeVisible();
+  const card = page.locator('.study details').first();
+  const date = card.locator('p');
+  await expect(date).toBeHidden();
+  const dateText = (await date.textContent())!.trim();
+  expect(dateText).not.toBe('');
+  expect(await card.ariaSnapshot()).not.toContain(dateText);
+  await card.locator('summary').click();
+  await expect(date).toBeVisible();
+  expect(await card.ariaSnapshot()).toContain(dateText);
+  await expect(card.locator('summary span')).toBeHidden();
+  await expect(
+    page.getByRole('link', { name: 'Download the series as an e-book' }),
+  ).toHaveAttribute('href', '/series/kalemegdan.epub');
 
   const notFound = await page.goto('/missing-real-catalog-route');
   expect(notFound?.status()).toBe(404);
   await expect(page.getByRole('heading', { name: 'This page is not available.' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Page recovery' })).toBeVisible();
+  const recoverySearch = page.getByRole('search', { name: 'Page search' });
+  await expect(recoverySearch).toHaveAttribute('method', 'get');
+  await expect(recoverySearch).toHaveAttribute('action', '/search');
+  await expect(recoverySearch.getByRole('searchbox')).toHaveAttribute('name', 'query');
+  await recoverySearch.getByRole('searchbox').fill('blue');
+  await recoverySearch.getByRole('button', { name: 'Search stories' }).click();
+  await expect(page).toHaveURL(/\/search\?query=blue$/);
+  await expect(page.getByRole('status')).toContainText('“blue”');
 });
 test('home shelves become category summaries on narrow screens', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

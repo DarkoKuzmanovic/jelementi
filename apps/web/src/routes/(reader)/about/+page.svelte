@@ -1,5 +1,7 @@
 <script lang="ts">
   import AboutContent from './AboutContent.svelte';
+  import type { PageData } from './$types';
+  let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head
@@ -8,4 +10,4 @@
     content="About Jelementi — independent stories, carefully edited and researched from documented sources."
   /></svelte:head
 >
-<AboutContent />
+<AboutContent storyCount={data.storyCount} categoryCount={data.categoryCount} />
