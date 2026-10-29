@@ -296,6 +296,82 @@ describe('media lifecycle guards', () => {
     },
   );
 
+  it('retries a HEAD request that throws a transient network error', async () => {
+    let attempts = 0;
+    const flakyHead: MediaFetch = async () => {
+      attempts += 1;
+      if (attempts === 1) throw new TypeError('fetch failed');
+      return response(200, imageHeaders());
+    };
+
+    await expect(
+      verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: flakyHead, retryDelayMs: 0 }),
+    ).resolves.toBeUndefined();
+    expect(attempts).toBe(2);
+  });
+
+  it('gives up after three HEAD attempts when the network keeps failing', async () => {
+    let attempts = 0;
+    const offlineHead: MediaFetch = async () => {
+      attempts += 1;
+      throw new TypeError('fetch failed');
+    };
+
+    await expect(
+      verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: offlineHead, retryDelayMs: 0 }),
+    ).rejects.toThrow(
+      `Media verification failed for ${mediaBaseUrl}${key}: HEAD request failed: fetch failed`,
+    );
+    expect(attempts).toBe(3);
+  });
+
+  it('never retries an HTTP response, such as a 404 HEAD', async () => {
+    let attempts = 0;
+    const missingHead: MediaFetch = async () => {
+      attempts += 1;
+      return response(404);
+    };
+
+    await expect(
+      verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: missingHead, retryDelayMs: 0 }),
+    ).rejects.toThrow(
+      `Media verification failed for ${mediaBaseUrl}${key}: expected a 2xx status, received 404`,
+    );
+    expect(attempts).toBe(1);
+  });
+
+  it('retries a byte-range request that throws a transient network error', async () => {
+    const rangeBody = (): ReadableStream<Uint8Array> =>
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(Uint8Array.of(0));
+          controller.close();
+        },
+      });
+    let rangeAttempts = 0;
+    const flakyRange: MediaFetch = async (_url, init) => {
+      if (init.method === 'HEAD') {
+        return response(200, {
+          'cache-control': 'public, max-age=31536000, immutable',
+          'content-type': 'image/svg+xml',
+        });
+      }
+      rangeAttempts += 1;
+      if (rangeAttempts === 1) throw new TypeError('connect ETIMEDOUT');
+      return response(
+        206,
+        { 'content-range': 'bytes 0-0/378', 'content-type': 'image/svg+xml' },
+        undefined,
+        rangeBody(),
+      );
+    };
+
+    await expect(
+      verifyMediaUrl(`${mediaBaseUrl}${key}`, { fetch: flakyRange, retryDelayMs: 0 }),
+    ).resolves.toBeUndefined();
+    expect(rangeAttempts).toBe(2);
+  });
+
   it('rejects Cache-Control lookalikes and conflicting directives', async () => {
     const invalidPolicies = [
       'notpublic, max-age=31536000, immutable',
