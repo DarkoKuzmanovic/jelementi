@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
 import Card from './Card.svelte';
+import SearchResultFixture from './SearchResultFixture.test.svelte';
 import ListItem from './ListItem.svelte';
 
 const article: ArticleIndexEntry = {
@@ -50,6 +51,13 @@ describe('Card', () => {
 });
 
 describe('ListItem', () => {
+  it('renders supplied title and body-match content as text, never raw article markup', () => {
+    const { body } = render(SearchResultFixture);
+    expect(body).toContain('search-match');
+    expect(body).toContain('Vinča');
+    expect(body).toContain('In the story');
+    expect(body).not.toContain('<script>alert');
+  });
   it('renders one accessible linked title, the cover, category, excerpt and metadata', () => {
     const { body } = render(ListItem, { props: { article, headingLevel: 3 } });
     expect(body).toContain('<h3');

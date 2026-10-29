@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ContentCompileError, compileArticle } from '@jelementi/content-compiler';
 import {
   buildContent,
+  buildSearchText,
   ContentGenerationError,
   defaultDebounce,
   formatContentError,
@@ -151,6 +152,83 @@ const invalidPublishedSeriesCases = [
     message: 'consistent category',
   },
 ] as const;
+
+describe('search text generation', () => {
+  it('retains bracketed prose numbers and unrelated numeric links', () => {
+    const { document } = compileArticle({
+      markdown: article({
+        slug: 'numbers',
+        body: 'Year [1940]. Unrelated [[1]](https://example.org/other). Evidence [[1]](https://example.org/source).',
+      }),
+      sourcePath: 'content/articles/numbers.md',
+      mediaBaseUrl,
+    });
+    expect(buildSearchText([document])).toEqual({
+      numbers: 'Year [1940]. Unrelated [1]. Evidence.',
+    });
+  });
+  it('projects every textual block without metadata, images, footnotes or Markdown', () => {
+    const { document } = compileArticle({
+      markdown: article({ slug: 'body' }),
+      sourcePath: 'content/articles/body.md',
+      mediaBaseUrl,
+    });
+    const inline = [{ type: 'text', value: 'Case Kept' } as const];
+    document.blocks = [
+      { type: 'heading', level: 2, id: 'heading', children: inline },
+      {
+        type: 'paragraph',
+        children: [
+          { type: 'link', href: 'https://example.org', children: inline },
+          { type: 'footnoteReference', id: 'skip' },
+        ],
+      },
+      { type: 'list', ordered: true, items: [inline, inline] },
+      { type: 'quote', children: inline },
+      { type: 'callout', title: 'Important', variant: 'note', children: inline },
+      {
+        type: 'image',
+        src: 'https://example.org/image.webp',
+        alt: 'Not included',
+        caption: inline,
+      },
+      { type: 'divider' },
+    ];
+    expect(
+      buildSearchText([
+        document,
+        { ...document, slug: 'draft', status: 'draft' },
+        { ...document, slug: 'archived', status: 'archived' },
+      ]),
+    ).toEqual({ body: 'Case Kept Case Kept Case Kept Case Kept Case Kept Important Case Kept' });
+  });
+  it('atomically emits only published, case-preserved body text without citation markers', async () => {
+    const root = await makeRoot();
+    await writeArticle(
+      root,
+      'published.md',
+      article({
+        slug: 'published',
+        body: `## Vinča
+
+A **Blue** [river](https://example.org) [[1]](https://example.org/source) and a note[^one].
+
+- First item
+- Second item
+
+> A Quotation
+
+[^one]: Hidden footnote.`,
+      }),
+    );
+    await writeArticle(root, 'draft.md', article({ slug: 'draft', status: 'draft' }));
+    await writeArticle(root, 'archived.md', article({ slug: 'archived', status: 'archived' }));
+    await buildContent({ rootDir: root, mediaBaseUrl });
+    expect(JSON.parse(await readFile(join(root, 'generated/search-text.json'), 'utf8'))).toEqual({
+      published: 'Vinča A Blue river and a note. First item Second item A Quotation',
+    });
+  });
+});
 
 describe('content batch validation', () => {
   it('validates in memory without creating generated output', async () => {

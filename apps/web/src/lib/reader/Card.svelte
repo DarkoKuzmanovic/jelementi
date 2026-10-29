@@ -1,16 +1,23 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import type { ArticleIndexEntry } from '@jelementi/article-model';
   import { formatPublishedDate } from '../article/format-date';
   import Kicker from './Kicker.svelte';
 
   let {
     article,
+    dateOnly = false,
+    titleContent,
+    afterDeck,
     showDeck = false,
     showKicker = true,
     headingLevel = 2,
     kickerExtra,
   }: {
     article: ArticleIndexEntry;
+    dateOnly?: boolean;
+    titleContent?: Snippet;
+    afterDeck?: Snippet;
     kickerExtra?: string;
     showDeck?: boolean;
     showKicker?: boolean;
@@ -26,12 +33,15 @@
       extra={kickerExtra}
     />{/if}
   <svelte:element this={`h${headingLevel}`} class="title">
-    <a href={`/articles/${article.slug}`}>{article.title}</a>
+    <a href={`/articles/${article.slug}`}
+      >{#if titleContent}{@render titleContent()}{:else}{article.title}{/if}</a
+    >
   </svelte:element>
   {#if showDeck}<p class="deck">{article.excerpt}</p>{/if}
+  {@render afterDeck?.()}
   <p class="meta">
     <time datetime={article.publishedAt}>{formatPublishedDate(article.publishedAt)}</time>
-    <span aria-hidden="true"> · </span>
-    {article.readingTimeMinutes} min read
+    {#if !dateOnly}<span aria-hidden="true"> · </span>
+      {article.readingTimeMinutes} min read{/if}
   </p>
 </article>

@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
-import { ArticleRenderer, ArticleSummary } from '../article/index';
+import { ArticleRenderer } from '../article/index';
+import ListItem from '../reader/ListItem.svelte';
 
 const foundationCss = readFileSync(new URL('./foundation.css', import.meta.url), 'utf8');
 const formsContract = readFileSync(new URL('./forms.md', import.meta.url), 'utf8');
@@ -102,20 +103,20 @@ describe('shared foundation', () => {
 
 describe('shared discovery summary', () => {
   it('renders the illustrated discovery hierarchy: category and reading time, title, excerpt and date', () => {
-    const { body } = render(ArticleSummary, { props: { article: entry } });
-    expect(body).toContain('article-summary__title');
+    const { body } = render(ListItem, { props: { article: entry } });
+    expect(body).toContain('class="title"');
     expect(body).toContain(`href="/articles/${entry.slug}"`);
     expect(body).toContain(entry.title);
-    expect(body).toContain('article-summary__excerpt');
+    expect(body).toContain('class="deck"');
     expect(body).toContain(entry.excerpt);
-    expect(body).toContain(`href="/categories/${entry.categorySlug}"`);
+    expect(body).toContain(entry.category);
     expect(body).toContain(`datetime="${entry.publishedAt}"`);
     expect(body).toContain('26 July 2026');
     expect(body).toContain('3 min read');
 
     const headingIndex = body.indexOf('<h2');
     const excerptIndex = body.indexOf(entry.excerpt);
-    const metaIndex = body.indexOf('article-summary__meta');
+    const metaIndex = body.indexOf('class="reader-kicker"');
     expect(headingIndex).toBeGreaterThanOrEqual(0);
     expect(headingIndex).toBeLessThan(excerptIndex);
     expect(metaIndex).toBeLessThan(headingIndex);
@@ -123,14 +124,10 @@ describe('shared discovery summary', () => {
 });
 
 describe('authoritative article-rendering contract', () => {
-  it('exports the renderer and summary from one shared module', () => {
+  it('exports the renderer from the authoritative article module', () => {
     expect(articleContract).toContain(
       "export { default as ArticleRenderer } from './ArticleRenderer.svelte'",
     );
-    expect(articleContract).toContain(
-      "export { default as ArticleSummary } from './ArticleSummary.svelte'",
-    );
     expect(ArticleRenderer).toBeTruthy();
-    expect(ArticleSummary).toBeTruthy();
   });
 });

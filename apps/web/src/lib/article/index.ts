@@ -8,7 +8,6 @@
  * framework-neutral article model free of Svelte presentation concerns.
  */
 export { default as ArticleRenderer } from './ArticleRenderer.svelte';
-export { default as ArticleSummary } from './ArticleSummary.svelte';
 export { default as ArticleAudio } from './ArticleAudio.svelte';
 export { default as InlineContent } from './InlineContent.svelte';
 export { default as ParagraphBlock } from './blocks/ParagraphBlock.svelte';

@@ -1,3 +1,4 @@
+import { buildSearchText } from './content';
 import {
   ArticleDocumentSchema,
   categorySlug,
@@ -332,6 +333,7 @@ function indexEntry(document: ArticleDocument): ArticleIndexEntry {
     document.category,
     document.tags.join(' '),
     document.author,
+    buildSearchText([document])[document.slug] ?? '',
   ].join(' ');
   return {
     slug: document.slug,

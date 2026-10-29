@@ -6,6 +6,7 @@ export {
   ArticleFootnoteSchema,
   ArticleIndexEntrySchema,
   ArticleIndexSchema,
+  SearchTextSchema,
   CalloutVariantSchema,
   ArticleStatusSchema,
   ArticleSeriesSchema,
@@ -31,6 +32,7 @@ export type {
   ArticleDocument,
   ArticleIndexEntry,
   ArticleIndex,
+  SearchText,
   ArticleStatus,
   ArticleSeries,
 } from './schema';

@@ -315,5 +315,8 @@ export const ArticleIndexEntrySchema = z
   });
 export type ArticleIndexEntry = z.infer<typeof ArticleIndexEntrySchema>;
 
+export const SearchTextSchema = z.record(NonEmptyStringSchema, z.string());
+export type SearchText = z.infer<typeof SearchTextSchema>;
+
 export const ArticleIndexSchema = z.array(ArticleIndexEntrySchema);
 export type ArticleIndex = z.infer<typeof ArticleIndexSchema>;
