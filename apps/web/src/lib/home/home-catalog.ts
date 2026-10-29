@@ -33,7 +33,7 @@ export function projectHomeCatalog(
     [...ordered.slice(0, 8), ...(featuredSeries?.parts ?? [])].map((a) => a.slug),
   );
   const remaining = ordered.filter((article) => !shown.has(article.slug));
-  const shelves = projectCategoryDirectory(index, series).flatMap((category, rank) => {
+  const shelves = projectCategoryDirectory(index).flatMap((category, rank) => {
     const compact = rank >= 3;
     const entries = remaining
       .filter((article) => article.categorySlug === category.slug)
