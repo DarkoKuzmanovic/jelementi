@@ -90,11 +90,19 @@ test('compact masthead fits interior routes at the mobile breakpoint boundary', 
 test('small sections share one row on the Sections page', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/categories');
-  const tops = await page
-    .locator('.sec-block:not(.sec-wide)')
-    .evaluateAll((blocks) => blocks.map((block) => Math.round(block.getBoundingClientRect().top)));
-  // Up to three small sections fit one 1200 px row; a fourth would wrap.
-  if (tops.length <= 3) expect(new Set(tops).size).toBeLessThanOrEqual(1);
+  await page.evaluate(() => document.fonts.ready);
+  // The directory gives ranks 0–2 the wide treatment, regardless of category size.
+  const expectedSmallCount = Math.max(0, sectionCount - 3);
+  expect(expectedSmallCount).toBeGreaterThan(0);
+  const smallSections = page.locator('.sec-block:not(.sec-wide)');
+  await expect(smallSections).toHaveCount(expectedSmallCount);
+  const tops = await smallSections.evaluateAll((blocks) =>
+    blocks.map((block) => Math.round(block.getBoundingClientRect().top)),
+  );
+  expect(new Set(tops.slice(0, Math.min(3, expectedSmallCount))).size).toBe(1);
+  for (const top of new Set(tops)) {
+    expect(tops.filter((rowTop) => rowTop === top).length).toBeLessThanOrEqual(3);
+  }
 });
 
 test('masthead search replaces an already hydrated search query', async ({ page }) => {

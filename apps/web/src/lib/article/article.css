@@ -213,10 +213,14 @@
   position: sticky;
   top: 0;
 }
-/* A rail holding only the contents (no series list) is short enough to stay in view. */
+/* Keep standalone contents reachable even in short viewports; leave room for focus outlines. */
 .article-margin > .article-contents:only-child {
   position: sticky;
   top: 30px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  margin-inline: -4px;
+  padding: 4px;
 }
 .article-audio audio {
   display: block;

@@ -120,17 +120,56 @@ test('listen links dock the native player while the contents rail stays in view'
   await page.locator('.article-listen').click();
   await expect(page).toHaveURL(/#reader:audio$/);
   await expect(audio).toHaveCSS('position', 'sticky');
+  await page.evaluate(() => document.fonts.ready);
   // Read on: deep inside the body the player and the contents stay pinned.
   await page
     .locator('.article-body')
     .evaluate((body) =>
       window.scrollTo(0, body.getBoundingClientRect().bottom + window.scrollY - 1000),
     );
-  expect((await audio.boundingBox())!.y).toBeCloseTo(0, 0);
-  expect((await rail.boundingBox())!.y).toBeCloseTo(30, 0);
+  await expect.poll(async () => Math.abs((await audio.boundingBox())!.y)).toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => Math.abs((await rail.boundingBox())!.y - 30))
+    .toBeLessThanOrEqual(1);
   // A contents link moves the target, so the player returns to the column top.
   await rail.locator('a').first().click();
   await expect(audio).toHaveCSS('position', 'static');
+});
+
+test('short viewports keep the last contents link reachable inside the pinned rail', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 400 });
+  await page.goto('/articles/acceptance-rich-column');
+  await page.evaluate(() => document.fonts.ready);
+  const rail = page.locator('.article-margin > .article-contents:only-child');
+  await page
+    .locator('.article-body')
+    .evaluate((body) =>
+      window.scrollTo(0, body.getBoundingClientRect().top + window.scrollY + 400),
+    );
+  await expect
+    .poll(async () => Math.abs((await rail.boundingBox())!.y - 30))
+    .toBeLessThanOrEqual(1);
+  const bodyScroll = await page.evaluate(() => window.scrollY);
+  // Scroll only the rail: scrolling the document to the article end would mask the bug.
+  await rail.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  await expect
+    .poll(() =>
+      rail.evaluate((node) => {
+        const bounds = node.getBoundingClientRect();
+        const link = [...node.querySelectorAll('a')].at(-1)!.getBoundingClientRect();
+        return (
+          bounds.bottom <= window.innerHeight - 30 &&
+          link.top >= bounds.top &&
+          link.bottom <= bounds.bottom
+        );
+      }),
+    )
+    .toBe(true);
+  expect(await page.evaluate(() => window.scrollY)).toBe(bodyScroll);
 });
 
 test('sources expose authored numbers and domains, then reveal later references natively', async ({
