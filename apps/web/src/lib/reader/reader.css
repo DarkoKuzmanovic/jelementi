@@ -232,6 +232,15 @@
     padding-right: 16px;
   }
 }
+/* Beside the compact brand, six sections leave no room for the search field: keep its button. */
+@media (min-width: 961px) and (max-width: 1100px) {
+  .compact-brand ~ .nav-tools input {
+    display: none;
+  }
+  .compact-brand ~ .nav-tools .nav-search {
+    width: auto;
+  }
+}
 @media (max-width: 960px) {
   .site-header:not(.reader-home .site-header) {
     border-color: var(--rule);
@@ -667,7 +676,8 @@
 }
 .home-shelves--compact {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 24px;
 }
 .home-shelf--compact {
@@ -717,6 +727,18 @@
   }
   .home-narration {
     flex-basis: 42%;
+  }
+}
+/* Tablet widths: fewer columns so titles keep a readable measure. */
+@media (min-width: 761px) and (max-width: 960px) {
+  .home-recent__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-recent__more {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-series__cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 @media (max-width: 760px) {
@@ -1257,14 +1279,15 @@ span.jump-name {
 }
 .sec-index,
 .sec-cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 64px 48px;
   margin: 0;
   padding: 16px 0 0;
   list-style: none;
 }
 .sec-block {
+  flex: 1 1 260px;
   display: flex;
   flex-direction: column;
   align-items: start;
@@ -1272,7 +1295,7 @@ span.jump-name {
   border-top: 3px solid var(--hue);
 }
 .sec-wide {
-  grid-column: 1 / -1;
+  flex-basis: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 48px;
@@ -1373,6 +1396,7 @@ span.jump-name {
   font: 14px/1.3 var(--font-sans);
 }
 .sec-cards {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 40px 24px;
   border-top: 1px solid var(--ink);
@@ -1438,7 +1462,6 @@ span.jump-name {
     flex-wrap: wrap;
   }
   .sec-index {
-    grid-template-columns: 1fr;
     padding: 0 0 48px;
     gap: 40px;
   }

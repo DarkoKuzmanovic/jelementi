@@ -4,6 +4,7 @@ const hues = new Map([
   ['science', 'var(--hue-science)'],
   ['inventions', 'var(--hue-inventions)'],
   ['nature', 'var(--hue-nature)'],
+  ['culture', 'var(--hue-culture)'],
 ]);
 
 export function categoryHue(slug: string): string {

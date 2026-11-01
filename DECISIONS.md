@@ -97,3 +97,11 @@ Not authorization to implement; pick up when related surface is next touched or 
 - "Series" in the navigation links to the Home series band (`/#series`); a `/series` index waits for a second series.
 - Search remains the only normal hydrated reader page; case-preserved snippets use the validated generated search-text map (ADR-0010).
 - Owner-approved `uniqueReaderCss` ceilings increased from 29_440 to 40_960 and then 43_008 bytes. All other reader asset ceilings remain unchanged.
+
+## 2026-11-01 — Round 3, "Settle in"
+
+- The native player opens the story column (after the cover, before the body) instead of following it. Listen links still target `#reader:audio`; while that is the URL fragment, CSS `:target` keeps the player sticky at the top of the column. No custom player, no script; article pages stay `csr = false`.
+- On desktop, a rail holding only the contents (non-series stories) stays in view with `position: sticky`; series parts keep their longer rail static.
+- Culture joins the curated navigation after the original five, with its own hue (#7d3f6f light, #d499c4 dark). The menu stays hand-picked so an arbitrary category cannot overflow it. Between 961 and 1100 px the compact masthead keeps only the search button.
+- Small sections share one row on the Sections page and the home shelves; tablet widths (761–960 px) get two-up latest stories, stacked short rows and three-up series parts. Cross-document view transitions are enabled for readers without a reduced-motion preference.
+- Two unused style blocks were deleted to pay for these within the unchanged 43_008-byte CSS ceiling.

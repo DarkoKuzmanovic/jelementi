@@ -98,6 +98,7 @@
       </aside>
     {/if}
     <div class="article-reading__column">
+      <ArticleAudio article={document} />
       <div class="article-body">
         {#each document.blocks as block, index (index)}
           {#if block.type === 'paragraph'}
@@ -119,7 +120,6 @@
           {/if}
         {/each}
       </div>
-      <ArticleAudio article={document} />
       {#if document.references.length > 0}
         <section class="article-endmatter" aria-labelledby="reader:sources">
           <h2 class="endmatter-heading" id="reader:sources">Sources</h2>

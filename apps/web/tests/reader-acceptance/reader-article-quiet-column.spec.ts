@@ -109,6 +109,30 @@ test('narrow rich headings keep emphasis and links in one sentence flow', async 
   expect(layout).toEqual({ beforeLines: 1, sameLine: true, overflow: false });
 });
 
+test('listen links dock the native player while the contents rail stays in view', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/articles/acceptance-rich-column');
+  const audio = page.locator('.article-audio');
+  const rail = page.locator('.article-margin > .article-contents');
+  await expect(audio).toHaveCSS('position', 'static');
+  await page.locator('.article-listen').click();
+  await expect(page).toHaveURL(/#reader:audio$/);
+  await expect(audio).toHaveCSS('position', 'sticky');
+  // Read on: deep inside the body the player and the contents stay pinned.
+  await page
+    .locator('.article-body')
+    .evaluate((body) =>
+      window.scrollTo(0, body.getBoundingClientRect().bottom + window.scrollY - 1000),
+    );
+  expect((await audio.boundingBox())!.y).toBeCloseTo(0, 0);
+  expect((await rail.boundingBox())!.y).toBeCloseTo(30, 0);
+  // A contents link moves the target, so the player returns to the column top.
+  await rail.locator('a').first().click();
+  await expect(audio).toHaveCSS('position', 'static');
+});
+
 test('sources expose authored numbers and domains, then reveal later references natively', async ({
   page,
 }) => {
@@ -180,7 +204,7 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   await expect(page.locator('figure.article-cover img')).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-  // The header pill targets the native player at the ending; the body follows the cover.
+  // The native player opens the story column, after the cover and before the body.
   const order = await page.evaluate(() => {
     const article = document.querySelector('article:has(> .article-opening)');
     if (!article) throw new Error('Article root missing.');
@@ -201,7 +225,7 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   });
   expect(order.cover).toBeGreaterThan(order.opening);
   expect(order.audio).toBeGreaterThan(order.cover);
-  expect(order.audio).toBeGreaterThan(order.body);
+  expect(order.audio).toBeLessThan(order.body);
   expect(order.endmatter).toBeGreaterThan(order.body);
 
   // All seven block discriminants in the flow.

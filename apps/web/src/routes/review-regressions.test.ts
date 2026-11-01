@@ -86,20 +86,36 @@ it('projects only available published topics and leaves an empty index empty', a
   }
 });
 
+it('adds Culture to the curated navigation after the original five sections', async () => {
+  const original = generatedContent.index;
+  try {
+    generatedContent.index = [
+      { ...original[0]!, slug: 'raven', category: 'Culture', categorySlug: 'culture' },
+      { ...original[0]!, slug: 'legion', category: 'History', categorySlug: 'history' },
+    ];
+    expect((await loadNavigation({} as never))?.topics).toEqual([
+      { name: 'History', slug: 'history' },
+      { name: 'Culture', slug: 'culture' },
+    ]);
+  } finally {
+    generatedContent.index = original;
+  }
+});
+
 it('counts custom sections independently of curated navigation in home and masthead summaries', async () => {
   const original = generatedContent.index;
   try {
     generatedContent.index = Array.from({ length: 9 }, (_, n) => ({
       ...original[0]!,
-      slug: `culture-${n}`,
-      category: 'Culture',
-      categorySlug: 'culture',
+      slug: `folklore-${n}`,
+      category: 'Folklore',
+      categorySlug: 'folklore',
     }));
     const navigation = (await loadNavigation({} as never)) as LayoutServerData;
     const home = (await load({} as never)) as PageServerData;
     if (!navigation || !home) throw new Error('Missing page data');
     expect(navigation.topics).toEqual([]);
-    expect(home.catalog.shelves.map((shelf) => shelf.category)).toEqual(['Culture']);
+    expect(home.catalog.shelves.map((shelf) => shelf.category)).toEqual(['Folklore']);
     const body = render(HomePage, { props: { data: { ...navigation, ...home } } }).body;
     const shell = render(ReaderLayout, {
       props: {

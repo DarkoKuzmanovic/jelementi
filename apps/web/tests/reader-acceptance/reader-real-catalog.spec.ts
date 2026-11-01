@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
 import { projectHomeCatalog } from '../../src/lib/home/home-catalog';
+import { formatPublishedDate } from '../../src/lib/article/format-date';
 
 const canonicalIndex = JSON.parse(
   readFileSync(new URL('../../../../generated/index.json', import.meta.url), 'utf8'),
@@ -14,6 +15,8 @@ const expectedHome = [...canonicalIndex].sort((left, right) => {
   return 0;
 });
 const catalog = projectHomeCatalog(canonicalIndex);
+const sectionCount = new Set(canonicalIndex.map((entry) => entry.categorySlug)).size;
+const sectionsText = `${sectionCount === 5 ? 'five' : sectionCount} sections`;
 const expectedHomeShelves = [
   ...(catalog.lead ? [catalog.lead] : []),
   ...catalog.recent,
@@ -24,8 +27,8 @@ test('section navigation, data utility strip, compact current state and fallback
   page,
   request,
 }) => {
-  const expected = ['history', 'places', 'science', 'inventions', 'nature'].filter((slug) =>
-    canonicalIndex.some((entry) => entry.categorySlug === slug),
+  const expected = ['history', 'places', 'science', 'inventions', 'nature', 'culture'].filter(
+    (slug) => canonicalIndex.some((entry) => entry.categorySlug === slug),
   );
   for (const width of [320, 390, 768, 900, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -40,9 +43,11 @@ test('section navigation, data utility strip, compact current state and fallback
       await expect(nav.getByRole('link', { name: 'Series', exact: true })).toBeVisible();
       await expect(nav.getByRole('search')).toHaveAttribute('method', 'get');
       await expect(page.locator('.site-utility')).toContainText(
-        `${canonicalIndex.length} stories in five sections`,
+        `${canonicalIndex.length} stories in ${sectionsText}`,
       );
-      await expect(page.locator('.site-utility')).toContainText('Updated 27 October 2026');
+      await expect(page.locator('.site-utility')).toContainText(
+        `Updated ${formatPublishedDate(expectedHome[0]!.publishedAt)}`,
+      );
     } else {
       expect(await nav.evaluate((el) => getComputedStyle(el).overflowX)).toBe('auto');
       await expect(page.locator('.mobile-search')).toBeVisible();
@@ -64,7 +69,7 @@ test('section navigation, data utility strip, compact current state and fallback
 test('compact masthead fits interior routes at the mobile breakpoint boundary', async ({
   page,
 }) => {
-  for (const width of [901, 960, 961, 1024]) {
+  for (const width of [901, 960, 961, 1024, 1100, 1101]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/categories/history');
     await page.evaluate(() => document.fonts.ready);
@@ -80,6 +85,16 @@ test('compact masthead fits interior routes at the mobile breakpoint boundary', 
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
     }
   }
+});
+
+test('small sections share one row on the Sections page', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/categories');
+  const tops = await page
+    .locator('.sec-block:not(.sec-wide)')
+    .evaluateAll((blocks) => blocks.map((block) => Math.round(block.getBoundingClientRect().top)));
+  // Up to three small sections fit one 1200 px row; a fourth would wrap.
+  if (tops.length <= 3) expect(new Set(tops).size).toBeLessThanOrEqual(1);
 });
 
 test('masthead search replaces an already hydrated search query', async ({ page }) => {
@@ -197,7 +212,7 @@ test('smokes the complete canonical generated Reader inventory independently of 
   await page.goto('/about');
   await expect(page.getByRole('heading', { level: 1, name: 'About Jelementi' })).toBeVisible();
   await expect(page.locator('.about__facts')).toContainText(
-    `${canonicalIndex.length} in five sections`,
+    `${canonicalIndex.length} in ${sectionsText}`,
   );
   await expect(
     page.getByRole('main').getByRole('link', { name: 'Podcast', exact: true }),

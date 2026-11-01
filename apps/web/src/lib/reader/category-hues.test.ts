@@ -3,7 +3,7 @@ import { categoryHue } from './category-hues';
 
 describe('categoryHue', () => {
   it('maps each known slug to its category token and unknown slugs to the accent', () => {
-    for (const slug of ['history', 'places', 'science', 'inventions', 'nature']) {
+    for (const slug of ['history', 'places', 'science', 'inventions', 'nature', 'culture']) {
       expect(categoryHue(slug)).toBe(`var(--hue-${slug})`);
     }
     for (const slug of ['unknown', 'constructor', '__proto__', '']) {
