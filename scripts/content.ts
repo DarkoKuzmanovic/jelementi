@@ -16,6 +16,7 @@ import {
   type CompiledArticle,
   type ContentCompileIssue,
 } from '@jelementi/content-compiler';
+import { defaultRetryDelayMs, fetchWithRetry, type RetryableResponse } from './media';
 
 export interface ContentPaths {
   rootDir: string;
@@ -263,11 +264,7 @@ const audioByteLengthsFilename = 'audio-byte-lengths.json';
 /** Enclosure byte lengths by exact compiled audio URL; never faked, never zero. */
 export type AudioByteLengths = Record<string, number>;
 
-export interface AudioHeadResponse {
-  status: number;
-  headers: Pick<Headers, 'get'>;
-  url?: string;
-}
+export type AudioHeadResponse = RetryableResponse;
 
 export type AudioHeadFetch = (
   url: string,
@@ -297,6 +294,7 @@ function publishedAudioEntries(batch: ContentBatch): Array<{ slug: string; url: 
 async function fetchAudioByteLengths(
   entries: Array<{ slug: string; url: string }>,
   fetchHead: AudioHeadFetch,
+  retryDelayMs: number,
 ): Promise<AudioByteLengths> {
   // ponytail: HEAD status/content checks only. Immutable Cache-Control and
   // byte-range semantics stay in media:verify (live); add here when a lookup
@@ -317,7 +315,14 @@ async function fetchAudioByteLengths(
     if (expectedMime === undefined) fail(`unsupported audio extension ".${extension}"`);
     let head: AudioHeadResponse;
     try {
-      head = await fetchHead(url, { method: 'HEAD', redirect: 'manual' });
+      // A transient network timeout is retried; an HTTP response is a real
+      // failure and fails at once.
+      head = await fetchWithRetry(
+        fetchHead,
+        url,
+        { method: 'HEAD', redirect: 'manual' },
+        retryDelayMs,
+      );
     } catch (error: unknown) {
       fail(error instanceof Error ? error.message : String(error));
     }
@@ -363,6 +368,7 @@ async function pathExists(path: string): Promise<boolean> {
 export interface BuildContentOptions extends ContentPaths {
   renameDirectory?: (from: string, to: string) => Promise<void>;
   fetchAudioHead?: AudioHeadFetch;
+  retryDelayMs?: number;
 }
 
 async function replaceGeneratedDirectory(
@@ -406,6 +412,7 @@ export async function buildContent(options: BuildContentOptions): Promise<Conten
   const audioByteLengths = await fetchAudioByteLengths(
     publishedAudioEntries(batch),
     options.fetchAudioHead ?? defaultFetchAudioHead,
+    options.retryDelayMs ?? defaultRetryDelayMs,
   );
   const generatedDir = join(options.rootDir, 'generated');
   const temporaryDir = `${generatedDir}.tmp-${randomUUID()}`;

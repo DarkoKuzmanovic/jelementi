@@ -544,6 +544,69 @@ describe('podcast enclosure lengths', () => {
     );
   });
 
+  it('retries an audio HEAD lookup that throws a transient network error once', async () => {
+    const root = await makeRoot();
+    await writeArticle(root, 'heard.md', articleWithAudio({ slug: 'heard' }));
+    let attempts = 0;
+    const audioUrl = `${mediaBaseUrl}media/articles/heard/audio.mp3`;
+
+    await buildContent({
+      rootDir: root,
+      mediaBaseUrl,
+      retryDelayMs: 0,
+      fetchAudioHead: async () => {
+        attempts += 1;
+        if (attempts === 1) throw new TypeError('The operation was aborted due to timeout');
+        return headResponse('12345');
+      },
+    });
+
+    expect(attempts).toBe(2);
+    expect(await readFile(join(root, 'generated/audio-byte-lengths.json'), 'utf8')).toBe(
+      `${JSON.stringify({ [audioUrl]: 12345 }, null, 2)}\n`,
+    );
+  });
+
+  it('gives up after three audio HEAD attempts when the network keeps failing', async () => {
+    const root = await makeRoot();
+    await writeArticle(root, 'heard.md', articleWithAudio({ slug: 'heard' }));
+    let attempts = 0;
+
+    const build = buildContent({
+      rootDir: root,
+      mediaBaseUrl,
+      retryDelayMs: 0,
+      fetchAudioHead: async () => {
+        attempts += 1;
+        throw new TypeError('fetch failed');
+      },
+    });
+
+    await expect(build).rejects.toThrow(
+      `Published article "heard" audio HEAD lookup failed for ${mediaBaseUrl}media/articles/heard/audio.mp3: fetch failed.`,
+    );
+    expect(attempts).toBe(3);
+  });
+
+  it('never retries an HTTP response, such as a 404 audio HEAD', async () => {
+    const root = await makeRoot();
+    await writeArticle(root, 'heard.md', articleWithAudio({ slug: 'heard' }));
+    let attempts = 0;
+
+    await expect(
+      buildContent({
+        rootDir: root,
+        mediaBaseUrl,
+        retryDelayMs: 0,
+        fetchAudioHead: async () => {
+          attempts += 1;
+          return headResponse('12345', { status: 404 });
+        },
+      }),
+    ).rejects.toThrow('expected a 2xx status, received 404');
+    expect(attempts).toBe(1);
+  });
+
   it.each([
     ['HTTP error', headResponse('12345', { status: 404 })],
     ['redirect', headResponse('12345', { status: 301 })],
@@ -568,6 +631,7 @@ describe('podcast enclosure lengths', () => {
       buildContent({
         rootDir: root,
         mediaBaseUrl,
+        retryDelayMs: 0,
         fetchAudioHead: stubFetchAudioHead(response as StubHead | Error),
       }),
     ).rejects.toThrow(/audio/i);
