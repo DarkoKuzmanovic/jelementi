@@ -213,14 +213,15 @@
   position: sticky;
   top: 0;
 }
-/* Keep standalone contents reachable even in short viewports; leave room for focus outlines. */
+/* Keep standalone contents reachable even in short viewports. */
 .article-margin > .article-contents:only-child {
   position: sticky;
   top: 30px;
   max-height: calc(100vh - 60px);
   overflow-y: auto;
-  margin-inline: -4px;
-  padding: 4px;
+}
+.article-margin > .article-contents:only-child a:focus-visible {
+  outline-offset: -2px;
 }
 .article-audio audio {
   display: block;

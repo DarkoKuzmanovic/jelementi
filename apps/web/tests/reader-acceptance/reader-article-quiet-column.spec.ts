@@ -136,7 +136,7 @@ test('listen links dock the native player while the contents rail stays in view'
   await expect(audio).toHaveCSS('position', 'static');
 });
 
-test('short viewports keep the last contents link reachable inside the pinned rail', async ({
+test('short viewports keep every contents link and its focus outline inside the pinned rail', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 400 });
@@ -169,7 +169,42 @@ test('short viewports keep the last contents link reachable inside the pinned ra
       }),
     )
     .toBe(true);
-  expect(await page.evaluate(() => window.scrollY)).toBe(bodyScroll);
+  const links = rail.locator('a');
+  expect(await links.count()).toBeGreaterThan(0);
+  // Start just before the first link so every link is reached with Tab.
+  await links.first().focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.evaluate((y) => window.scrollTo(0, y), bodyScroll);
+  for (const link of await links.all()) {
+    await page.keyboard.press('Tab');
+    await expect(link).toBeFocused();
+    await expect
+      .poll(() =>
+        link.evaluate((node) => {
+          const rail = node.closest('.article-contents')!;
+          const bounds = rail.getBoundingClientRect();
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          const extent = Math.max(
+            0,
+            parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset),
+          );
+          const left = bounds.left + rail.clientLeft;
+          const top = bounds.top + rail.clientTop;
+          return (
+            node.matches(':focus-visible') &&
+            style.outlineStyle !== 'none' &&
+            parseFloat(style.outlineWidth) > 0 &&
+            rect.left - extent >= left &&
+            rect.right + extent <= left + rail.clientWidth &&
+            rect.top - extent >= top &&
+            rect.bottom + extent <= top + rail.clientHeight
+          );
+        }),
+      )
+      .toBe(true);
+    expect(await page.evaluate(() => window.scrollY)).toBe(bodyScroll);
+  }
 });
 
 test('sources expose authored numbers and domains, then reveal later references natively', async ({
