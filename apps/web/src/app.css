@@ -24,6 +24,7 @@
   --hue-science: #284c99;
   --hue-inventions: #85580f;
   --hue-nature: #2c6a6c;
+  --hue-culture: #7d3f6f;
   min-height: 100vh;
   background: var(--foundation-canvas);
   color: var(--foundation-ink);
@@ -49,31 +50,19 @@
     --hue-science: #a8c2ff;
     --hue-inventions: #cd9d51;
     --hue-nature: #5cbabd;
+    --hue-culture: #d499c4;
+  }
+}
+/* Cross-document page fades where the browser supports them; others load pages normally. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
   }
 }
 .layout {
   width: min(62.5rem, calc(100% - 2.75rem));
   margin: 0 auto;
   padding: 3.5rem 0;
-}
-.page-intro {
-  padding-bottom: 2rem;
-  border-bottom: 1px solid var(--foundation-rule);
-}
-.page-intro h1 {
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-family: var(--font-serif);
-  font-size: var(--type-page-title);
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.025em;
-}
-.page-intro > p:last-child {
-  max-width: 47rem;
-  margin: 1rem 0 0;
-  color: var(--foundation-muted);
-  font-size: 1.25rem;
 }
 .kicker {
   margin: 0 0 1rem;
@@ -83,16 +72,6 @@
 }
 .kicker a {
   color: var(--foundation-accent);
-}
-.divided-list {
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--foundation-rule);
-  list-style: none;
-}
-.divided-list > li {
-  padding: 1.5rem 0;
-  border-bottom: 1px solid var(--foundation-rule);
 }
 @media (max-width: 600px) {
   .layout {

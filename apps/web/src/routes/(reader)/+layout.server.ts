@@ -5,7 +5,7 @@ import { projectCategoryDirectory } from '../../lib/category-projection';
 export const load: LayoutServerLoad = () => {
   const categories = projectCategoryDirectory(generatedContent.index);
   return {
-    topics: ['history', 'places', 'science', 'inventions', 'nature'].flatMap((slug) =>
+    topics: ['history', 'places', 'science', 'inventions', 'nature', 'culture'].flatMap((slug) =>
       categories
         .filter((category) => category.slug === slug)
         .map(({ name, slug }) => ({ name, slug })),

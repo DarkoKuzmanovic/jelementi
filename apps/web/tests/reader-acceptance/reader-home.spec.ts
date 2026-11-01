@@ -175,6 +175,21 @@ test('latest stories and section shelves adapt without changing source order', a
   ).toHaveLength(4);
   const titles = await tierTitles(page, 'recent');
 
+  // Tablet widths keep the desktop header layout with fewer columns.
+  await page.setViewportSize({ width: 800, height: 900 });
+  for (const [selector, columns] of [
+    ['.home-recent__list', 2],
+    ['.home-recent__more', 1],
+  ] as const) {
+    expect(
+      (
+        await recent
+          .locator(selector)
+          .evaluate((element) => getComputedStyle(element).gridTemplateColumns)
+      ).split(' '),
+    ).toHaveLength(columns);
+  }
+
   await page.setViewportSize({ width: 320, height: 800 });
   await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320);
   expect(await tierTitles(page, 'recent')).toEqual(titles);

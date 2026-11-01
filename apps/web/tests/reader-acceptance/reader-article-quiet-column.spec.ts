@@ -109,6 +109,104 @@ test('narrow rich headings keep emphasis and links in one sentence flow', async 
   expect(layout).toEqual({ beforeLines: 1, sameLine: true, overflow: false });
 });
 
+test('listen links dock the native player while the contents rail stays in view', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/articles/acceptance-rich-column');
+  const audio = page.locator('.article-audio');
+  const rail = page.locator('.article-margin > .article-contents');
+  await expect(audio).toHaveCSS('position', 'static');
+  await page.locator('.article-listen').click();
+  await expect(page).toHaveURL(/#reader:audio$/);
+  await expect(audio).toHaveCSS('position', 'sticky');
+  await page.evaluate(() => document.fonts.ready);
+  // Read on: deep inside the body the player and the contents stay pinned.
+  await page
+    .locator('.article-body')
+    .evaluate((body) =>
+      window.scrollTo(0, body.getBoundingClientRect().bottom + window.scrollY - 1000),
+    );
+  await expect.poll(async () => Math.abs((await audio.boundingBox())!.y)).toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => Math.abs((await rail.boundingBox())!.y - 30))
+    .toBeLessThanOrEqual(1);
+  // A contents link moves the target, so the player returns to the column top.
+  await rail.locator('a').first().click();
+  await expect(audio).toHaveCSS('position', 'static');
+});
+
+test('short viewports keep every contents link and its focus outline inside the pinned rail', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 400 });
+  await page.goto('/articles/acceptance-rich-column');
+  await page.evaluate(() => document.fonts.ready);
+  const rail = page.locator('.article-margin > .article-contents:only-child');
+  await page
+    .locator('.article-body')
+    .evaluate((body) =>
+      window.scrollTo(0, body.getBoundingClientRect().top + window.scrollY + 400),
+    );
+  await expect
+    .poll(async () => Math.abs((await rail.boundingBox())!.y - 30))
+    .toBeLessThanOrEqual(1);
+  const bodyScroll = await page.evaluate(() => window.scrollY);
+  // Scroll only the rail: scrolling the document to the article end would mask the bug.
+  await rail.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  await expect
+    .poll(() =>
+      rail.evaluate((node) => {
+        const bounds = node.getBoundingClientRect();
+        const link = [...node.querySelectorAll('a')].at(-1)!.getBoundingClientRect();
+        return (
+          bounds.bottom <= window.innerHeight - 30 &&
+          link.top >= bounds.top &&
+          link.bottom <= bounds.bottom
+        );
+      }),
+    )
+    .toBe(true);
+  const links = rail.locator('a');
+  expect(await links.count()).toBeGreaterThan(0);
+  // Start just before the first link so every link is reached with Tab.
+  await links.first().focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.evaluate((y) => window.scrollTo(0, y), bodyScroll);
+  for (const link of await links.all()) {
+    await page.keyboard.press('Tab');
+    await expect(link).toBeFocused();
+    await expect
+      .poll(() =>
+        link.evaluate((node) => {
+          const rail = node.closest('.article-contents')!;
+          const bounds = rail.getBoundingClientRect();
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          const extent = Math.max(
+            0,
+            parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset),
+          );
+          const left = bounds.left + rail.clientLeft;
+          const top = bounds.top + rail.clientTop;
+          return (
+            node.matches(':focus-visible') &&
+            style.outlineStyle !== 'none' &&
+            parseFloat(style.outlineWidth) > 0 &&
+            rect.left - extent >= left &&
+            rect.right + extent <= left + rail.clientWidth &&
+            rect.top - extent >= top &&
+            rect.bottom + extent <= top + rail.clientHeight
+          );
+        }),
+      )
+      .toBe(true);
+    expect(await page.evaluate(() => window.scrollY)).toBe(bodyScroll);
+  }
+});
+
 test('sources expose authored numbers and domains, then reveal later references natively', async ({
   page,
 }) => {
@@ -180,7 +278,7 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   await expect(page.locator('figure.article-cover img')).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-  // The header pill targets the native player at the ending; the body follows the cover.
+  // The native player opens the story column, after the cover and before the body.
   const order = await page.evaluate(() => {
     const article = document.querySelector('article:has(> .article-opening)');
     if (!article) throw new Error('Article root missing.');
@@ -201,7 +299,7 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   });
   expect(order.cover).toBeGreaterThan(order.opening);
   expect(order.audio).toBeGreaterThan(order.cover);
-  expect(order.audio).toBeGreaterThan(order.body);
+  expect(order.audio).toBeLessThan(order.body);
   expect(order.endmatter).toBeGreaterThan(order.body);
 
   // All seven block discriminants in the flow.
