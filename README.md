@@ -31,13 +31,18 @@ pnpm content:validate  # read-only source validation
 pnpm content:build     # atomic generated-output replacement
 pnpm content:watch
 pnpm build:web         # generation-backed SvelteKit prerender
-pnpm format            # also lint, typecheck, test
+pnpm format            # check formatting with Prettier
+pnpm lint              # lint with ESLint
+pnpm test              # run tests with Vitest
+pnpm typecheck         # root and workspace type checks
 pnpm media:upload -- --file <path> --key articles/<slug>/<asset>-vN.<ext> --content-type <mime>
 pnpm media:verify      # read-only live media check
 pnpm verify:deploy     # the gate CI and Workers Builds run
 pnpm verify:full       # plus reader browser acceptance, bundle checks, asset budget
 pnpm ship "<message>"  # publish content/articles changes: PR, wait for verify, merge
 ```
+
+`pnpm verify:deploy` runs `format`, `lint`, `typecheck`, `content:validate`, `test`, `build:web`, and `media:verify`, in that order.
 
 ## Publishing and deployment
 
