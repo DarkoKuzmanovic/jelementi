@@ -18,10 +18,13 @@ const mediaKeyPattern =
 
 export type MediaExtension = keyof typeof mimeByExtension;
 
-export interface MediaResponse {
+export interface RetryableResponse {
   status: number;
   headers: Pick<Headers, 'get'>;
   url?: string;
+}
+
+export interface MediaResponse extends RetryableResponse {
   body?: Pick<ReadableStream<Uint8Array>, 'getReader'> | null;
 }
 
@@ -79,15 +82,16 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-const mediaRequestAttempts = 3;
-const defaultRetryDelayMs = 500;
+export const mediaRequestAttempts = 3;
+export const defaultRetryDelayMs = 500;
 
-async function fetchWithRetry(
-  fetch: MediaFetch,
+/** Retry only a thrown request; an HTTP response, however wrong, is a real failure. */
+export async function fetchWithRetry<TOptions, TResponse extends RetryableResponse>(
+  fetch: (url: string, options: TOptions) => Promise<TResponse>,
   url: string,
-  options: MediaFetchOptions,
+  options: TOptions,
   retryDelayMs: number,
-): Promise<MediaResponse> {
+): Promise<TResponse> {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await fetch(url, options);
