@@ -91,7 +91,7 @@ export const InlineNodeSchema: z.ZodType<InlineNode> = z.lazy(() =>
     z
       .object({
         type: z.literal('link'),
-        href: HttpsUrlSchema,
+        href: HttpsUrlSchema.or(z.string().regex(/^#glossary-[a-z0-9]+(?:-[a-z0-9]+)*$/)),
         children: z.array(z.lazy(() => InlineNodeSchema)).min(1),
       })
       .strict(),
@@ -231,6 +231,17 @@ export const ArticleDocumentSchema = z
     updatedAt: IsoDateSchema,
     category: NonEmptyStringSchema,
     series: ArticleSeriesSchema.optional(),
+    glossary: z
+      .array(
+        z
+          .object({
+            id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+            term: NonEmptyStringSchema,
+            definition: NonEmptyStringSchema,
+          })
+          .strict(),
+      )
+      .optional(),
     tags: z.array(NonEmptyStringSchema),
     author: NonEmptyStringSchema,
     cover: z.object({ src: MediaUrlSchema, alt: z.string() }).strict(),
@@ -252,6 +263,36 @@ export const ArticleDocumentSchema = z
         path: ['publishedAt'],
       });
     }
+    const glossaryIds = new Set<string>();
+    for (const [index, entry] of (doc.glossary ?? []).entries()) {
+      if (glossaryIds.has(entry.id))
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Glossary ids must be unique',
+          path: ['glossary', index, 'id'],
+        });
+      glossaryIds.add(entry.id);
+    }
+    function checkLinks(nodes: InlineNode[]) {
+      for (const node of nodes)
+        if (node.type === 'link') {
+          if (node.href.startsWith('#glossary-') && !glossaryIds.has(node.href.slice(10)))
+            ctx.addIssue({
+              code: 'custom',
+              message: 'Glossary link has no definition',
+              path: ['glossary'],
+            });
+          checkLinks(node.children);
+        }
+    }
+    for (const block of doc.blocks) {
+      if (block.type === 'divider') continue;
+      if (block.type === 'image') {
+        if (block.caption) checkLinks(block.caption);
+      } else if (block.type === 'list') block.items.forEach(checkLinks);
+      else checkLinks(block.children);
+    }
+    doc.footnotes.forEach((footnote) => checkLinks(footnote.children));
     const definitions = new Set<string>();
     for (const [index, footnote] of doc.footnotes.entries()) {
       if (definitions.has(footnote.id)) {

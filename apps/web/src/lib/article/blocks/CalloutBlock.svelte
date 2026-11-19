@@ -8,6 +8,7 @@
   class={`callout callout-${block.variant}`}
   aria-label={block.title ?? `${block.variant} note`}
 >
+  {#if block.variant === 'fact'}<p class="callout-kicker">Did you know</p>{/if}
   {#if block.title}
     <p class="callout-title">{block.title}</p>
   {/if}
@@ -21,6 +22,25 @@
     padding: var(--space-3) var(--space-4);
     margin: var(--space-6) 0;
     border-radius: var(--radius-control);
+  }
+
+  .callout-kicker {
+    margin: 0 0 var(--space-2);
+    color: var(--foundation-accent);
+    font: 600 11px/1.3 var(--font-sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  @media (min-width: 1240px) {
+    .callout-fact {
+      float: right;
+      clear: right;
+      width: 200px;
+      margin: 0 -260px var(--space-4) var(--space-4);
+      font-size: 15px;
+      line-height: 1.45;
+    }
   }
 
   .callout-title {

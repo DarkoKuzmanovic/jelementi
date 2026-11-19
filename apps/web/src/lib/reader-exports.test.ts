@@ -54,6 +54,26 @@ describe('articleHtml', () => {
     expect(html).toContain('<a href="https://example.org/source">[1] Source</a>');
   });
 
+  it('renders glossary links as escaped text in external readers', () => {
+    const sample = document({
+      blocks: [
+        {
+          type: 'paragraph',
+          children: [
+            {
+              type: 'link',
+              href: '#glossary-wall',
+              children: [{ type: 'text', value: 'wall & gate', marks: ['emphasis'] }],
+            },
+          ],
+        },
+      ],
+    });
+    const html = articleHtml(sample, { siteOrigin: 'https://jelementi.quz.ma', images: false });
+    expect(html).toContain('<em>wall &amp; gate</em>');
+    expect(html).not.toContain('#glossary-');
+  });
+
   it('drops remote images for offline e-books', () => {
     const html = articleHtml(article, { siteOrigin: 'https://jelementi.quz.ma', images: false });
     expect(html).not.toContain('<img');

@@ -39,11 +39,34 @@ pnpm verify:full       # plus reader browser acceptance, bundle checks, asset bu
 pnpm ship "<message>"  # publish content/articles changes: PR, wait for verify, merge
 ```
 
+## Authoring glossary terms and facts
+
+Add an optional glossary to the YAML frontmatter, then link terms in the body:
+
+```yaml
+glossary:
+  - term: Bastion
+    definition: A projecting part of a fortification.
+  - id: djerdap
+    term: Đerdap
+    definition: A gorge on the Danube.
+```
+
+```markdown
+A [bastion](#glossary-bastion) protects the wall.
+
+:::fact{title="A detail"}
+A short fact alongside the story.
+:::
+```
+
+IDs default to kebab-case with Serbian diacritics transliterated (Đ becomes `dj`); set `id` explicitly to override it. IDs must be unique, and glossary links must refer to an entry. Unlinked entries remain in the study list. Fact callouts appear inline on narrow screens and in the margin on wide screens.
+
 ## Publishing and deployment
 
 Every merge to `main` deploys through Cloudflare Workers Builds, which runs `verify:deploy` first. To publish an approved story: upload its media with `media:upload` (immutable, new `-vN` key per replacement), add the Markdown under `content/articles/`, then run `pnpm ship "feat(content): publish <title>"` from a clean `main`. If a deploy breaks the site, revert through a PR; `pnpm deploy:web` is a manual fallback for when Workers Builds is down.
 
-Reader pages are prerendered static HTML with JavaScript disabled per page. `/search` is the only hydrated route. Global robots stays `noindex`.
+Reader pages are prerendered static HTML without hydration. Articles with a glossary load a small progressive-enhancement script; their glossary links still navigate without JavaScript. `/search` is the only hydrated route. Global robots stays `noindex`.
 
 ## Reader extras
 

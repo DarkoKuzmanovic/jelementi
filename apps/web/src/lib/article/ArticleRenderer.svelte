@@ -14,6 +14,7 @@
   import ArticleOpening from './ArticleOpening.svelte';
   import { assertExhaustiveBlock } from './exhaustive';
   import { footnoteReferenceTargets } from './footnotes';
+  import glossaryScript from './glossary.js?url';
 
   import ArticleAudio from './ArticleAudio.svelte';
   import { seriesPartTitle, type SeriesProjection } from '../series/series-projection';
@@ -23,9 +24,14 @@
     series,
   }: { document: ArticleDocument; contents?: Snippet; series?: SeriesProjection } = $props();
   setContext('article-references', () => document.references);
+  setContext('article-glossary', () => document.glossary ?? []);
   type ArticleReference = ArticleDocument['references'][number];
   const footnoteTargets = $derived(footnoteReferenceTargets(document.blocks));
 </script>
+
+<svelte:head>
+  {#if document.glossary?.length}<script src={glossaryScript} defer></script>{/if}
+</svelte:head>
 
 <!--
   Authoritative article renderer (spec #96, ticket #98): the ONE shared
@@ -120,6 +126,17 @@
           {/if}
         {/each}
       </div>
+      {#if document.glossary?.length}
+        <section class="article-endmatter" aria-labelledby="reader:glossary">
+          <h2 class="endmatter-heading" id="reader:glossary">Glossary</h2>
+          <dl class="article-glossary">
+            {#each document.glossary as entry (entry.id)}
+              <dt id={`glossary-${entry.id}`}>{entry.term}</dt>
+              <dd>{entry.definition}</dd>
+            {/each}
+          </dl>
+        </section>
+      {/if}
       {#if document.references.length > 0}
         <section class="article-endmatter" aria-labelledby="reader:sources">
           <h2 class="endmatter-heading" id="reader:sources">Sources</h2>

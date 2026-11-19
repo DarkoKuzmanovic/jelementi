@@ -1,6 +1,174 @@
 import { expect, test } from '@playwright/test';
 import { expectNoBlockingAccessibilityViolations } from './accessibility';
 
+test('glossary and fact notes work at every width', async ({ page }, testInfo) => {
+  const noJs = testInfo.project.name.includes('no-js');
+  for (const width of [390, 800, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/articles/acceptance-rich-column');
+    const link = page.locator('.glossary-link').first();
+    const tip = link.locator('..').locator('[role="tooltip"]');
+    await expect(tip).toHaveAttribute('hidden', '');
+    await expect(tip).toBeHidden();
+    await link.focus();
+    if (noJs) await expect(tip).toBeHidden();
+    else {
+      await expect(tip).toBeVisible();
+      const bounds = (await tip.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    }
+    await expect(link).toHaveAccessibleName('bastion');
+    const facts = page.locator('.callout-fact');
+    await expect(facts).toHaveCount(2);
+    const marginLink = facts.nth(1).locator('.glossary-link');
+    await marginLink.hover();
+    if (!noJs) {
+      const marginTip = (await marginLink.locator('..').locator('[role="tooltip"]').boundingBox())!;
+      expect(marginTip.x).toBeGreaterThanOrEqual(0);
+      expect(marginTip.x + marginTip.width).toBeLessThanOrEqual(width);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      width,
+    );
+    const overlap = await page.locator('.article-body').evaluate((body) => {
+      const image = body.querySelector('figure')!.cloneNode(true) as HTMLElement;
+      body.querySelectorAll('.callout-fact')[1]!.after(image);
+      const b = image.getBoundingClientRect();
+      return [...body.querySelectorAll('.callout-fact')].some((note) => {
+        const a = note.getBoundingClientRect();
+        return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      });
+    });
+    expect(overlap).toBe(false);
+    const first = (await facts.nth(0).boundingBox())!;
+    const second = (await facts.nth(1).boundingBox())!;
+    expect(second.y).toBeGreaterThanOrEqual(first.y + first.height - 1);
+    const column = (await page.locator('.article-reading__column').boundingBox())!;
+    if (width === 1280) expect(first.x).toBeGreaterThanOrEqual(column.x + column.width);
+    else expect(first.x + first.width).toBeLessThanOrEqual(column.x + column.width + 1);
+    await link.click();
+    await expect(page.locator('#glossary-bastion')).toBeInViewport();
+  }
+});
+
+test('Escape dismisses a focused glossary definition without moving focus', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name.includes('no-js'));
+  await page.goto('/articles/acceptance-rich-column');
+  const link = page.locator('.glossary-link').first();
+  const tip = link.locator('..').locator('[role="tooltip"]');
+  await link.focus();
+  await expect(tip).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(tip).toBeHidden();
+  await expect(link).toBeFocused();
+  await page.keyboard.press('Tab');
+  await link.focus();
+  await expect(tip).toBeVisible();
+});
+
+test('Escape leaves closed glossary definitions available for later hover', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name.includes('no-js'));
+  await page.goto('/articles/acceptance-rich-column');
+  const link = page.locator('.glossary-link').first();
+  const tip = link.locator('..').locator('[role="tooltip"]');
+  await link.evaluate((node) =>
+    node.addEventListener('click', (event) => event.preventDefault(), { once: true }),
+  );
+  await link.click();
+  await page.mouse.move(0, 0);
+  await expect(link).toBeFocused();
+  await expect(tip).toBeHidden();
+  await page.keyboard.press('Escape');
+  await link.hover();
+  await expect(tip).toBeVisible();
+});
+
+test('focused glossary definitions stay in view after scrolling or resizing', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name.includes('no-js'));
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.goto('/articles/acceptance-rich-column');
+  const link = page.locator('.glossary-link').first();
+  const tip = link.locator('..').locator('[role="tooltip"]');
+  await link.focus();
+  await link.evaluate((node) => window.scrollBy(0, node.getBoundingClientRect().top - 40));
+  await expect.poll(async () => (await tip.boundingBox())!.y).toBeGreaterThanOrEqual(0);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect
+    .poll(async () => {
+      const bounds = (await tip.boundingBox())!;
+      return bounds.x >= 0 && bounds.x + bounds.width <= 390;
+    })
+    .toBe(true);
+});
+
+test('long glossary definitions can be scrolled with a keyboard', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes('no-js'));
+  await page.goto('/articles/acceptance-rich-column');
+  const link = page.locator('.glossary-link').first();
+  const tip = link.locator('..').locator('[role="tooltip"]');
+  await tip.evaluate((node) => {
+    node.textContent = 'A long definition. '.repeat(300);
+  });
+  await link.focus();
+  await page.keyboard.press('Tab');
+  await expect(tip).toBeFocused();
+  await page.keyboard.press('PageDown');
+  await expect.poll(() => tip.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  await page.keyboard.press('Escape');
+  await expect(link).toBeFocused();
+  await expect(tip).toBeHidden();
+  await page.keyboard.press('Tab');
+  await expect(tip).toBeHidden();
+  await expect(tip).not.toBeFocused();
+});
+
+test('pointer can travel from a tablet glossary term onto its definition', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name.includes('no-js'));
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.goto('/articles/acceptance-rich-column');
+  const link = page.locator('.glossary-link').first();
+  const tip = link.locator('..').locator('[role="tooltip"]');
+  await link.hover();
+  await expect(tip).toBeVisible();
+  const start = (await link.boundingBox())!;
+  const end = (await tip.boundingBox())!;
+  const x = Math.max(start.x, end.x) + 1;
+  expect(x).toBeLessThan(Math.min(start.x + start.width, end.x + end.width));
+  await page.mouse.move(x, start.y + start.height / 2);
+  const targetY = end.y < start.y ? end.y + end.height - 1 : end.y + 1;
+  for (let i = 1; i <= 20; i++) {
+    await page.mouse.move(
+      x,
+      start.y + start.height / 2 + ((targetY - start.y - start.height / 2) * i) / 20,
+    );
+    await expect(tip).toBeVisible();
+  }
+});
+
+test.describe('touch glossary navigation', () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test('tap follows the glossary anchor without leaving a tooltip open', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/articles/acceptance-rich-column');
+    const link = page.locator('.glossary-link').first();
+    const tip = link.locator('..').locator('[role="tooltip"]');
+    await link.tap();
+    await expect(page).toHaveURL(/#glossary-bastion$/);
+    await expect(page.locator('#glossary-bastion')).toBeInViewport();
+    await expect(tip).toBeHidden();
+  });
+});
+
 test('tablet contents remain available without the desktop rail', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 900 });
   await page.goto('/articles/acceptance-rich-column');
@@ -43,7 +211,10 @@ test('reader-owned fragments resolve to exact targets beside colliding authored 
       await link.evaluate((node) => {
         const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
         if (node.getAttribute('href') === '#reader:sources')
-          return target === document.querySelector('.article-endmatter > h2');
+          return (
+            target?.matches('.article-endmatter > h2.endmatter-heading') &&
+            target.textContent === 'Sources'
+          );
         return [...document.querySelectorAll('.article-body h2')].some(
           (heading) => heading === target && `#${heading.id}` === node.getAttribute('href'),
         );
@@ -309,8 +480,8 @@ test('illustration precedes native audio and all seven blocks in one complete fl
   await expect(body.locator('figure img')).toBeVisible();
   await expect(body.locator('ol')).toBeVisible();
   await expect(body.locator('blockquote')).toBeVisible();
-  await expect(body.locator('aside.callout')).toHaveCount(3);
-  await expect(body.locator('aside.callout-fact')).toBeVisible();
+  await expect(body.locator('aside.callout')).toHaveCount(4);
+  await expect(body.locator('aside.callout-fact')).toHaveCount(2);
   await expect(body.locator('aside.callout-note')).toBeVisible();
   await expect(body.locator('aside.callout-warning')).toBeVisible();
   await expect(body.locator('hr')).toBeVisible();

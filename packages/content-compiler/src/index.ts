@@ -148,6 +148,7 @@ function frontmatterFromRecord(record: Record<string, unknown>, sourcePath: stri
     'audio',
     'references',
     'series',
+    'glossary',
   ]);
   for (const key of Object.keys(record)) {
     if (!allowed.has(key))
@@ -193,6 +194,37 @@ function frontmatterFromRecord(record: Record<string, unknown>, sourcePath: stri
       title: seriesTitle,
       part: seriesRecord.part,
     };
+  }
+  let glossary: Frontmatter['glossary'];
+  if (record.glossary !== undefined) {
+    if (!Array.isArray(record.glossary))
+      throw raiseIssue(sourcePath, 'INVALID_FRONTMATTER', 'glossary must be a list.');
+    glossary = record.glossary.map((entry: unknown) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+        throw raiseIssue(
+          sourcePath,
+          'INVALID_FRONTMATTER',
+          'Each glossary entry must be a mapping.',
+        );
+      const item = entry as Record<string, unknown>;
+      if (
+        Object.keys(item).some((key) => !['id', 'term', 'definition'].includes(key)) ||
+        !asString(item.term) ||
+        !asString(item.definition) ||
+        (item.id !== undefined &&
+          (!asString(item.id) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id as string)))
+      )
+        throw raiseIssue(
+          sourcePath,
+          'INVALID_FRONTMATTER',
+          'Glossary entries require a term, definition and optional kebab-case id.',
+        );
+      return {
+        term: item.term as string,
+        definition: item.definition as string,
+        ...(item.id === undefined ? {} : { id: item.id as string }),
+      };
+    });
   }
   const cover = record.cover;
   const references = record.references;
@@ -314,6 +346,7 @@ function frontmatterFromRecord(record: Record<string, unknown>, sourcePath: stri
     status,
     category: record.category as string,
     ...(parsedSeries === undefined ? {} : { series: parsedSeries }),
+    ...(glossary === undefined ? {} : { glossary }),
     tags: record.tags as string[],
     author: record.author as string,
     cover: {
@@ -472,7 +505,11 @@ function inlineNodes(input: CompileArticleInput, nodes: AstNode[] | undefined): 
         output.push({ type: 'text', value: node.value ?? '', marks: ['code'] });
         break;
       case 'link':
-        if (!node.url?.startsWith('https://'))
+        if (
+          !node.url ||
+          (!node.url.startsWith('https://') &&
+            !/^#glossary-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(node.url))
+        )
           throw issue(input, 'UNSUPPORTED_NODE', 'Links must use HTTPS URLs.', node);
         output.push({ type: 'link', href: node.url, children: inlineNodes(input, node.children) });
         break;
@@ -617,10 +654,37 @@ function parseAst(input: CompileArticleInput): AstNode[] {
 export function compileArticle(input: CompileArticleInput): CompiledArticle {
   const frontmatter = parseFrontmatter(input);
   const ast = parseAst(input);
+  const glossary = frontmatter.glossary?.map((entry) => ({
+    ...entry,
+    id:
+      entry.id ??
+      entry.term
+        .toLowerCase()
+        .replace(/đ/g, 'dj')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, ''),
+  }));
+  const glossaryIds = new Set(glossary?.map((entry) => entry.id));
+  function validateGlossaryLinks(nodes: AstNode[]) {
+    for (const node of nodes) {
+      if (
+        node.type === 'link' &&
+        node.url?.startsWith('#glossary-') &&
+        !glossaryIds.has(node.url.slice(10))
+      )
+        throw issue(input, 'INVALID_GLOSSARY', 'Glossary link has no definition.', node);
+      if (node.children) validateGlossaryLinks(node.children);
+    }
+  }
+  validateGlossaryLinks(ast);
   const blocks: ArticleBlock[] = [];
   const footnotes: ArticleFootnote[] = [];
   const footnoteIds = new Set<string>();
-  const headings = new Map<string, number>();
+  const headings = new Map<string, number>(
+    (glossary ?? []).map((entry) => [`glossary-${entry.id}`, 1]),
+  );
   for (const node of ast) {
     if (node.type === 'yaml') continue;
     if (node.type === 'footnoteDefinition') {
@@ -725,6 +789,7 @@ export function compileArticle(input: CompileArticleInput): CompiledArticle {
   const documentInput = {
     schemaVersion: 1,
     ...frontmatter,
+    ...(glossary === undefined ? {} : { glossary }),
     cover: { ...frontmatter.cover, src: resolveMedia(input, frontmatter.cover.src) },
     ...(frontmatter.audio
       ? { audio: { ...frontmatter.audio, src: resolveMedia(input, frontmatter.audio.src) } }

@@ -96,6 +96,24 @@ describe('ArticleDocument validation', () => {
     ).toBe(false);
   });
 
+  it('rejects duplicate glossary ids and unresolved glossary links', () => {
+    const entry = { id: 'wall', term: 'Wall', definition: 'A barrier' };
+    expect(
+      ArticleDocumentSchema.safeParse({ ...validDocument, glossary: [entry, entry] }).success,
+    ).toBe(false);
+    const link = {
+      type: 'link',
+      href: '#glossary-missing',
+      children: [{ type: 'text', value: 'wall' }],
+    };
+    expect(
+      ArticleDocumentSchema.safeParse({
+        ...validDocument,
+        blocks: [...validDocument.blocks, { type: 'paragraph', children: [link] }],
+      }).success,
+    ).toBe(false);
+  });
+
   it('rejects a published article without publishedAt', () => {
     const { publishedAt: _publishedAt, ...unpublished } = validDocument;
     expect(() => validateArticleDocument(unpublished)).toThrow();

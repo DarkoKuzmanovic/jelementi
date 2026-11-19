@@ -10,6 +10,7 @@
     opening = false,
   }: { nodes: InlineNode[]; scope: string; opening?: boolean } = $props();
   const references = getContext<() => ArticleDocument['references']>('article-references');
+  const glossary = getContext<() => NonNullable<ArticleDocument['glossary']>>('article-glossary');
   function citation(node: InlineNode | undefined) {
     if (node?.type !== 'link' || node.children.length !== 1 || node.children[0]?.type !== 'text')
       return undefined;
@@ -59,6 +60,18 @@
 {#snippet renderNode(node: InlineNode, path: string)}
   {#if node.type === 'text'}
     {@render renderText(node.value, node.marks ?? [])}
+  {:else if node.type === 'link' && node.href.startsWith('#glossary-')}
+    {@const entry = glossary?.().find((item) => item.id === node.href.slice(10))}
+    {@const tooltip = `reader:glossary-tip:${scope}:${path}`}
+    <span class="glossary-term"
+      ><a href={node.href} class="glossary-link" aria-describedby={tooltip}
+        >{#each node.children as child, index (index)}{@render renderNode(
+            child,
+            `${path}-${index}`,
+          )}{/each}</a
+      ><span class="glossary-tooltip" role="tooltip" id={tooltip} hidden>{entry?.definition}</span
+      ></span
+    >
   {:else if node.type === 'link'}
     <a href={node.href}
       >{#each node.children as child, index (index)}{@render renderNode(
