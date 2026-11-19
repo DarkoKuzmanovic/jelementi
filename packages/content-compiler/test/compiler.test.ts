@@ -23,6 +23,51 @@ references:
 const supportedMarkdown = readFileSync(new URL('./fixtures/supported.md', import.meta.url), 'utf8');
 
 describe('compileArticle', () => {
+  it('compiles a glossary link with a transliterated default id', () => {
+    const markdown = `${frontmatter.replace('references:', 'glossary:\n  - term: Đerdap Šuma\n    definition: A forest.\nreferences:')}\n\nA [forest](#glossary-djerdap-suma).`;
+    const result = compileArticle({
+      markdown,
+      sourcePath: 'remote-island.md',
+      mediaBaseUrl: 'https://media.example.org/',
+    });
+    expect(result.document.glossary).toEqual([
+      { id: 'djerdap-suma', term: 'Đerdap Šuma', definition: 'A forest.' },
+    ]);
+    expect(result.document.blocks[0]).toMatchObject({
+      children: [
+        { type: 'text' },
+        { type: 'link', href: '#glossary-djerdap-suma' },
+        { type: 'text' },
+      ],
+    });
+  });
+  it.each(['#glossary-missing', '#other'])('rejects invalid fragment %s at its source', (href) => {
+    const markdown = `${frontmatter}\n\n[term](${href})`;
+    try {
+      compileArticle({
+        markdown,
+        sourcePath: 'remote-island.md',
+        mediaBaseUrl: 'https://media.example.org/',
+      });
+      throw new Error('Expected compilation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ContentCompileError);
+      expect((error as ContentCompileError).issues[0]).toMatchObject({
+        line: markdown.split('\n').length,
+        column: 1,
+      });
+    }
+  });
+  it('reserves glossary fragments when generating heading ids', () => {
+    const markdown = `${frontmatter.replace('references:', 'glossary:\n  - term: Wall\n    definition: A barrier.\nreferences:')}\n\n## Glossary wall\n\n[wall](#glossary-wall)`;
+    const result = compileArticle({
+      markdown,
+      sourcePath: 'remote-island.md',
+      mediaBaseUrl: 'https://media.example.org/',
+    });
+    expect(result.document.blocks[0]).toMatchObject({ type: 'heading', id: 'glossary-wall-2' });
+  });
+
   it('compiles every supported form into a validated document and normalized search text', () => {
     const result = compileArticle({
       markdown: supportedMarkdown,

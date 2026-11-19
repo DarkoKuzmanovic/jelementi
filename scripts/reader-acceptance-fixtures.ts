@@ -37,6 +37,9 @@ const richDocument = ArticleDocumentSchema.parse({
   cover: { src: `${mediaOrigin}rich-cover.webp`, alt: 'Abstract acceptance cover' },
   audio: { src: `${mediaOrigin}rich-audio.mp3`, durationSeconds: 83 },
   readingTimeMinutes: 7,
+  glossary: [
+    { id: 'bastion', term: 'Bastion', definition: 'A projecting part of a fortification.' },
+  ],
   blocks: [
     {
       type: 'paragraph',
@@ -48,7 +51,9 @@ const richDocument = ArticleDocumentSchema.parse({
           'strikethrough',
         ]),
         { type: 'footnoteReference', id: 'locked-seam' },
-        text(' Evidence from later sources.'),
+        text(' Evidence from later sources. A '),
+        { type: 'link', href: '#glossary-bastion', children: [text('bastion')] },
+        text(' protects a wall.'),
         ...[5, 6].map((number) => ({
           type: 'link',
           href: `https://www.example.com/reader-acceptance-${number}`,
@@ -115,6 +120,16 @@ const richDocument = ArticleDocumentSchema.parse({
       variant: 'fact',
       title: 'Fact fixture',
       children: [text('Deterministic fact callout for light/dark contrast sampling.')],
+    },
+    {
+      type: 'callout',
+      variant: 'fact',
+      title: 'Another fact',
+      children: [
+        text('A second margin note mentions a '),
+        { type: 'link', href: '#glossary-bastion', children: [text('bastion')] },
+        text('.'),
+      ],
     },
     {
       type: 'callout',

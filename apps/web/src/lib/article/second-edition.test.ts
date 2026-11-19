@@ -6,6 +6,31 @@ import ArticleRenderer from './ArticleRenderer.svelte';
 const article = loadReaderAcceptanceContent('representative').articles['acceptance-rich-column']!;
 
 describe('second edition article', () => {
+  it('renders glossary terms with described popovers and a definition list before sources', () => {
+    const document = {
+      ...article,
+      glossary: [{ id: 'wall', term: 'Wall', definition: 'A barrier' }],
+      blocks: [
+        {
+          type: 'paragraph' as const,
+          children: [
+            {
+              type: 'link' as const,
+              href: '#glossary-wall',
+              children: [{ type: 'text' as const, value: 'walls' }],
+            },
+          ],
+        },
+      ],
+    };
+    const html = render(ArticleRenderer, { props: { document } }).body;
+    expect(html).toMatch(/href="#glossary-wall"[^>]*aria-describedby=/);
+    expect(html.replace(/<!--[\s\S]*?-->/g, '')).toMatch(/walls<\/a><span[^>]*role="tooltip"/);
+    expect(html).toContain('role="tooltip"');
+    expect(html).toContain('A barrier');
+    expect(html).toMatch(/<dt id="glossary-wall"/);
+    expect(html.indexOf('Glossary')).toBeLessThan(html.indexOf('Sources</h2>'));
+  });
   it('preserves unmatched star runs between source-title emphasis', () => {
     const document = {
       ...article,

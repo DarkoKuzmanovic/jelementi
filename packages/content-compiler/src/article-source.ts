@@ -21,6 +21,7 @@ export interface ArticleSourceFrontmatter {
   status: 'draft' | 'published' | 'archived';
   category: string;
   series?: { slug: string; title: string; part: number };
+  glossary?: { id?: string; term: string; definition: string }[];
   tags: string[];
   author: string;
   cover: { src: string; alt: string };
@@ -38,7 +39,7 @@ export interface ArticleSourceInput {
  *
  * - `---` opening delimiter line;
  * - YAML frontmatter emitted in the locked field order `title, slug, excerpt,
- *   publishedAt?, updatedAt, status, category, series?, tags, author, cover,
+ *   publishedAt?, updatedAt, status, category, series?, glossary?, tags, author, cover,
  *   audio?, references`, with stable YAML quoting chosen by the pinned `yaml` emitter
  *   (`lineWidth: 0` so scalars are never wrapped);
  * - `---` closing delimiter line followed by exactly one LF;
@@ -70,6 +71,15 @@ function toYamlMapping(frontmatter: ArticleSourceFrontmatter): Record<string, un
             title: frontmatter.series.title,
             part: frontmatter.series.part,
           },
+        }),
+    ...(frontmatter.glossary === undefined
+      ? {}
+      : {
+          glossary: frontmatter.glossary.map((entry) => ({
+            ...(entry.id === undefined ? {} : { id: entry.id }),
+            term: entry.term,
+            definition: entry.definition,
+          })),
         }),
     tags: frontmatter.tags,
     author: frontmatter.author,

@@ -46,6 +46,8 @@ export function articleHtml(article: ArticleDocument, options: ArticleHtmlOption
             escapeHtml(node.value),
           );
         }
+        if (node.type === 'link' && node.href.startsWith('#glossary-'))
+          return inline(node.children);
         if (node.type === 'link')
           return `<a href="${href(node.href)}">${inline(node.children)}</a>`;
         const number = footnoteNumbers.get(node.id);
