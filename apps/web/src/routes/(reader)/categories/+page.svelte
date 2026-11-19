@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { coverImage } from '$lib/reader/cover-image';
   import type { PageData } from './$types';
   import { formatPublishedDate } from '$lib/article/format-date';
   import { categoryHue } from '$lib/reader/category-hues';
@@ -56,7 +57,7 @@
           aria-label={`Browse ${category.name}`}
         >
           <img
-            src={category.newest.cover.src}
+            {...coverImage(category.newest.cover.src, '(max-width: 760px) 100vw, 576px')}
             alt={category.newest.cover.alt}
             width="576"
             height="384"

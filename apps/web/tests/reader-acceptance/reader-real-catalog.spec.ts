@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import type { ArticleIndexEntry } from '@jelementi/article-model';
 import { projectHomeCatalog } from '../../src/lib/home/home-catalog';
+import { seriesPartTitle } from '../../src/lib/series/series-projection';
 import { formatPublishedDate } from '../../src/lib/article/format-date';
 
 const canonicalIndex = JSON.parse(
@@ -17,6 +18,12 @@ const expectedHome = [...canonicalIndex].sort((left, right) => {
 const catalog = projectHomeCatalog(canonicalIndex);
 const sectionCount = new Set(canonicalIndex.map((entry) => entry.categorySlug)).size;
 const sectionsText = `${sectionCount === 5 ? 'five' : sectionCount} sections`;
+// A series part shows its part title (the series is named in its kicker), as on the article page.
+function homeTitle(entry: ArticleIndexEntry): string {
+  const series = catalog.series.find(({ slug }) => slug === entry.series?.slug);
+  const part = series?.parts.find(({ slug }) => slug === entry.slug);
+  return series && part ? seriesPartTitle(series, part) : entry.title;
+}
 const expectedHomeShelves = [
   ...(catalog.lead ? [catalog.lead] : []),
   ...catalog.recent,
@@ -34,7 +41,7 @@ test('section navigation, data utility strip, compact current state and fallback
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Primary navigation' });
-    const topics = nav.locator('.nav-sections a');
+    const topics = nav.locator('.nav-sections a:not(.nav-series)');
     expect(await topics.evaluateAll((links) => links.map((a) => a.getAttribute('href')))).toEqual(
       expected.map((slug) => `/categories/${slug}`),
     );
@@ -136,12 +143,12 @@ test('smokes the complete canonical generated Reader inventory independently of 
     await homeLinks.evaluateAll((links) => links.map((link) => link.getAttribute('href'))),
   ).toEqual(expectedHomeShelves.map((entry) => `/articles/${entry.slug}`));
   expect((await homeLinks.allTextContents()).map((title) => title.trim())).toEqual(
-    expectedHomeShelves.map((entry) => entry.title),
+    expectedHomeShelves.map(homeTitle),
   );
 
   const leadLink = page.locator('[data-home-tier="lead"] [data-home-story] .title a');
   await expect(leadLink).toHaveCount(1);
-  await expect(leadLink).toHaveText(expectedLead.title);
+  await expect(leadLink).toHaveText(homeTitle(expectedLead));
   await expect(page.locator('.home-catalog [data-home-story]')).toHaveCount(
     expectedHomeShelves.length,
   );
@@ -164,10 +171,13 @@ test('smokes the complete canonical generated Reader inventory independently of 
   await expect(page.getByRole('link', { name: richArticle.title })).not.toHaveCount(0);
 
   await page.goto(`/categories/${expectedLead.categorySlug}`);
-  await expect(page.getByRole('link', { name: expectedLead.title })).toBeVisible();
+  // A series part is listed under its series there, by part title.
+  await expect(page.getByRole('link', { name: homeTitle(expectedLead) }).first()).toBeVisible();
 
   await page.goto(`/articles/${expectedLead.slug}`);
-  await expect(page.getByRole('heading', { level: 1, name: expectedLead.title })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: homeTitle(expectedLead) }),
+  ).toBeVisible();
 
   // The known rich article owns these content-specific assertions, not the newest article.
   await page.goto(`/articles/${richArticle.slug}`);

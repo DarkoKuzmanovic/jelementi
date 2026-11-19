@@ -35,17 +35,13 @@ const catalogs = {
       'The Middle Field Note',
       'Culture at the Newest Edge',
       'A Measured Sky',
-      'Field Notes, part 3: The final tower',
-      'Field Notes, part 2: The middle tower',
-      'Field Notes, part 1: The first tower',
+      // Series parts live only in the Series band, so older stand-alone stories fill the tier.
       'The Oldest Field Note',
-    ],
-    shelves: [
       'Culture in the Archive',
       'The Patient Instrument',
       'A Single Thread at Narrow Width',
-      'A Sparse Column Without Audio',
     ],
+    shelves: ['A Sparse Column Without Audio'],
   },
 } as const;
 
@@ -130,7 +126,7 @@ test('Home places the series route between latest stories and listening', async 
     'The middle tower',
     'The final tower',
   ]);
-  await expect(band.locator('.home-series__action')).toHaveAttribute(
+  await expect(band.locator('.home-series__action .reader-button')).toHaveAttribute(
     'href',
     '/articles/acceptance-field-series-first',
   );

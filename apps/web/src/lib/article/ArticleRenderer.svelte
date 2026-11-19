@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { coverImage } from '../reader/cover-image';
   import type { ArticleDocument } from '@jelementi/article-model';
   import { setContext, type Snippet } from 'svelte';
   import { categorySlug } from '@jelementi/article-model';
@@ -68,7 +69,7 @@
   {/snippet}
   <ArticleOpening article={document} {series} />
   <figure class="article-cover" aria-label={document.cover.alt}>
-    <img src={document.cover.src} alt={document.cover.alt} loading="eager" />
+    <img {...coverImage(document.cover.src, '100vw')} alt={document.cover.alt} loading="eager" />
   </figure>
   {#if contents}
     <details class="article-mobile-contents">

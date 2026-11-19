@@ -3,6 +3,7 @@
   import type { ArticleIndexEntry } from '@jelementi/article-model';
   import { formatPublishedDate } from '../article/format-date';
   import Kicker from './Kicker.svelte';
+  import { coverImage } from './cover-image';
 
   let {
     article,
@@ -26,7 +27,13 @@
 </script>
 
 <article class="card">
-  <img src={article.cover.src} alt={article.cover.alt} width="600" height="400" loading="lazy" />
+  <img
+    {...coverImage(article.cover.src, '(max-width: 760px) 104px, 384px')}
+    alt={article.cover.alt}
+    width="600"
+    height="400"
+    loading="lazy"
+  />
   {#if showKicker}<Kicker
       category={article.category}
       categorySlug={article.categorySlug}

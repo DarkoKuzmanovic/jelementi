@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { coverImage } from '../reader/cover-image';
   import type { ArticleDocument, ArticleIndexEntry } from '@jelementi/article-model';
   import { categorySlug } from '@jelementi/article-model';
   import { categoryHue } from '../reader/category-hues';
@@ -64,7 +65,7 @@
               aria-current={part.slug === article.slug ? 'page' : undefined}
             >
               <img
-                src={part.cover.src}
+                {...coverImage(part.cover.src, '180px')}
                 alt={part.cover.alt}
                 width="180"
                 height="120"

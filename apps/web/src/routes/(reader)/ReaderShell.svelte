@@ -71,6 +71,8 @@
     <nav class="site-header__inner shell-width" aria-label="Primary navigation">
       {#if !home}<div class="compact-brand">{@render brand()}</div>{/if}
       <div class="nav-sections">
+        <!-- Phones hide the tools row, so Series leads the section chips there. -->
+        <a class="nav-series" href="/#series">Series</a>
         {#each topics as topic (topic.slug)}
           <a
             style={`--hue: ${categoryHue(topic.slug)}`}

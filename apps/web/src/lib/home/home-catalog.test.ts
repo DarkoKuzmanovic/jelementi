@@ -46,22 +46,22 @@ describe('Home catalog projection', () => {
     expect(projectHomeCatalog([b, a]).lead).toEqual(a);
   });
 
-  it('uses category totals for the big three/small split, caps small shelves at two and omits exhausted categories', () => {
+  it('uses category totals for the big three/small split, caps small shelves at two and keeps exhausted categories as labels', () => {
     const newest = Array.from({ length: 8 }, (_, n) => article(n, 'Exhausted'));
     const rest = ['Places', 'Science', 'History', 'Nature'].flatMap((cat, i) =>
       Array.from({ length: 4 - i }, (_, n) => ({ ...article(8 + n, cat), slug: `${cat}-${n}` })),
     );
     const home = projectHomeCatalog([...newest, ...rest]);
     expect(home.shelves.map((s) => [s.category, s.compact, s.entries.length])).toEqual([
+      ['Exhausted', false, 0],
       ['Places', false, 3],
       ['Science', false, 3],
       ['History', true, 2],
       ['Nature', true, 1],
     ]);
-    expect(home.shelves.some((s) => s.category === 'Exhausted')).toBe(false);
   });
 
-  it('features only the newest series and excludes its parts from shelves', () => {
+  it('lists every series newest first and keeps all parts out of latest stories and shelves', () => {
     const parts = [article(10, 'Places'), article(11, 'Places')].map((a, i) => ({
       ...a,
       series: { slug: 'ridge', title: 'Ridge', part: i + 1 },
@@ -75,12 +75,25 @@ describe('Home catalog projection', () => {
       ...parts,
       ...older,
     ]);
-    expect(home.series?.slug).toBe('ridge');
-    expect(home.series?.totalMinutes).toBe(6);
-    expect(home.shelves.flatMap((s) => s.entries).map((a) => a.slug)).not.toEqual(
-      expect.arrayContaining(parts.map((a) => a.slug)),
+    expect(home.series.map((s) => s.slug)).toEqual(['ridge', 'valley']);
+    expect(home.series[0]!.totalMinutes).toBe(6);
+    const listed = [...home.recent, ...home.shelves.flatMap((s) => s.entries)].map((a) => a.slug);
+    for (const part of [...parts, ...older]) expect(listed).not.toContain(part.slug);
+  });
+
+  it('skips series parts when filling latest stories, even when they are newest', () => {
+    const parts = [0, 1, 2].map((n) => ({
+      ...article(n, 'Places'),
+      series: { slug: 'ridge', title: 'Ridge', part: n + 1 },
+    }));
+    const home = projectHomeCatalog([
+      ...parts,
+      ...Array.from({ length: 9 }, (_, n) => article(n + 3)),
+    ]);
+    expect(home.lead?.slug).toBe('story-00');
+    expect(home.recent.map((a) => a.slug)).toEqual(
+      Array.from({ length: 7 }, (_, n) => `story-${String(n + 3).padStart(2, '0')}`),
     );
-    expect(home.shelves.flatMap((s) => s.entries)).toEqual(older);
   });
 
   it('leaves no empty tiers for empty, sparse or intermediate catalogs', () => {
@@ -89,7 +102,7 @@ describe('Home catalog projection', () => {
       expect(home.lead?.slug).toBe(count ? 'story-00' : undefined);
       expect(home.recent).toHaveLength(Math.max(0, count - 1));
       expect(home.shelves).toEqual([]);
-      expect(home.series).toBeUndefined();
+      expect(home.series).toEqual([]);
     }
   });
 });

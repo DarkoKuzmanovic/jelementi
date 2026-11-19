@@ -134,7 +134,7 @@ test('series band uses a distinct surface with legible text in both themes', asy
       };
       const details = element.querySelector('.home-series__details')!;
       const kicker = element.querySelector('.home-series__intro .reader-kicker')!;
-      const action = element.querySelector('.home-series__action')!;
+      const action = element.querySelector('.home-series__action .reader-button')!;
       const actionStyle = getComputedStyle(action);
       return {
         background,
