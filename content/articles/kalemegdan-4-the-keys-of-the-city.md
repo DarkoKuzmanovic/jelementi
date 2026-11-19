@@ -3,7 +3,7 @@ title: "Kalemegdan, part 4: The keys of the city"
 slug: kalemegdan-4-the-keys-of-the-city
 excerpt: In 1804 the Serbs rose against the Janissaries who had seized Belgrade, and within three years the fortress was theirs. They lost it in 1813. A second uprising followed, then half a century in which the town was Serbian and the fortress above it still Ottoman. This fourth part runs from the turn of the nineteenth century to 1867, when the keys were handed over, and to 1876, when the last Turkish flag came down.
 publishedAt: 2026-10-08
-updatedAt: 2026-10-08
+updatedAt: 2026-11-19
 status: published
 category: Places
 series:
@@ -23,6 +23,35 @@ cover:
 audio:
   src: articles/kalemegdan-4-the-keys-of-the-city/narration-midnight-storyteller-2-v1.mp3
   durationSeconds: 974
+glossary:
+  - term: "Janissaries"
+    definition: "Janissaries were an elite corps of the Ottoman army. Serbian: janičari."
+  - term: "Porte"
+    definition: "The Porte was the Ottoman sultan’s government in Constantinople. Serbian: Porta."
+  - term: "Belgrade Pashaluk"
+    definition: "The Belgrade Pashaluk was an Ottoman province governed from Belgrade. Serbian: Beogradski pašaluk."
+  - term: "Pasha"
+    definition: "Pasha was an Ottoman title held by senior officials and commanders. Serbian: paša."
+  - term: "Knez"
+    definition: "A knez was a Serbian local leader or prince. Serbian: knez."
+  - term: "First Serbian Uprising"
+    definition: "The First Serbian Uprising was the Serbian revolt against Ottoman rule that began in 1804. Serbian: Prvi srpski ustanak."
+  - term: "Autonomy"
+    definition: "Autonomy is the power to govern local affairs without full independence. Serbian: autonomija."
+  - term: "Metropolitan"
+    definition: "A metropolitan is a senior bishop. Serbian: mitropolit."
+  - term: "Skupština"
+    definition: "The Skupština is the national assembly. Serbian: skupština."
+  - term: "Principality"
+    definition: "A principality is a territory ruled by a prince. Serbian: kneževina."
+  - term: "Garrison"
+    definition: "A garrison is a body of troops stationed in a place. Serbian: garnizon."
+  - term: "Hatišerif"
+    definition: "A hatišerif is an Ottoman sultan’s decree. Serbian: hatišerif."
+  - term: "Ferman"
+    definition: "A ferman is an Ottoman sultan’s decree. Serbian: ferman."
+  - term: "Muhafiz"
+    definition: "A muhafiz was a fortress commander. Serbian: muhafiz."
 references:
   - title: "[1] PE Belgrade Fortress: Memorial for the Delivery of Keys"
     url: https://www.beogradskatvrdjava.co.rs/%D1%81%D0%BF%D0%BE%D0%BC%D0%B5%D0%BD-%D0%BE%D0%B1%D0%B5%D0%BB%D0%B5%D0%B6%D1%98%D0%B5-%D0%BF%D1%80%D0%B5%D0%B4%D0%B0%D1%98%D0%B5-%D0%BA%D1%99%D1%83%D1%87%D0%B5%D0%B2%D0%B0/?lang=en
@@ -69,19 +98,19 @@ The handover was symbolic, and it involved more than one city. In the spring of 
 
 Getting there took two uprisings, half a century in which a Serbian town lived beneath an Ottoman fortress, and a quarrel at a fountain that ended up in front of the great powers of Europe.
 
-## Janissaries in charge
+## [Janissaries](#glossary-janissaries) in charge
 
-By the late eighteenth century, Ottoman rule in Serbia was coming apart. In the north, the local Janissaries, the elite corps of the Ottoman army, were virtually beyond the control of the Porte, the sultan's government in Constantinople. What they took from the population had passed from taxes to open plunder.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule)[[4]](https://www.britannica.com/biography/Karadjordje)
+By the late eighteenth century, Ottoman rule in Serbia was coming apart. In the north, the local Janissaries, the elite corps of the Ottoman army, were virtually beyond the control of the [Porte](#glossary-porte), the sultan's government in Constantinople. What they took from the population had passed from taxes to open plunder.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule)[[4]](https://www.britannica.com/biography/Karadjordje)
 
-[Part 3](https://jelementi.quz.ma/articles/kalemegdan-3-the-field-before-the-fortress) closed with an attempt to deal with them. Under the Treaty of Sistova of 1791, which returned Belgrade to the Ottomans, the Janissaries were forbidden to enter the Belgrade Pashaluk, the province governed from the city.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en) That treaty and the Treaty of Jassy of 1792 also promised the Serb population other rights. None of it was fully respected, and the region sank steadily into disorder.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule) At the beginning of the nineteenth century the commander of Belgrade, Hadji Mustafa Pasha, was assassinated, and the Janissaries took over the city and the surrounding villages.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)
+[Part 3](https://jelementi.quz.ma/articles/kalemegdan-3-the-field-before-the-fortress) closed with an attempt to deal with them. Under the Treaty of Sistova of 1791, which returned Belgrade to the Ottomans, the Janissaries were forbidden to enter the [Belgrade Pashaluk](#glossary-belgrade-pashaluk), the province governed from the city.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en) That treaty and the Treaty of Jassy of 1792 also promised the Serb population other rights. None of it was fully respected, and the region sank steadily into disorder.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule) At the beginning of the nineteenth century the commander of Belgrade, Hadji Mustafa [Pasha](#glossary-pasha), was assassinated, and the Janissaries took over the city and the surrounding villages.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)
 
-The fortress's official history names two causes of what came next. One was the Janissaries' reign of terror. The other was the killing of Serbian local leaders, the knezes, remembered as the slaughter of the knezes (*seča knezova*).[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)[[6]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/) Together, in the history's words, they "led to the awakening of a national consciousness and the First Serbian Uprising in 1804".[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)
+The fortress's official history names two causes of what came next. One was the Janissaries' reign of terror. The other was the killing of Serbian local leaders, the [knezes](#glossary-knez), remembered as the slaughter of the knezes (*seča knezova*).[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)[[6]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/) Together, in the history's words, they "led to the awakening of a national consciousness and the [First Serbian Uprising](#glossary-first-serbian-uprising) in 1804".[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)
 
 ## The First Serbian Uprising
 
 The uprising broke out in Šumadija, the region south of Belgrade. Its leader was Đorđe Petrović, known as Karađorđe, "Black George", a successful pig trader who had served with the Austrians in their war against the Turks.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule)[[4]](https://www.britannica.com/biography/Karadjordje)
 
-At first the rebels and the sultan had the same enemy. The Janissaries were defeated quickly, with the tacit approval of Sultan Selim III, who regarded them as rebels. The Serbs then asked for local autonomy, and when Selim refused, Karađorđe launched a war of independence in 1805.[[4]](https://www.britannica.com/biography/Karadjordje)
+At first the rebels and the sultan had the same enemy. The Janissaries were defeated quickly, with the tacit approval of Sultan Selim III, who regarded them as rebels. The Serbs then asked for local [autonomy](#glossary-autonomy), and when Selim refused, Karađorđe launched a war of independence in 1805.[[4]](https://www.britannica.com/biography/Karadjordje)
 
 At the end of 1806 the insurgents took the town, and at the beginning of 1807 the fortress.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en) From 1807 until 1813 Belgrade was the Serbian capital.[[7]](https://www.britannica.com/place/Belgrade) In 1808 the State Council gave Serbia its first constitution and declared Karađorđe the "first and supreme Serbian hereditary leader".[[4]](https://www.britannica.com/biography/Karadjordje)
 
@@ -95,7 +124,7 @@ The sultan's forces were now free, and they invaded Serbia from three sides. By 
 
 The fortress had its own prison for these years: Nebojša Tower (*Kula Nebojša*), the octagonal cannon tower on the Danube bank that appeared in part two. Until the end of the eighteenth century it guarded the entrance to the Lower Town's port. After that it became a notorious dungeon.[[9]](https://www.beogradskatvrdjava.co.rs/%D0%BA%D1%83%D0%BB%D0%B0-%D0%BD%D0%B5%D0%B1%D0%BE%D1%98%D1%88%D0%B0/?lang=en)
 
-Its best-known prisoners came before the uprising. In the spring of 1798 Rigas Feraios, a Greek patriot who fought for the liberation of the Balkan peoples from the Turks, was imprisoned in the tower and killed there. Two years later Metodije, the Metropolitan of Belgrade and the city's senior Orthodox bishop, was executed in the same tower.[[9]](https://www.beogradskatvrdjava.co.rs/%D0%BA%D1%83%D0%BB%D0%B0-%D0%BD%D0%B5%D0%B1%D0%BE%D1%98%D1%88%D0%B0/?lang=en)
+Its best-known prisoners came before the uprising. In the spring of 1798 Rigas Feraios, a Greek patriot who fought for the liberation of the Balkan peoples from the Turks, was imprisoned in the tower and killed there. Two years later Metodije, the [Metropolitan](#glossary-metropolitan) of Belgrade and the city's senior Orthodox bishop, was executed in the same tower.[[9]](https://www.beogradskatvrdjava.co.rs/%D0%BA%D1%83%D0%BB%D0%B0-%D0%BD%D0%B5%D0%B1%D0%BE%D1%98%D1%88%D0%B0/?lang=en)
 
 After Karađorđe's uprising collapsed, many Serbs were held there as slaves. In the summer of 1815 one of them was Jevrem Obrenović, brother of Miloš Obrenović, who led the next uprising.[[9]](https://www.beogradskatvrdjava.co.rs/%D0%BA%D1%83%D0%BB%D0%B0-%D0%BD%D0%B5%D0%B1%D0%BE%D1%98%D1%88%D0%B0/?lang=en)
 
@@ -105,11 +134,11 @@ The tower was renovated in 2010 with a large donation from the Greek government.
 
 The second uprising began in April 1815, when the Christian population rose again in self-defence.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule) It was led by Miloš Obrenović, a knez, who gathered his followers at Takovo.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule)[[10]](https://www.britannica.com/biography/Milos) The rebels drove the Turks out of a wide area of northern Serbia. Faced with renewed Russian intervention after Napoleon's defeat, the Porte made several important concessions. The Serbs could keep their arms, run much of their local administration and hold their own assembly.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule)
 
-In December 1815 the Ottomans recognised Miloš as prince of Serbia, and in 1817 the national assembly, the Skupština, declared him hereditary prince.[[10]](https://www.britannica.com/biography/Milos) This was still autonomy, not independence: Serbia remained an Ottoman principality, with a resident pasha and Turkish garrisons in its principal towns.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule) Belgrade was one of those towns.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)
+In December 1815 the Ottomans recognised Miloš as prince of Serbia, and in 1817 the national assembly, the [Skupština](#glossary-skupstina), declared him hereditary prince.[[10]](https://www.britannica.com/biography/Milos) This was still autonomy, not independence: Serbia remained an Ottoman [principality](#glossary-principality), with a resident pasha and Turkish [garrisons](#glossary-garrison) in its principal towns.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule) Belgrade was one of those towns.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)
 
 The two leaders of the uprisings did not share the country for long. When Karađorđe returned from exile in 1817, he was murdered, and Miloš was suspected of a part in it. The feud between their families, the Karađorđević and Obrenović dynasties, divided Serbian society for the rest of the century.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule)[[4]](https://www.britannica.com/biography/Karadjordje)
 
-In 1830 the Ottoman government granted the Serbian principality full autonomy and gave the Serbian church independent status, and now the Ottomans, too, recognised Miloš as hereditary prince.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule) The document was a decree of the sultan, known in Serbian as the *hatišerif*.[[2]](https://praguepapers.ff.cuni.cz/wp-content/uploads/sites/16/2022/01/Amir_Krpic_27-42.pdf)
+In 1830 the Ottoman government granted the Serbian principality full autonomy and gave the Serbian church independent status, and now the Ottomans, too, recognised Miloš as hereditary prince.[[3]](https://www.britannica.com/place/Serbia/The-disintegration-of-Ottoman-rule) The document was a decree of the sultan, known in Serbian as the *[hatišerif](#glossary-hatiserif)*.[[2]](https://praguepapers.ff.cuni.cz/wp-content/uploads/sites/16/2022/01/Amir_Krpic_27-42.pdf)
 
 The same decree ordered Muslim civilians to leave Serbia, except for a few towns with fortresses. Belgrade was one of them, so its Muslims stayed on in the town below the fortress for another three decades.[[2]](https://praguepapers.ff.cuni.cz/wp-content/uploads/sites/16/2022/01/Amir_Krpic_27-42.pdf)
 
@@ -143,9 +172,9 @@ In Belgrade, the Muslim population left before the army did. With them went the 
 
 ## The keys
 
-The garrisons lasted five more years. The Serbs kept pointing to them as a cause of trouble and demanding their withdrawal. In the end Sultan Abdulaziz issued a ferman, a decree, handing over Belgrade and the remaining towns to the Serbian authorities.[[2]](https://praguepapers.ff.cuni.cz/wp-content/uploads/sites/16/2022/01/Amir_Krpic_27-42.pdf)[[1]](https://www.beogradskatvrdjava.co.rs/%D1%81%D0%BF%D0%BE%D0%BC%D0%B5%D0%BD-%D0%BE%D0%B1%D0%B5%D0%BB%D0%B5%D0%B6%D1%98%D0%B5-%D0%BF%D1%80%D0%B5%D0%B4%D0%B0%D1%98%D0%B5-%D0%BA%D1%99%D1%83%D1%87%D0%B5%D0%B2%D0%B0/?lang=en) Prince Mihailo received it from the sultan in Constantinople, and it was officially announced at a special ceremony in Belgrade.[[1]](https://www.beogradskatvrdjava.co.rs/%D1%81%D0%BF%D0%BE%D0%BC%D0%B5%D0%BD-%D0%BE%D0%B1%D0%B5%D0%BB%D0%B5%D0%B6%D1%98%D0%B5-%D0%BF%D1%80%D0%B5%D0%B4%D0%B0%D1%98%D0%B5-%D0%BA%D1%99%D1%83%D1%87%D0%B5%D0%B2%D0%B0/?lang=en)
+The garrisons lasted five more years. The Serbs kept pointing to them as a cause of trouble and demanding their withdrawal. In the end Sultan Abdulaziz issued a [ferman](#glossary-ferman), a decree, handing over Belgrade and the remaining towns to the Serbian authorities.[[2]](https://praguepapers.ff.cuni.cz/wp-content/uploads/sites/16/2022/01/Amir_Krpic_27-42.pdf)[[1]](https://www.beogradskatvrdjava.co.rs/%D1%81%D0%BF%D0%BE%D0%BC%D0%B5%D0%BD-%D0%BE%D0%B1%D0%B5%D0%BB%D0%B5%D0%B6%D1%98%D0%B5-%D0%BF%D1%80%D0%B5%D0%B4%D0%B0%D1%98%D0%B5-%D0%BA%D1%99%D1%83%D1%87%D0%B5%D0%B2%D0%B0/?lang=en) Prince Mihailo received it from the sultan in Constantinople, and it was officially announced at a special ceremony in Belgrade.[[1]](https://www.beogradskatvrdjava.co.rs/%D1%81%D0%BF%D0%BE%D0%BC%D0%B5%D0%BD-%D0%BE%D0%B1%D0%B5%D0%BB%D0%B5%D0%B6%D1%98%D0%B5-%D0%BF%D1%80%D0%B5%D0%B4%D0%B0%D1%98%D0%B5-%D0%BA%D1%99%D1%83%D1%87%D0%B5%D0%B2%D0%B0/?lang=en)
 
-The man on the other side of the ceremony was Ali Riza Pasha, the last Ottoman vizier of Belgrade. Like those before him, he was both the vizier, or governor, of Belgrade and the commander of its fortress, the *muhafiz*. According to Vasiljević, he was very fond of the Serbs and of Prince Mihailo, and relations between the principality and the empire had improved a great deal since the bombardment.[[14]](https://www.ceeol.com/search/article-detail?id=1332291)
+The man on the other side of the ceremony was Ali Riza Pasha, the last Ottoman vizier of Belgrade. Like those before him, he was both the vizier, or governor, of Belgrade and the commander of its fortress, the *[muhafiz](#glossary-muhafiz)*. According to Vasiljević, he was very fond of the Serbs and of Prince Mihailo, and relations between the principality and the empire had improved a great deal since the bombardment.[[14]](https://www.ceeol.com/search/article-detail?id=1332291)
 
 At Kalemegdan, Ali Riza Pasha handed the prince the keys.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en)[[2]](https://praguepapers.ff.cuni.cz/wp-content/uploads/sites/16/2022/01/Amir_Krpic_27-42.pdf) The fortress's history dates this 6 April 1867.[[5]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/?lang=en) That is an Old Style date, from the Julian calendar, which in the nineteenth century ran twelve days behind the Gregorian calendar used today; by today's calendar it was 18 April.[[6]](https://www.beogradskatvrdjava.co.rs/%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%98%D0%B0-%D0%B1%D0%B5%D0%BE%D0%B3%D1%80%D0%B0%D0%B4%D1%81%D0%BA%D0%B5-%D1%82%D0%B2%D1%80%D1%92%D0%B0%D0%B2%D0%B5/)[[16]](https://www.britannica.com/topic/Gregorian-calendar)
 
