@@ -6,12 +6,17 @@
   import { categoryHue } from '$lib/reader/category-hues';
   import { formatPublishedDate } from '$lib/article/format-date';
   import { articleAudioAnchor } from '$lib/article/audio-anchor';
-  import { seriesPartTitle } from '$lib/series/series-projection';
+  import { seriesPartTitle, type SeriesProjection } from '$lib/series/series-projection';
+  import { coverImage } from '$lib/reader/cover-image';
 
   let { data }: { data: PageData } = $props();
   const wideShelves = $derived(data.catalog.shelves.filter((shelf) => !shelf.compact));
   const compactShelves = $derived(data.catalog.shelves.filter((shelf) => shelf.compact));
-  const series = $derived(data.catalog.series);
+  const series = $derived(data.catalog.series[0]);
+  const olderSeries = $derived(data.catalog.series.slice(1));
+  const leadSeries = $derived(
+    data.catalog.series.find((entry) => entry.slug === data.catalog.lead?.series?.slug),
+  );
   function duration(seconds: number | undefined): string {
     return seconds === undefined
       ? ''
@@ -57,9 +62,21 @@
     min read
   </p>
 {/snippet}
+{#snippet seriesLinks(entry: SeriesProjection)}
+  <a href={`/series/${entry.slug}.epub`}>EPUB for e-readers</a>
+  {#if data.datedSeries.includes(entry.slug)}<a href={`/series/${entry.slug}/dates`}
+      >Dates to remember</a
+    >{/if}
+{/snippet}
 {#snippet compactStory(article: ArticleIndexEntry, kicker = true)}
   <article class="home-compact-story" data-home-story={article.slug}>
-    <img src={article.cover.src} alt={article.cover.alt} width="112" height="75" loading="lazy" />
+    <img
+      {...coverImage(article.cover.src, '136px')}
+      alt={article.cover.alt}
+      width="112"
+      height="75"
+      loading="lazy"
+    />
     <div class="home-compact-story__text">
       {#if kicker}<Kicker category={article.category} categorySlug={article.categorySlug} />{/if}
       <svelte:element this={kicker ? 'h3' : 'h4'} class="title">
@@ -76,25 +93,36 @@
   <h1 id="home-heading" class="visually-hidden">Jelementi</h1>
   {#if data.catalog.lead}
     {@const lead = data.catalog.lead}
+    {@const leadPart = leadSeries?.parts.find((part) => part.slug === lead.slug)}
     <div data-home-tier="lead">
       <article class="home-lead home-width" data-home-story={lead.slug}>
         <img
-          src={lead.cover.src}
+          {...coverImage(lead.cover.src, '(max-width: 760px) 100vw, 720px')}
           alt={lead.cover.alt}
           width="720"
           height="480"
           fetchpriority="high"
         />
         <div class="home-lead__text">
-          <Kicker category={lead.category} categorySlug={lead.categorySlug} extra="Lead story" />
-          <h2 class="title"><a href={`/articles/${lead.slug}`}>{lead.title}</a></h2>
+          <Kicker
+            category={lead.category}
+            categorySlug={lead.categorySlug}
+            extra={leadSeries && leadPart
+              ? `${leadSeries.title} · Part ${leadPart.part} of ${leadSeries.parts.length}`
+              : 'Lead story'}
+          />
+          <h2 class="title">
+            <a href={`/articles/${lead.slug}`}
+              >{leadSeries && leadPart ? seriesPartTitle(leadSeries, leadPart) : lead.title}</a
+            >
+          </h2>
           <p class="home-lead__deck">{lead.excerpt}</p>
           {@render meta(lead)}
           <div class="home-actions">
             <a class="reader-button" href={`/articles/${lead.slug}`}
-              ><span class="home-desktop">Read the story →</span><span class="home-mobile"
-                >Read →</span
-              ></a
+              ><span class="home-desktop"
+                >{leadPart ? `Read part ${leadPart.part} →` : 'Read the story →'}</span
+              ><span class="home-mobile">Read →</span></a
             >
             {#if data.leadAudio}<a
                 class="reader-button reader-button--secondary"
@@ -102,6 +130,9 @@
                 >{@render play()}Listen{duration(data.leadAudio.durationSeconds)}</a
               >{/if}
           </div>
+          {#if leadSeries}<a class="home-lead__series" href="#series"
+              >All {partCount(leadSeries.parts.length).toLowerCase()} parts ↓</a
+            >{/if}
         </div>
       </article>
     </div>
@@ -165,7 +196,7 @@
                     ></span></span
                   >
                   <img
-                    src={part.cover.src}
+                    {...coverImage(part.cover.src, '(max-width: 760px) 150px, 230px')}
                     alt={part.cover.alt}
                     width="183"
                     height="122"
@@ -181,9 +212,53 @@
               </li>
             {/each}
           </ol>
-          {#if first}<a class="reader-button home-series__action" href={`/articles/${first.slug}`}
-              >Start with part 1 →</a
-            >{/if}
+          {#if first}<div class="home-series__action">
+              <a class="reader-button" href={`/articles/${first.slug}`}>Start with part 1 →</a>
+              <p class="home-series__links">{@render seriesLinks(series)}</p>
+            </div>{/if}
+          {#if olderSeries.length}<ol class="home-series__more" aria-label="More series">
+              {#each olderSeries as entry (entry.slug)}
+                {@const opener = entry.parts[0]}
+                <li style={`--hue: ${categoryHue(entry.categorySlug)}`}>
+                  {#if opener}<img
+                      {...coverImage(opener.cover.src, '(max-width: 760px) 104px, 384px')}
+                      alt={opener.cover.alt}
+                      width="384"
+                      height="256"
+                      loading="lazy"
+                    />{/if}
+                  <div class="home-series__more-text">
+                    <Kicker
+                      category={entry.category}
+                      categorySlug={entry.categorySlug}
+                      extra="Series"
+                    />
+                    <h3>
+                      {#if opener}<a href={`/articles/${opener.slug}`}>{entry.title}</a>{/if}
+                    </h3>
+                    <p class="home-series__details">
+                      {partCount(entry.parts.length)} parts · {entry.totalMinutes} minutes
+                    </p>
+                    <ol class="home-series__part-list" aria-label={`${entry.title} parts`}>
+                      {#each entry.parts as part (part.slug)}
+                        <li>
+                          <a href={`/articles/${part.slug}`}
+                            ><span>{String(part.part).padStart(2, '0')}</span>
+                            {seriesPartTitle(entry, part)}</a
+                          >
+                        </li>
+                      {/each}
+                    </ol>
+                    <p class="home-series__links">
+                      {#if opener}<a
+                          class="reader-button reader-button--secondary"
+                          href={`/articles/${opener.slug}`}>Start with part 1 →</a
+                        >{/if}{@render seriesLinks(entry)}
+                    </p>
+                  </div>
+                </li>
+              {/each}
+            </ol>{/if}
         </div>
       </section>
     {/if}
@@ -259,18 +334,18 @@
       <a class="home-shelf__all" href={`/categories/${shelf.categorySlug}`}
         >All {shelf.category} →</a
       >
-      {#if shelf.entries[0]}<a
-          class="home-shelf__mobile-cover"
-          href={`/categories/${shelf.categorySlug}`}
-          aria-label={`Browse ${shelf.category}`}
-          ><img
-            src={shelf.entries[0].cover.src}
-            alt={shelf.entries[0].cover.alt}
-            width="72"
-            height="48"
-            loading="lazy"
-          /></a
-        >{/if}
+      <a
+        class="home-shelf__mobile-cover"
+        href={`/categories/${shelf.categorySlug}`}
+        aria-label={`Browse ${shelf.category}`}
+        ><img
+          {...coverImage((shelf.entries[0] ?? shelf.newest).cover.src, '72px')}
+          alt={(shelf.entries[0] ?? shelf.newest).cover.alt}
+          width="72"
+          height="48"
+          loading="lazy"
+        /></a
+      >
     </div>
     <ol class="home-shelf__entries">
       {#each shelf.entries as article (article.slug)}

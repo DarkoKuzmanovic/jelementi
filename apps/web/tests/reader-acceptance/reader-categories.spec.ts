@@ -12,6 +12,8 @@ const titles = [
   'Field Notes, part 1: The first tower',
   'The Oldest Field Note',
 ];
+// A section page shows the three-part series as one entry, opening at part 1, where its newest part sits.
+const sectionTitles = [...titles.slice(0, 2), 'Field Notes', ...titles.slice(5)];
 
 test('section cover links name the destination and preserve illustration alt text', async ({
   page,
@@ -106,8 +108,8 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Field Notes');
     await expect(page.getByText('6 stories, newest first.')).toBeVisible();
     const stories = page.locator('[data-section-story]');
-    await expect(stories).toHaveCount(6);
-    await expect(stories.locator('h2 a')).toHaveText(titles);
+    await expect(stories).toHaveCount(4);
+    await expect(stories.locator('h2 a')).toHaveText(sectionTitles);
     for (const story of await stories.all()) {
       await expect(story.locator('h2 a')).toBeVisible();
       await expect(story.locator('img')).toBeVisible();

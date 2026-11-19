@@ -171,6 +171,7 @@ it('keeps authored prose numbers even when a reference has the same number', asy
         catalog: data.catalog,
         leadAudio: data.leadAudio,
         narration: data.narration,
+        datedSeries: data.datedSeries,
       },
     },
   });

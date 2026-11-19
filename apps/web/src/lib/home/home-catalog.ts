@@ -7,13 +7,16 @@ export interface HomeCategoryShelf {
   categorySlug: string;
   total: number;
   compact: boolean;
+  /** Newest story in the section, for its cover when every story is shown above. */
+  newest: ArticleIndexEntry;
   entries: readonly ArticleIndexEntry[];
 }
 
 export interface HomeCatalog {
   lead: ArticleIndexEntry | undefined;
   recent: readonly ArticleIndexEntry[];
-  series: SeriesProjection | undefined;
+  /** Every series, newest first; the first is featured. */
+  series: readonly SeriesProjection[];
   shelves: readonly HomeCategoryShelf[];
 }
 
@@ -27,28 +30,36 @@ export function projectHomeCatalog(
       right.publishedAt.localeCompare(left.publishedAt) || left.slug.localeCompare(right.slug),
   );
   const lead = ordered[0];
-  const recent = ordered.slice(1, 8);
-  const featuredSeries = series[0];
-  const shown = new Set(
-    [...ordered.slice(0, 8), ...(featuredSeries?.parts ?? [])].map((a) => a.slug),
-  );
+  // Series parts appear once, in the Series section, never in Latest stories.
+  const seriesParts = new Set(series.flatMap((entry) => entry.parts.map((part) => part.slug)));
+  const recent = ordered
+    .slice(1)
+    .filter((article) => !seriesParts.has(article.slug))
+    .slice(0, 7);
+  const shown = new Set([
+    ...(lead ? [lead.slug] : []),
+    ...recent.map((a) => a.slug),
+    ...seriesParts,
+  ]);
   const remaining = ordered.filter((article) => !shown.has(article.slug));
   const shelves = projectCategoryDirectory(index).flatMap((category, rank) => {
     const compact = rank >= 3;
     const entries = remaining
       .filter((article) => article.categorySlug === category.slug)
       .slice(0, compact ? 2 : 3);
-    return entries.length
+    // Once shelves exist, no section is dropped: one shown in full above keeps its label and link.
+    return entries.length || remaining.length
       ? [
           {
             category: category.name,
             categorySlug: category.slug,
             total: category.count,
             compact,
+            newest: category.newest,
             entries,
           },
         ]
       : [];
   });
-  return { lead, recent, series: featuredSeries, shelves };
+  return { lead, recent, series, shelves };
 }
